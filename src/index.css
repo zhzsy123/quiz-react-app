@@ -130,3 +130,44 @@ button { border: none; }
   .hero-card h1 { font-size: 1.6rem; }
   .nav-grid { grid-template-columns: repeat(5, 1fr); }
 }
+
+.progress-text {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.question-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.question-actions .secondary-btn,
+.question-actions .submit-btn {
+  min-width: 132px;
+}
+
+.question-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.small-submit-btn {
+  width: auto;
+  max-width: none;
+  padding: 12px 18px;
+}
+
+@media (max-width: 640px) {
+  .question-actions {
+    flex-direction: column;
+  }
+
+  .question-actions .secondary-btn,
+  .question-actions .submit-btn {
+    width: 100%;
+  }
+}
