@@ -82,21 +82,6 @@ function App() {
     }
   }
 
-  const handleSelectOption = (questionId, optionLetter) => {
-    if (submitted) return
-    const nextAnswers = {
-      ...answers,
-      [questionId]: optionLetter,
-    }
-    setAnswers(nextAnswers)
-    persist({
-      answers: nextAnswers,
-      submitted,
-      score,
-      currentIndex,
-    })
-  }
-
   const handleJump = (index) => {
     setCurrentIndex(index)
     persist({
@@ -104,6 +89,51 @@ function App() {
       submitted,
       score,
       currentIndex: index,
+    })
+  }
+
+  const handlePrev = () => {
+    if (currentIndex <= 0) return
+    const nextIndex = currentIndex - 1
+    setCurrentIndex(nextIndex)
+    persist({
+      answers,
+      submitted,
+      score,
+      currentIndex: nextIndex,
+    })
+  }
+
+  const handleNext = () => {
+    if (!quiz?.items?.length || currentIndex >= quiz.items.length - 1) return
+    const nextIndex = currentIndex + 1
+    setCurrentIndex(nextIndex)
+    persist({
+      answers,
+      submitted,
+      score,
+      currentIndex: nextIndex,
+    })
+  }
+
+  const handleSelectOption = (questionId, optionLetter) => {
+    if (submitted || !quiz?.items?.length) return
+
+    const nextAnswers = {
+      ...answers,
+      [questionId]: optionLetter,
+    }
+    const nextIndex =
+      currentIndex < quiz.items.length - 1 ? currentIndex + 1 : currentIndex
+
+    setAnswers(nextAnswers)
+    setCurrentIndex(nextIndex)
+
+    persist({
+      answers: nextAnswers,
+      submitted,
+      score,
+      currentIndex: nextIndex,
     })
   }
 
@@ -187,6 +217,8 @@ function App() {
             submitted={submitted}
             currentIndex={currentIndex}
             onJump={handleJump}
+            onPrev={handlePrev}
+            onNext={handleNext}
             onSelectOption={handleSelectOption}
             onSubmit={handleSubmit}
           />
