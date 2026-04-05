@@ -10,6 +10,7 @@ import {
   saveLastQuizRaw,
   loadLastQuizRaw,
 } from './utils/storage'
+import { normalizeQuizPayload } from './utils/normalizeQuizSchema'
 
 function App() {
   const [quiz, setQuiz] = useState(null)
@@ -23,9 +24,9 @@ function App() {
     const last = loadLastQuizRaw()
     if (!last) return
     try {
-      const parsed = JSON.parse(last)
+      const normalized = normalizeQuizPayload(JSON.parse(last))
       const nextPaperId = buildPaperId(last)
-      setQuiz(parsed)
+      setQuiz(normalized)
       setPaperId(nextPaperId)
       const progress = loadProgress(nextPaperId)
       if (progress) {
