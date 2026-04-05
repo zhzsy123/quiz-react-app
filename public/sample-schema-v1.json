@@ -1,0 +1,179 @@
+{
+  "schema_version": "1.0",
+  "paper_id": "english_schema_v1_test_001",
+  "title": "Schema v1 测试卷",
+  "subject": "english",
+  "description": "用于测试 single_choice、cloze、reading 和 translation 的兼容渲染。",
+  "duration_minutes": 30,
+  "total_score": 19,
+  "sections": [
+    {
+      "id": "sec_1",
+      "title": "单项选择",
+      "question_ids": ["mc_001"]
+    },
+    {
+      "id": "sec_2",
+      "title": "完形填空",
+      "question_ids": ["cloze_001"]
+    },
+    {
+      "id": "sec_3",
+      "title": "阅读理解",
+      "question_ids": ["reading_001"]
+    },
+    {
+      "id": "sec_4",
+      "title": "翻译",
+      "question_ids": ["translation_001"]
+    }
+  ],
+  "questions": [
+    {
+      "id": "mc_001",
+      "type": "single_choice",
+      "section_id": "sec_1",
+      "prompt": "Artificial intelligence is developing so rapidly that its influence on modern life cannot be ______.",
+      "score": 2,
+      "difficulty": "medium",
+      "tags": ["grammar", "voice"],
+      "options": [
+        { "key": "A", "text": "ignored" },
+        { "key": "B", "text": "ignoring" },
+        { "key": "C", "text": "ignore" },
+        { "key": "D", "text": "to ignore" }
+      ],
+      "answer": {
+        "type": "objective",
+        "correct": "A",
+        "rationale": "cannot be ignored 为被动结构。"
+      }
+    },
+    {
+      "id": "cloze_001",
+      "type": "cloze",
+      "section_id": "sec_2",
+      "title": "完形填空测试",
+      "prompt": "Choose the best answer for each blank.",
+      "score": 2,
+      "difficulty": "medium",
+      "tags": ["cloze"],
+      "article": "Modern students face more pressure than before. [[1]] they learn to manage time well, they can study more efficiently and live more healthily. Meanwhile, regular exercise is also important, [[2]] it helps reduce stress.",
+      "blanks": [
+        {
+          "blank_id": 1,
+          "score": 1,
+          "options": [
+            { "key": "A", "text": "If" },
+            { "key": "B", "text": "Though" },
+            { "key": "C", "text": "Unless" },
+            { "key": "D", "text": "Since" }
+          ],
+          "correct": "A",
+          "rationale": "前后是条件关系。"
+        },
+        {
+          "blank_id": 2,
+          "score": 1,
+          "options": [
+            { "key": "A", "text": "but" },
+            { "key": "B", "text": "or" },
+            { "key": "C", "text": "for" },
+            { "key": "D", "text": "so" }
+          ],
+          "correct": "C",
+          "rationale": "for 在此表示原因。"
+        }
+      ],
+      "answer": {
+        "type": "objective"
+      }
+    },
+    {
+      "id": "reading_001",
+      "type": "reading",
+      "section_id": "sec_3",
+      "title": "阅读理解测试",
+      "prompt": "Read the passage and answer the following questions.",
+      "score": 5,
+      "difficulty": "medium",
+      "tags": ["reading"],
+      "passage": {
+        "title": "Healthy Study Habits",
+        "content": "Good study habits are important for college students. Making a study plan, reviewing in time and keeping a healthy lifestyle can improve both efficiency and confidence. In contrast, staying up too late often makes students tired and distracted in class."
+      },
+      "questions": [
+        {
+          "id": "reading_001_q1",
+          "type": "single_choice",
+          "prompt": "What is the passage mainly about?",
+          "score": 2,
+          "options": [
+            { "key": "A", "text": "Ways to form good study habits" },
+            { "key": "B", "text": "How to make money in college" },
+            { "key": "C", "text": "Why students dislike classes" },
+            { "key": "D", "text": "How to travel safely" }
+          ],
+          "answer": {
+            "type": "objective",
+            "correct": "A",
+            "rationale": "文章主要讲好的学习习惯。"
+          }
+        },
+        {
+          "id": "reading_001_q2",
+          "type": "single_choice",
+          "prompt": "According to the passage, staying up too late may make students ______.",
+          "score": 3,
+          "options": [
+            { "key": "A", "text": "more confident" },
+            { "key": "B", "text": "tired and distracted" },
+            { "key": "C", "text": "stronger and healthier" },
+            { "key": "D", "text": "more careful" }
+          ],
+          "answer": {
+            "type": "objective",
+            "correct": "B",
+            "rationale": "原文明确说 staying up too late often makes students tired and distracted in class。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "translation_001",
+      "type": "translation",
+      "section_id": "sec_4",
+      "prompt": "Translate the following sentence into Chinese.",
+      "score": 10,
+      "difficulty": "medium",
+      "tags": ["translation", "en_to_zh"],
+      "direction": "en_to_zh",
+      "source_text": "Only by making good use of time can college students improve their learning efficiency and reduce unnecessary pressure.",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "只有充分利用时间，大学生才能提高学习效率并减少不必要的压力。",
+        "alternate_answers": [
+          "只有好好利用时间，大学生才能提升学习效率，减轻不必要的压力。"
+        ],
+        "scoring_points": [
+          {
+            "point": "正确理解 Only by... can... 的倒装结构",
+            "score": 4
+          },
+          {
+            "point": "准确表达 learning efficiency",
+            "score": 3
+          },
+          {
+            "point": "准确表达 reduce unnecessary pressure",
+            "score": 3
+          }
+        ],
+        "ai_scoring": {
+          "enabled": true,
+          "rubric": "translation_basic_v1"
+        }
+      }
+    }
+  ]
+}
