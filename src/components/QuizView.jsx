@@ -14,6 +14,24 @@ function difficultyClass(difficulty = '') {
   }
 }
 
+function isAnswered(item, response) {
+  if (item?.answer?.type === 'subjective') {
+    if (typeof response === 'string') return response.trim().length > 0
+    return Boolean(response?.text?.trim())
+  }
+  return typeof response === 'string' && response.length > 0
+}
+
+function getSubjectiveText(response) {
+  if (typeof response === 'string') return response
+  return response?.text || ''
+}
+
+function renderOptionLabel(option) {
+  if (typeof option === 'string') return option
+  return `${option.key}. ${option.text}`
+}
+
 export default function QuizView({
   quiz,
   answers,
@@ -23,13 +41,18 @@ export default function QuizView({
   onPrev,
   onNext,
   onSelectOption,
+  onTextChange,
   onSubmit,
 }) {
   const total = quiz.items.length
   const currentItem = quiz.items[currentIndex]
-  const userAnswer = answers[currentItem.id]
+
+  if (!currentItem) return null
+
+  const userResponse = answers[currentItem.id]
   const isFirst = currentIndex === 0
   const isLast = currentIndex === total - 1
+  const isSubjective = currentItem.answer?.type === 'subjective'
 
   return (
     <section className="quiz-layout">
@@ -37,7 +60,7 @@ export default function QuizView({
         <h3>题号导航</h3>
         <div className="nav-grid">
           {quiz.items.map((item, index) => {
-            const answered = Boolean(answers[item.id])
+            const answered = isAnswered(item, answers[item.id])
             const active = index === currentIndex
             return (
               <button
@@ -62,6 +85,11 @@ export default function QuizView({
                   {tag}
                 </span>
               ))}
+              {currentItem.type === 'translation' && (
+                <span className="tag purple">
+                  {currentItem.direction === 'zh_to_en' ? '汉译英' : '英译汉'}
+                </span>
+              )}
             </div>
             {currentItem.difficulty && (
               <span className={difficultyClass(currentItem.difficulty)}>
@@ -74,49 +102,120 @@ export default function QuizView({
             进度：{currentIndex + 1} / {total}
           </div>
 
-          <h3>{currentItem.question}</h3>
+          {currentItem.context && (
+            <div className="question-context">
+              {currentItem.context_title && (
+                <div className="question-context-title">{currentItem.context_title}</div>
+              )}
+              <div className="question-context-body">{currentItem.context}</div>
+            </div>
+          )}
 
-          <div className="options">
-            {currentItem.options.map((opt, optIndex) => {
-              const letter = opt.charAt(0)
-              const selected = userAnswer === letter
+          <h3>{currentItem.prompt}</h3>
 
-              let className = 'option'
-              let icon = null
+          {!isSubjective ? (
+            <div className="options">
+              {currentItem.options.map((opt, optIndex) => {
+                const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
+                const selected = userResponse === option.key
 
-              if (!submitted) {
-                if (selected) className += ' selected'
-              } else {
-                if (letter === currentItem.correct_answer) {
-                  className += ' correct'
-                  icon = <CheckCircle2 size={18} />
-                } else if (selected) {
-                  className += ' wrong'
-                  icon = <XCircle size={18} />
+                let className = 'option'
+                let icon = null
+
+                if (!submitted) {
+                  if (selected) className += ' selected'
                 } else {
-                  className += ' muted'
+                  if (option.key === currentItem.answer?.correct) {
+                    className += ' correct'
+                    icon = <CheckCircle2 size={18} />
+                  } else if (selected) {
+                    className += ' wrong'
+                    icon = <XCircle size={18} />
+                  } else {
+                    className += ' muted'
+                  }
                 }
-              }
 
-              return (
-                <button
-                  key={optIndex}
-                  className={className}
-                  onClick={() => onSelectOption(currentItem.id, letter)}
-                >
-                  <span>{opt}</span>
-                  {icon}
-                </button>
-              )
-            })}
-          </div>
+                return (
+                  <button
+                    key={optIndex}
+                    className={className}
+                    onClick={() => onSelectOption(currentItem.id, option.key)}
+                  >
+                    <span>{renderOptionLabel(option)}</span>
+                    {icon}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="subjective-block">
+              <div className="translation-source-meta">
+                {currentItem.direction === 'zh_to_en'
+                  ? '请将下面内容翻译成英文'
+                  : '请将下面内容翻译成中文'}
+              </div>
 
-          {submitted && (
+              <div className="translation-source">{currentItem.source_text}</div>
+
+              <textarea
+                className="subjective-textarea"
+                value={getSubjectiveText(userResponse)}
+                onChange={(e) => onTextChange(currentItem.id, e.target.value)}
+                disabled={submitted}
+                placeholder="请在这里输入你的翻译答案"
+              />
+
+              {!submitted && (
+                <div className="subjective-tip">
+                  当前版本会自动保存你的译文，并在交卷后展示参考答案与评分点。
+                </div>
+              )}
+            </div>
+          )}
+
+          {submitted && !isSubjective && (
             <div className="analysis-box">
               <div>
-                正确答案：<strong>{currentItem.correct_answer}</strong>
+                正确答案：<strong>{currentItem.answer?.correct}</strong>
               </div>
-              <div>解析：{currentItem.rationale}</div>
+              <div>解析：{currentItem.answer?.rationale || '暂无解析'}</div>
+            </div>
+          )}
+
+          {submitted && isSubjective && (
+            <div className="analysis-box">
+              <div className="analysis-subblock">
+                <div className="analysis-section-title">参考答案</div>
+                <div>{currentItem.answer?.reference_answer || '暂无参考答案'}</div>
+              </div>
+
+              {Array.isArray(currentItem.answer?.alternate_answers) &&
+                currentItem.answer.alternate_answers.length > 0 && (
+                  <div className="analysis-subblock">
+                    <div className="analysis-section-title">可接受表达</div>
+                    <ul className="analysis-list">
+                      {currentItem.answer.alternate_answers.map((answerText, index) => (
+                        <li key={index}>{answerText}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+              {Array.isArray(currentItem.answer?.scoring_points) &&
+                currentItem.answer.scoring_points.length > 0 && (
+                  <div className="analysis-subblock">
+                    <div className="analysis-section-title">评分点</div>
+                    <ul className="analysis-list">
+                      {currentItem.answer.scoring_points.map((point, index) => (
+                        <li key={index}>
+                          <strong>{point.point}</strong>
+                          {typeof point.score === 'number' ? `（${point.score} 分）` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
             </div>
           )}
 
