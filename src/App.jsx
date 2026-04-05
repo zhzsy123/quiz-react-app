@@ -12,6 +12,14 @@ import {
 } from './utils/storage'
 import { normalizeQuizPayload } from './utils/normalizeQuizSchema'
 
+function isResponseAnswered(item, response) {
+  if (item?.answer?.type === 'subjective') {
+    if (typeof response === 'string') return response.trim().length > 0
+    return Boolean(response?.text?.trim())
+  }
+  return typeof response === 'string' && response.length > 0
+}
+
 function App() {
   const [quiz, setQuiz] = useState(null)
   const [paperId, setPaperId] = useState('')
@@ -33,15 +41,31 @@ function App() {
         setAnswers(progress.answers || {})
         setSubmitted(Boolean(progress.submitted))
         setScore(progress.score || 0)
-        setCurrentIndex(progress.currentIndex || 0)
+        setCurrentIndex(Math.max(0, Math.min(progress.currentIndex || 0, normalized.items.length - 1)))
       }
     } catch {
       // ignore broken cache
     }
   }, [])
 
-  const total = quiz?.items?.length || 0
-  const answeredCount = useMemo(() => Object.keys(answers).length, [answers])
+  const totalQuestions = quiz?.items?.length || 0
+
+  const objectiveItems = useMemo(
+    () => (quiz?.items || []).filter((item) => item.answer?.type === 'objective'),
+    [quiz]
+  )
+
+  const objectiveTotalScore = useMemo(
+    () => objectiveItems.reduce((sum, item) => sum + (item.score || 1), 0),
+    [objectiveItems]
+  )
+
+  const subjectiveCount = totalQuestions - objectiveItems.length
+
+  const answeredCount = useMemo(() => {
+    if (!quiz?.items?.length) return 0
+    return quiz.items.filter((item) => isResponseAnswered(item, answers[item.id])).length
+  }, [quiz, answers])
 
   const persist = (next) => {
     if (!paperId || !quiz) return
@@ -66,7 +90,7 @@ function App() {
       setAnswers(progress.answers || {})
       setSubmitted(Boolean(progress.submitted))
       setScore(progress.score || 0)
-      setCurrentIndex(progress.currentIndex || 0)
+      setCurrentIndex(Math.max(0, Math.min(progress.currentIndex || 0, parsed.items.length - 1)))
     } else {
       setAnswers({})
       setSubmitted(false)
@@ -120,6 +144,9 @@ function App() {
   const handleSelectOption = (questionId, optionLetter) => {
     if (submitted || !quiz?.items?.length) return
 
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.answer?.type !== 'objective') return
+
     const nextAnswers = {
       ...answers,
       [questionId]: optionLetter,
@@ -138,18 +165,35 @@ function App() {
     })
   }
 
+  const handleTextResponse = (questionId, text) => {
+    if (submitted) return
+
+    const nextAnswers = {
+      ...answers,
+      [questionId]: { text },
+    }
+
+    setAnswers(nextAnswers)
+    persist({
+      answers: nextAnswers,
+      submitted,
+      score,
+      currentIndex,
+    })
+  }
+
   const handleSubmit = () => {
     if (!quiz?.items?.length) return
 
-    if (answeredCount < total) {
+    if (answeredCount < totalQuestions) {
       const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
       if (!ok) return
     }
 
     let nextScore = 0
     quiz.items.forEach((item) => {
-      if (answers[item.id] === item.correct_answer) {
-        nextScore += 1
+      if (item.answer?.type === 'objective' && answers[item.id] === item.answer.correct) {
+        nextScore += item.score || 1
       }
     })
 
@@ -198,12 +242,33 @@ function App() {
 
         {quiz && submitted && (
           <section className="score-card">
-            <h2>本次得分</h2>
-            <div className="score-line">
-              <strong>{score}</strong>
-              <span>/ {total}</span>
-            </div>
-            <p>答对率：{total ? Math.round((score / total) * 100) : 0}%</p>
+            <h2>本次结果</h2>
+
+            {objectiveTotalScore > 0 ? (
+              <>
+                <div className="score-line">
+                  <strong>{score}</strong>
+                  <span>/ {objectiveTotalScore}</span>
+                </div>
+                <p>
+                  客观题得分率：
+                  {objectiveTotalScore ? Math.round((score / objectiveTotalScore) * 100) : 0}%
+                </p>
+              </>
+            ) : (
+              <div className="score-line score-line-text-only">
+                <strong>已提交</strong>
+              </div>
+            )}
+
+            <p>已作答：{answeredCount} / {totalQuestions} 题</p>
+
+            {subjectiveCount > 0 && (
+              <p className="score-note">
+                本卷包含 {subjectiveCount} 道主观题。当前自动评分只统计客观题；翻译题会在交卷后显示参考答案与评分点。
+              </p>
+            )}
+
             <button className="secondary-btn" onClick={handleResetCurrentPaper}>
               <RefreshCw size={16} />
               重新挑战本卷
@@ -221,6 +286,7 @@ function App() {
             onPrev={handlePrev}
             onNext={handleNext}
             onSelectOption={handleSelectOption}
+            onTextChange={handleTextResponse}
             onSubmit={handleSubmit}
           />
         )}
