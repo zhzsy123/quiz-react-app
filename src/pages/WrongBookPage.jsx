@@ -1,15 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import {
-  ArrowLeft,
-  BookOpen,
-  BookX,
-  CheckCircle2,
-  Filter,
-  Play,
-  RotateCcw,
-  Search,
-  XCircle,
-} from 'lucide-react'
+import { ArrowLeft, BookOpen, BookX, CheckCircle2, Filter, Play, RotateCcw, Search, XCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { listAttempts } from '../utils/indexedDb'
@@ -22,12 +12,7 @@ function attemptDisplayTitle(attempt) {
 
 function getWrongItemCategory(item) {
   if (item.parentType === 'reading' || item.sourceType === 'reading') return 'reading'
-  if (
-    item.sourceType === 'cloze' ||
-    item.source_type === 'cloze' ||
-    String(item.contextTitle || '').includes('完形') ||
-    (item.tags || []).some((tag) => String(tag).toLowerCase() === 'cloze')
-  ) {
+  if (item.sourceType === 'cloze' || item.source_type === 'cloze' || String(item.contextTitle || '').includes('完形') || (item.tags || []).some((tag) => String(tag).toLowerCase() === 'cloze')) {
     return 'cloze'
   }
   return 'single_choice'
@@ -39,7 +24,7 @@ function renderOptionLabel(option) {
 }
 
 export default function WrongBookPage() {
-  const { activeProfile, activeProfileId } = useAppContext()
+  const { activeProfileId } = useAppContext()
   const [attempts, setAttempts] = useState([])
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -49,38 +34,26 @@ export default function WrongBookPage() {
   const [practiceIndex, setPracticeIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState('')
   const [feedback, setFeedback] = useState('')
+  const [holdSolvedItem, setHoldSolvedItem] = useState(null)
 
   useEffect(() => {
     let cancelled = false
     async function loadData() {
       if (!activeProfileId) return
-      const [rows, mastered] = await Promise.all([
-        listAttempts(activeProfileId),
-        loadMasteredWrongMap(activeProfileId, 'english'),
-      ])
+      const [rows, mastered] = await Promise.all([listAttempts(activeProfileId), loadMasteredWrongMap(activeProfileId, 'english')])
       if (!cancelled) {
         setAttempts(rows)
         setMasteredMap(mastered)
       }
     }
     loadData()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [activeProfileId])
 
-  const wrongSourceItems = useMemo(() => {
-    return attempts.flatMap((attempt) => {
-      const rows = Array.isArray(attempt.wrongItems) ? attempt.wrongItems : []
-      return rows.map((row) => ({
-        ...row,
-        attemptId: attempt.id,
-        attemptTitle: attemptDisplayTitle(attempt),
-        lastWrongAt: attempt.submittedAt,
-        category: getWrongItemCategory(row),
-      }))
-    })
-  }, [attempts])
+  const wrongSourceItems = useMemo(() => attempts.flatMap((attempt) => {
+    const rows = Array.isArray(attempt.wrongItems) ? attempt.wrongItems : []
+    return rows.map((row) => ({ ...row, attemptId: attempt.id, attemptTitle: attemptDisplayTitle(attempt), lastWrongAt: attempt.submittedAt, category: getWrongItemCategory(row) }))
+  }), [attempts])
 
   const aggregatedWrongItems = useMemo(() => {
     const map = new Map()
@@ -93,17 +66,10 @@ export default function WrongBookPage() {
       }
       existing.wrongTimes += 1
       if (item.lastWrongAt > existing.lastWrongAt) {
-        Object.assign(existing, {
-          ...existing,
-          ...item,
-          wrongTimes: existing.wrongTimes,
-          latestAttemptTitle: item.attemptTitle,
-        })
+        Object.assign(existing, { ...existing, ...item, wrongTimes: existing.wrongTimes, latestAttemptTitle: item.attemptTitle })
       }
     })
-    return Array.from(map.values())
-      .filter((item) => !masteredMap[item.questionKey] || masteredMap[item.questionKey] < item.lastWrongAt)
-      .sort((a, b) => b.lastWrongAt - a.lastWrongAt)
+    return Array.from(map.values()).filter((item) => !masteredMap[item.questionKey] || masteredMap[item.questionKey] < item.lastWrongAt).sort((a, b) => b.lastWrongAt - a.lastWrongAt)
   }, [wrongSourceItems, masteredMap])
 
   const filteredWrongItems = useMemo(() => {
@@ -117,14 +83,8 @@ export default function WrongBookPage() {
     })
   }, [aggregatedWrongItems, subjectFilter, typeFilter, query])
 
-  const wrongSummary = useMemo(() => {
-    return {
-      totalWrongRecords: wrongSourceItems.length,
-      uniqueWrongQuestions: aggregatedWrongItems.length,
-      filteredCount: filteredWrongItems.length,
-      latestWrongAt: filteredWrongItems[0]?.lastWrongAt || null,
-    }
-  }, [wrongSourceItems, aggregatedWrongItems, filteredWrongItems])
+  const currentPracticeItem = practiceMode ? filteredWrongItems[practiceIndex] || null : null
+  const displayPracticeItem = holdSolvedItem || currentPracticeItem
 
   useEffect(() => {
     if (!practiceMode) return
@@ -136,9 +96,8 @@ export default function WrongBookPage() {
   useEffect(() => {
     setSelectedAnswer('')
     setFeedback('')
+    if (!holdSolvedItem) return
   }, [practiceIndex, practiceMode])
-
-  const currentPracticeItem = practiceMode ? filteredWrongItems[practiceIndex] || null : null
 
   const handleMarkMastered = async (item) => {
     if (!activeProfileId) return
@@ -147,20 +106,38 @@ export default function WrongBookPage() {
   }
 
   const handlePracticeAnswer = async (optionKey) => {
-    if (!currentPracticeItem) return
+    if (!displayPracticeItem || holdSolvedItem) return
     setSelectedAnswer(optionKey)
-    if (optionKey === currentPracticeItem.correctAnswer) {
+    if (optionKey === displayPracticeItem.correctAnswer) {
       setFeedback('回答正确，已从错题本移除。')
-      await handleMarkMastered(currentPracticeItem)
+      setHoldSolvedItem(displayPracticeItem)
+      await handleMarkMastered(displayPracticeItem)
       return
     }
-    setFeedback('回答错误，可以继续尝试，或参考下方解析。')
+    setFeedback('回答错误，可以继续尝试。')
+  }
+
+  const handleAdvanceAfterSolved = () => {
+    setHoldSolvedItem(null)
+    setSelectedAnswer('')
+    setFeedback('')
+    if (practiceIndex >= filteredWrongItems.length && filteredWrongItems.length > 0) {
+      setPracticeIndex(filteredWrongItems.length - 1)
+    }
   }
 
   const resetPractice = () => {
     setPracticeIndex(0)
     setSelectedAnswer('')
     setFeedback('')
+    setHoldSolvedItem(null)
+  }
+
+  const wrongSummary = {
+    totalWrongRecords: wrongSourceItems.length,
+    uniqueWrongQuestions: aggregatedWrongItems.length,
+    filteredCount: filteredWrongItems.length,
+    latestWrongAt: filteredWrongItems[0]?.lastWrongAt || null,
   }
 
   return (
@@ -181,34 +158,13 @@ export default function WrongBookPage() {
           <div className="section-header-row">
             <h2><Filter size={18} /> 筛选与搜索</h2>
             <div className="dashboard-action-row">
-              {practiceMode ? (
-                <button className="secondary-btn small-btn" onClick={() => setPracticeMode(false)}><RotateCcw size={14} /> 退出练习</button>
-              ) : (
-                <button className="primary-btn small-btn" onClick={() => { setPracticeMode(true); setPracticeIndex(0) }} disabled={filteredWrongItems.length === 0}><Play size={14} /> 开始刷错题</button>
-              )}
+              {practiceMode ? <button className="secondary-btn small-btn" onClick={() => setPracticeMode(false)}><RotateCcw size={14} /> 退出练习</button> : <button className="primary-btn small-btn" onClick={() => { setPracticeMode(true); setPracticeIndex(0) }} disabled={filteredWrongItems.length === 0}><Play size={14} /> 开始刷错题</button>}
             </div>
           </div>
           <div className="wrongbook-filter-grid">
-            <label className="form-field">
-              <span>科目</span>
-              <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                <option value="all">全部科目</option>
-                {SUBJECT_REGISTRY.map((subject) => <option key={subject.key} value={subject.key}>{subject.label}</option>)}
-              </select>
-            </label>
-            <label className="form-field">
-              <span>题型</span>
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                <option value="all">全部题型</option>
-                <option value="single_choice">单项选择</option>
-                <option value="cloze">完形填空</option>
-                <option value="reading">阅读理解</option>
-              </select>
-            </label>
-            <label className="form-field grow">
-              <span>关键词</span>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索题干、阅读标题、标签或上下文" />
-            </label>
+            <label className="form-field"><span>科目</span><select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}><option value="all">全部科目</option>{SUBJECT_REGISTRY.map((subject) => <option key={subject.key} value={subject.key}>{subject.label}</option>)}</select></label>
+            <label className="form-field"><span>题型</span><select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="all">全部题型</option><option value="single_choice">单项选择</option><option value="cloze">完形填空</option><option value="reading">阅读理解</option></select></label>
+            <label className="form-field grow"><span>关键词</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索题干、阅读标题、标签或上下文" /></label>
           </div>
         </section>
 
@@ -221,26 +177,22 @@ export default function WrongBookPage() {
 
         {practiceMode && (
           <section className="record-list-card wrongbook-practice-panel">
-            <div className="section-header-row"><h2><Play size={18} /> 错题练习器</h2><span className="section-header-tip">{filteredWrongItems.length > 0 ? `第 ${practiceIndex + 1} / ${filteredWrongItems.length} 题` : '已无待练习错题'}</span></div>
-            {!currentPracticeItem ? (
+            <div className="section-header-row"><h2><Play size={18} /> 错题练习器</h2><span className="section-header-tip">{filteredWrongItems.length > 0 ? `第 ${Math.min(practiceIndex + 1, Math.max(filteredWrongItems.length, 1))} / ${filteredWrongItems.length}` : '已无待练习错题'}</span></div>
+            {!displayPracticeItem ? (
               <div className="local-library-empty">当前筛选条件下已经没有待练习错题了。</div>
             ) : (
               <div className="wrongbook-practice-card">
-                <div className="wrongbook-card-head">
-                  <div>
-                    <div className="wrongbook-card-title">{currentPracticeItem.prompt}</div>
-                    <div className="wrongbook-meta"><span>{getSubjectMeta(currentPracticeItem.subject).shortLabel}</span><span>题型：{currentPracticeItem.category === 'reading' ? '阅读理解' : currentPracticeItem.category === 'cloze' ? '完形填空' : '单项选择'}</span><span>来源：{currentPracticeItem.latestAttemptTitle || currentPracticeItem.paperTitle}</span></div>
-                  </div>
-                </div>
-                {currentPracticeItem.contextTitle && <div className="wrongbook-context"><strong>{currentPracticeItem.contextTitle}</strong>{currentPracticeItem.contextSnippet ? `：${currentPracticeItem.contextSnippet}` : ''}</div>}
+                <div className="wrongbook-card-head"><div><div className="wrongbook-card-title">{displayPracticeItem.prompt}</div><div className="wrongbook-meta"><span>{getSubjectMeta(displayPracticeItem.subject).shortLabel}</span><span>题型：{displayPracticeItem.category === 'reading' ? '阅读理解' : displayPracticeItem.category === 'cloze' ? '完形填空' : '单项选择'}</span><span>来源：{displayPracticeItem.latestAttemptTitle || displayPracticeItem.paperTitle}</span></div></div></div>
+                {displayPracticeItem.contextTitle && <div className="wrongbook-context"><strong>{displayPracticeItem.contextTitle}</strong>{displayPracticeItem.contextSnippet ? `：${displayPracticeItem.contextSnippet}` : ''}</div>}
                 <div className="options">
-                  {(currentPracticeItem.options || []).map((option, index) => {
+                  {(displayPracticeItem.options || []).map((option, index) => {
                     const selected = selectedAnswer === option.key
                     let className = 'option'
                     let icon = null
+                    const lockAnswering = Boolean(holdSolvedItem)
                     if (selected) className += ' selected'
                     if (selectedAnswer) {
-                      if (option.key === currentPracticeItem.correctAnswer) {
+                      if (option.key === displayPracticeItem.correctAnswer) {
                         className += ' correct'
                         icon = <CheckCircle2 size={18} />
                       } else if (selected) {
@@ -248,14 +200,18 @@ export default function WrongBookPage() {
                         icon = <XCircle size={18} />
                       }
                     }
-                    return <button key={index} className={className} onClick={() => handlePracticeAnswer(option.key)}><span>{renderOptionLabel(option)}</span>{icon}</button>
+                    return <button key={index} className={className} disabled={lockAnswering} onClick={() => handlePracticeAnswer(option.key)}><span>{renderOptionLabel(option)}</span>{icon}</button>
                   })}
                 </div>
                 {feedback && <div className="practice-feedback">{feedback}</div>}
-                {selectedAnswer && selectedAnswer !== currentPracticeItem.correctAnswer && <div className="analysis-box"><div><strong>正确答案：</strong>{currentPracticeItem.correctAnswerLabel || currentPracticeItem.correctAnswer || '--'}</div><div><strong>解析：</strong>{currentPracticeItem.rationale || '暂无解析'}</div></div>}
+                {selectedAnswer && selectedAnswer !== displayPracticeItem.correctAnswer && <div className="analysis-box"><div><strong>正确答案：</strong>{displayPracticeItem.correctAnswerLabel || displayPracticeItem.correctAnswer || '--'}</div><div><strong>解析：</strong>{displayPracticeItem.rationale || '暂无解析'}</div></div>}
                 <div className="question-actions">
-                  <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.max(value - 1, 0))} disabled={practiceIndex <= 0}>上一题</button>
-                  <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.min(value + 1, Math.max(filteredWrongItems.length - 1, 0)))} disabled={practiceIndex >= filteredWrongItems.length - 1}>下一题</button>
+                  <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.max(value - 1, 0))} disabled={practiceIndex <= 0 || Boolean(holdSolvedItem)}>上一题</button>
+                  {holdSolvedItem ? (
+                    <button className="secondary-btn" onClick={handleAdvanceAfterSolved}>下一题</button>
+                  ) : (
+                    <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.min(value + 1, Math.max(filteredWrongItems.length - 1, 0)))} disabled={practiceIndex >= filteredWrongItems.length - 1}>下一题</button>
+                  )}
                   <button className="secondary-btn" onClick={resetPractice}><RotateCcw size={14} /> 重新开始</button>
                 </div>
               </div>
@@ -274,18 +230,9 @@ export default function WrongBookPage() {
                   const subjectMeta = getSubjectMeta(item.subject)
                   return (
                     <article key={item.questionKey} className="wrongbook-card">
-                      <div className="wrongbook-card-head">
-                        <div>
-                          <div className="wrongbook-card-title">{item.prompt}</div>
-                          <div className="wrongbook-meta"><span>{subjectMeta.shortLabel}</span><span>题型：{item.category === 'reading' ? '阅读理解' : item.category === 'cloze' ? '完形填空' : '单项选择'}</span><span>错题次数 {item.wrongTimes}</span><span>最近出错：{new Date(item.lastWrongAt).toLocaleString()}</span><span>来源：{item.latestAttemptTitle || item.paperTitle}</span></div>
-                        </div>
-                        {Array.isArray(item.tags) && item.tags.length > 0 && <div className="wrongbook-tags">{item.tags.slice(0, 4).map((tag) => <span key={tag} className="tag blue">{tag}</span>)}</div>}
-                      </div>
+                      <div className="wrongbook-card-head"><div><div className="wrongbook-card-title">{item.prompt}</div><div className="wrongbook-meta"><span>{subjectMeta.shortLabel}</span><span>题型：{item.category === 'reading' ? '阅读理解' : item.category === 'cloze' ? '完形填空' : '单项选择'}</span><span>错题次数 {item.wrongTimes}</span><span>最近出错：{new Date(item.lastWrongAt).toLocaleString()}</span><span>来源：{item.latestAttemptTitle || item.paperTitle}</span></div></div>{Array.isArray(item.tags) && item.tags.length > 0 && <div className="wrongbook-tags">{item.tags.slice(0, 4).map((tag) => <span key={tag} className="tag blue">{tag}</span>)}</div>}</div>
                       {item.contextTitle && <div className="wrongbook-context"><strong>{item.contextTitle}</strong>{item.contextSnippet ? `：${item.contextSnippet}` : ''}</div>}
-                      <div className="wrongbook-answer-compare">
-                        <div className="wrongbook-answer-pill wrong"><span>你的答案</span><strong>{item.userAnswerLabel || '未作答'}</strong></div>
-                        <div className="wrongbook-answer-pill correct"><span>正确答案</span><strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong></div>
-                      </div>
+                      <div className="wrongbook-answer-compare"><div className="wrongbook-answer-pill wrong"><span>你的答案</span><strong>{item.userAnswerLabel || '未作答'}</strong></div><div className="wrongbook-answer-pill correct"><span>正确答案</span><strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong></div></div>
                       <div className="wrongbook-rationale">解析：{item.rationale || '暂无解析'}</div>
                     </article>
                   )

@@ -1,16 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BookOpen, FileText, FolderOpen, Pencil, Play, Search, Tags, Timer, Trash2, UserCircle2 } from 'lucide-react'
+import { ArrowLeft, FileText, FolderOpen, Pencil, Play, Search, Tags, Timer, Trash2, UserCircle2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import QuizImporter from '../components/QuizImporter'
-import { normalizeQuizPayload } from '../utils/normalizeQuizSchema'
 import { buildPaperId } from '../utils/storage'
 import { useAppContext } from '../context/AppContext'
-import {
-  deleteLibraryEntry,
-  listLibraryEntries,
-  updateLibraryEntry,
-  upsertLibraryEntry,
-} from '../utils/indexedDb'
+import { deleteLibraryEntry, listLibraryEntries, updateLibraryEntry, upsertLibraryEntry } from '../utils/indexedDb'
 
 const SUBJECT_KEY = 'english'
 
@@ -33,7 +27,7 @@ export default function FileHubPage() {
   }
 
   useEffect(() => {
-    refreshEntries()
+    void refreshEntries()
   }, [activeProfileId])
 
   const filteredEntries = useMemo(() => {
@@ -99,8 +93,6 @@ export default function FileHubPage() {
           </div>
           <div className="hub-topbar-meta">
             <div className="profile-inline-badge"><UserCircle2 size={16} /> {activeProfile?.name || '未命名档案'}</div>
-            <div className="hub-mode-pill"><Play size={14} /> 刷题模式 = 即时反馈</div>
-            <div className="hub-mode-pill"><Timer size={14} /> 考试模式 = 90 分钟倒计时</div>
           </div>
           <QuizImporter onQuizLoaded={handleQuizLoaded} />
         </section>
@@ -119,9 +111,7 @@ export default function FileHubPage() {
         </section>
 
         <section className="local-library-panel">
-          <div className="section-header-row">
-            <h2><FolderOpen size={18} /> 文件列表</h2>
-          </div>
+          <div className="section-header-row"><h2><FolderOpen size={18} /> 文件列表</h2></div>
           {loading ? (
             <div className="local-library-empty">正在加载...</div>
           ) : filteredEntries.length === 0 ? (
@@ -131,19 +121,9 @@ export default function FileHubPage() {
               {filteredEntries.map((entry) => (
                 <article key={entry.id} className="local-library-item hub-file-item">
                   <div className="local-library-main">
-                    <div className="record-title-row">
-                      <div className="local-library-title">{entry.title}</div>
-                      <span className="tag blue">{entry.questionCount || '--'} 题</span>
-                    </div>
-                    <div className="local-library-meta">
-                      <span>更新时间：{new Date(entry.updatedAt).toLocaleString()}</span>
-                      <span>Schema：{entry.schemaVersion || 'unknown'}</span>
-                    </div>
-                    {Array.isArray(entry.tags) && entry.tags.length > 0 && (
-                      <div className="local-library-tags">
-                        {entry.tags.map((tag) => <span key={tag} className="tag blue">{tag}</span>)}
-                      </div>
-                    )}
+                    <div className="record-title-row"><div className="local-library-title">{entry.title}</div><span className="tag blue">{entry.questionCount || '--'} 题</span></div>
+                    <div className="local-library-meta"><span>更新时间：{new Date(entry.updatedAt).toLocaleString()}</span><span>Schema：{entry.schemaVersion || 'unknown'}</span></div>
+                    {Array.isArray(entry.tags) && entry.tags.length > 0 && <div className="local-library-tags">{entry.tags.map((tag) => <span key={tag} className="tag blue">{tag}</span>)}</div>}
                   </div>
                   <div className="local-library-actions hub-file-actions">
                     <button className="primary-btn small-btn" onClick={() => openWorkspace(entry, 'practice')}><Play size={14} /> 刷题模式</button>
