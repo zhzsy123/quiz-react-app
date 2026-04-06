@@ -1,0 +1,17 @@
+.compact-page-hero{padding:22px 24px}
+.hub-topbar-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:14px;margin-bottom:8px}
+.hub-mode-pill{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;background:rgba(59,130,246,.12);color:#dbeafe;border:1px solid rgba(59,130,246,.18)}
+.single-search-grid{grid-template-columns:minmax(0,1fr)}
+.hub-file-item{align-items:center}
+.hub-file-actions{align-items:center}
+.clean-workspace-page{display:flex;flex-direction:column;gap:16px}
+.clean-workspace-header{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:18px 20px;border-radius:20px;background:rgba(17,24,39,.95);border:1px solid var(--border);box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.workspace-header-main{display:flex;flex-direction:column;gap:8px}
+.workspace-title{font-size:1.35rem;font-weight:800;color:#f8fafc}
+.workspace-mode-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.workspace-header-actions{display:flex;gap:10px;flex-wrap:wrap}
+.workspace-empty-state{display:flex;flex-direction:column;gap:14px;align-items:center}
+.compact-sidebar-tools .sidebar-tool-card{padding:12px 14px}
+.compact-toggle-card{display:flex;justify-content:space-between;align-items:center}
+.spotlight-rail .module-link-card{border-color:rgba(239,68,68,.2);background:linear-gradient(180deg,rgba(127,29,29,.18) 0%,rgba(15,23,42,.88) 100%)}
+@media (max-width:900px){.clean-workspace-header{flex-direction:column;align-items:flex-start}.workspace-header-actions{width:100%}.workspace-header-actions .secondary-btn{width:100%}}
