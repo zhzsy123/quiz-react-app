@@ -401,7 +401,7 @@ export default function WrongBookPage() {
 
                       <div className="wrongbook-rationale">解析：{item.rationale || '暂无解析'}</div>
                     </article>
-                  )}
+                  )
                 })}
               </div>
             )}
