@@ -1,3 +1,17 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { BookOpen, RefreshCw } from 'lucide-react'
+import QuizImporter from './components/QuizImporter'
+import QuizView from './components/QuizView'
+import {
+  buildPaperId,
+  loadProgress,
+  saveProgress,
+  clearProgress,
+  saveLastQuizRaw,
+  loadLastQuizRaw,
+} from './utils/storage'
+import { normalizeQuizPayload } from './utils/normalizeQuizSchema'
+
 function isNonEmptyText(value) {
   return typeof value === 'string' && value.trim().length > 0
 }
