@@ -1,5 +1,14 @@
-import React from 'react'
-import { CheckCircle2, ChevronLeft, ChevronRight, FileText, Languages, XCircle } from 'lucide-react'
+import React, { useState } from 'react'
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Languages,
+  Maximize2,
+  Minimize2,
+  XCircle,
+} from 'lucide-react'
 
 function difficultyClass(difficulty = '') {
   switch (difficulty.toLowerCase()) {
@@ -45,20 +54,40 @@ function countWords(text) {
 }
 
 function ReadingBlock({ item, response, submitted, onSelectReadingOption }) {
+  const [immersiveReading, setImmersiveReading] = useState(false)
   const readingResponse = response || {}
 
   return (
-    <div className="reading-layout">
-      <section className="reading-passage-card">
+    <div className={`reading-layout ${immersiveReading ? 'immersive' : ''}`}>
+      <section className={`reading-passage-card ${immersiveReading ? 'immersive' : ''}`}>
         <div className="reading-passage-head">
-          <FileText size={16} />
-          <span>{item.passage?.title || item.title || '阅读文章'}</span>
+          <div className="reading-passage-title">
+            <FileText size={16} />
+            <span>{item.passage?.title || item.title || '阅读文章'}</span>
+          </div>
+
+          <button
+            type="button"
+            className="reading-mode-btn"
+            onClick={() => setImmersiveReading((value) => !value)}
+          >
+            {immersiveReading ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {immersiveReading ? '退出沉浸' : '沉浸阅读'}
+          </button>
         </div>
-        <div className="reading-passage-body">{item.passage?.content}</div>
+
+        <div className={`reading-passage-body ${immersiveReading ? 'immersive' : ''}`}>
+          {item.passage?.content}
+        </div>
       </section>
 
-      <section className="reading-questions-card">
+      <section className={`reading-questions-card ${immersiveReading ? 'immersive' : ''}`}>
         <div className="reading-questions-head">问题区</div>
+        {immersiveReading && (
+          <div className="reading-immersive-note">
+            当前为沉浸阅读模式，文章区域已加宽。可直接继续作答，或点击“退出沉浸”恢复标准布局。
+          </div>
+        )}
         <div className="reading-question-list">
           {item.questions.map((subQuestion, subIndex) => {
             const userAnswer = readingResponse[subQuestion.id]
@@ -283,6 +312,7 @@ export default function QuizView({
 
           {isReading ? (
             <ReadingBlock
+              key={currentItem.id}
               item={currentItem}
               response={userResponse}
               submitted={submitted}
