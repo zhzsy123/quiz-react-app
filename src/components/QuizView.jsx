@@ -149,7 +149,7 @@ export default function QuizView({
               })}
             </div>
           ) : (
-            <div className="subjective-block">
+            <div className="subjective-block translation-card">
               <div className="translation-source-meta">
                 {currentItem.direction === 'zh_to_en'
                   ? '请将下面内容翻译成英文'
@@ -164,6 +164,10 @@ export default function QuizView({
                 onChange={(e) => onTextChange(currentItem.id, e.target.value)}
                 disabled={submitted}
                 placeholder="请在这里输入你的翻译答案"
+                rows={6}
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
               />
 
               {!submitted && (
@@ -245,7 +249,7 @@ export default function QuizView({
           </div>
         </article>
 
-        {!submitted && total > 0 && (
+        {!submitted && total > 0 && !isLast && (
           <div className="submit-wrap">
             <button className="submit-btn" onClick={onSubmit}>
               交卷并查看解析
