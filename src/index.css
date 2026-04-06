@@ -237,6 +237,9 @@ button { border: none; }
   gap: 20px;
   align-items: start;
 }
+.reading-layout.immersive {
+  grid-template-columns: 1fr;
+}
 .reading-passage-card,
 .reading-questions-card {
   min-width: 0;
@@ -245,14 +248,59 @@ button { border: none; }
   background: rgba(15,23,42,0.72);
   border: 1px solid rgba(59,130,246,0.18);
 }
-.reading-passage-head,
+.reading-passage-card.immersive {
+  padding: 22px;
+  border-color: rgba(96,165,250,0.34);
+  box-shadow: 0 0 0 1px rgba(96,165,250,0.12);
+}
+.reading-questions-card.immersive {
+  margin-top: 4px;
+}
+.reading-passage-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.reading-passage-title,
 .reading-questions-head {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
   color: #93c5fd;
   font-weight: 700;
+}
+.reading-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(59,130,246,0.12);
+  color: #dbeafe;
+  border: 1px solid rgba(59,130,246,0.2);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+.reading-mode-btn:hover {
+  background: rgba(59,130,246,0.2);
+  border-color: rgba(96,165,250,0.32);
+}
+.reading-mode-btn:active {
+  transform: translateY(1px);
+}
+.reading-immersive-note {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.18);
+  color: #bfdbfe;
+  line-height: 1.7;
+  font-size: 0.92rem;
 }
 .reading-passage-body {
   color: #f8fafc;
@@ -262,6 +310,13 @@ button { border: none; }
   max-height: 72vh;
   overflow-y: auto;
   padding-right: 10px;
+}
+.reading-passage-body.immersive {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+  font-size: 1.08rem;
+  line-height: 2.05;
 }
 .reading-passage-body::-webkit-scrollbar {
   width: 8px;
@@ -370,4 +425,11 @@ button { border: none; }
   .reading-questions-card { padding: 14px; }
   .subjective-textarea { min-height: 140px; }
   .essay-textarea { min-height: 200px; }
+  .reading-passage-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .reading-mode-btn {
+    width: 100%;
+  }
 }
