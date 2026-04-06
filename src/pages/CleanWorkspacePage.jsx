@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw } from 'lucide-react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw, Star } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
 import { normalizeQuizPayload } from '../utils/normalizeQuizSchema'
@@ -11,6 +11,7 @@ import {
   saveAttemptRecord,
   saveProgressRecord,
 } from '../utils/indexedDb'
+import { loadFavoriteEntries, toggleFavoriteEntry } from '../utils/favoriteStore'
 
 const SUBJECT_KEY = 'english'
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
@@ -44,9 +45,7 @@ function getObjectiveItemScore(item, response) {
 function getObjectiveWrongCount(item, response) {
   if (!item) return 0
   if (item.type === 'reading') {
-    if (!response || typeof response !== 'object') {
-      return item.questions.length
-    }
+    if (!response || typeof response !== 'object') return item.questions.length
     return item.questions.reduce((sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1), 0)
   }
   if (item.answer?.type === 'objective') {
@@ -134,13 +133,42 @@ function formatRemainingSeconds(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function cloneFavoriteItem(entry, index) {
+  const cloned = JSON.parse(JSON.stringify(entry.itemSnapshot || {}))
+  const prefix = `fav_${index}_`
+  cloned.id = `${prefix}${cloned.id || index}`
+  if (cloned.type === 'reading' && Array.isArray(cloned.questions)) {
+    cloned.questions = cloned.questions.map((question, qIndex) => ({
+      ...question,
+      id: `${prefix}${question.id || qIndex}`,
+    }))
+  }
+  return cloned
+}
+
+function buildFavoriteEntryFromItem(item, meta) {
+  return {
+    questionKey: `${meta.subject}:${meta.paperId}:${item.id}`,
+    subject: meta.subject,
+    paperId: meta.paperId,
+    paperTitle: meta.paperTitle,
+    prompt: item.prompt || item.passage?.title || '未命名题目',
+    itemType: item.type,
+    sourceType: item.source_type || item.type,
+    tags: item.tags || [],
+    contextTitle: item.type === 'reading' ? item.passage?.title || '' : item.context_title || '',
+    contextSnippet: clipText(item.type === 'reading' ? item.passage?.content || '' : item.context || ''),
+    itemSnapshot: item,
+  }
+}
+
 export default function CleanWorkspacePage() {
   const { activeProfile } = useAppContext()
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const paperId = searchParams.get('paper') || ''
+  const source = searchParams.get('source') || 'library'
   const mode = searchParams.get('mode') === 'practice' ? 'practice' : 'exam'
-  const sessionPaperId = paperId ? `${paperId}:${mode}` : ''
+  const sessionPaperId = source === 'favorites' ? `favorites:${mode}` : `${paperId}:${mode}`
 
   const [entry, setEntry] = useState(null)
   const [quiz, setQuiz] = useState(null)
@@ -155,83 +183,126 @@ export default function CleanWorkspacePage() {
   const [isPaused, setIsPaused] = useState(false)
   const [loading, setLoading] = useState(true)
   const [readyToPersist, setReadyToPersist] = useState(false)
+  const [favoriteEntries, setFavoriteEntries] = useState([])
 
   useEffect(() => {
     try {
       const storedAdvance = localStorage.getItem(AUTO_ADVANCE_KEY)
-      if (storedAdvance !== null) {
-        setAutoAdvance(storedAdvance === 'true')
-      }
+      if (storedAdvance !== null) setAutoAdvance(storedAdvance === 'true')
       const storedSpoiler = localStorage.getItem(SPOILER_PREF_KEY)
-      if (storedSpoiler !== null) {
-        setSpoilerExpanded(storedSpoiler === 'true')
-      }
+      if (storedSpoiler !== null) setSpoilerExpanded(storedSpoiler === 'true')
     } catch {
       // ignore storage errors
     }
   }, [])
 
+  const refreshFavorites = async () => {
+    if (!activeProfile?.id) return
+    const rows = await loadFavoriteEntries(activeProfile.id, SUBJECT_KEY)
+    setFavoriteEntries(rows)
+    return rows
+  }
+
   useEffect(() => {
     let cancelled = false
-
     async function loadWorkspace() {
-      if (!activeProfile?.id || !paperId) {
+      if (!activeProfile?.id) {
         setLoading(false)
         return
       }
 
-      const entries = await listLibraryEntries(activeProfile.id, SUBJECT_KEY)
-      const matched = entries.find((item) => item.paperId === paperId)
-      if (!matched || cancelled) {
-        setLoading(false)
-        return
+      const favoriteRows = await loadFavoriteEntries(activeProfile.id, SUBJECT_KEY)
+      if (cancelled) return
+      setFavoriteEntries(favoriteRows)
+
+      let resolvedEntry = null
+      let resolvedQuiz = null
+
+      if (source === 'favorites') {
+        const items = favoriteRows.map((entry, index) => cloneFavoriteItem(entry, index))
+        resolvedEntry = { title: '我的收藏', paperId: 'favorites' }
+        resolvedQuiz = { title: '我的收藏', items }
+      } else {
+        if (!paperId) {
+          setLoading(false)
+          return
+        }
+        const entries = await listLibraryEntries(activeProfile.id, SUBJECT_KEY)
+        const matched = entries.find((item) => item.paperId === paperId)
+        if (!matched || cancelled) {
+          setLoading(false)
+          return
+        }
+        resolvedEntry = matched
+        resolvedQuiz = normalizeQuizPayload(JSON.parse(matched.rawText))
       }
 
-      const parsed = normalizeQuizPayload(JSON.parse(matched.rawText))
       const progress = await loadProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId)
       if (cancelled) return
 
-      setEntry(matched)
-      setQuiz(parsed)
+      setEntry(resolvedEntry)
+      setQuiz(resolvedQuiz)
       setAnswers(progress?.answers || {})
       setRevealedMap(progress?.revealedMap || {})
       setSubmitted(Boolean(progress?.submitted))
       setScore(progress?.score || 0)
-      setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, parsed.items.length - 1)))
+      setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, (resolvedQuiz.items?.length || 1) - 1)))
       setRemainingSeconds(typeof progress?.timerSecondsRemaining === 'number' ? progress.timerSecondsRemaining : EXAM_DURATION_SECONDS)
       setIsPaused(Boolean(progress?.isPaused))
       setReadyToPersist(true)
       setLoading(false)
     }
-
     loadWorkspace()
     return () => {
       cancelled = true
     }
-  }, [activeProfile?.id, paperId, sessionPaperId])
+  }, [activeProfile?.id, paperId, source, sessionPaperId])
+
+  const buildProgressPayload = (overrides = {}) => ({
+    answers,
+    revealedMap,
+    submitted,
+    score,
+    currentIndex,
+    timerSecondsRemaining: remainingSeconds,
+    isPaused,
+    mode,
+    updatedAt: Date.now(),
+    title: quiz?.title || entry?.title || '未命名试卷',
+    ...overrides,
+  })
+
+  const persistNow = async (overrides = {}) => {
+    if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
+    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId, buildProgressPayload(overrides))
+  }
 
   const objectiveTotalScore = useMemo(() => {
     return (quiz?.items || []).reduce((sum, item) => sum + getObjectiveItemTotal(item), 0)
   }, [quiz])
 
-  useEffect(() => {
-    if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
-    const save = async () => {
-      await saveProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId, {
-        answers,
-        revealedMap,
-        submitted,
-        score,
-        currentIndex,
-        timerSecondsRemaining: remainingSeconds,
-        isPaused,
-        mode,
-        updatedAt: Date.now(),
-        title: quiz.title || entry?.title || '未命名试卷',
-      })
-    }
-    void save()
-  }, [answers, revealedMap, submitted, score, currentIndex, remainingSeconds, isPaused, readyToPersist, quiz, activeProfile?.id, sessionPaperId, mode, entry?.title])
+  const practiceAccuracy = useMemo(() => {
+    if (!quiz || mode !== 'practice') return { correct: 0, answered: 0, rate: 0 }
+    let correct = 0
+    let answered = 0
+    quiz.items.forEach((item) => {
+      if (item.type === 'reading') {
+        const response = answers[item.id] || {}
+        item.questions.forEach((question) => {
+          if (isNonEmptyText(response[question.id])) {
+            answered += 1
+            if (response[question.id] === question.answer?.correct) correct += 1
+          }
+        })
+        return
+      }
+      if (item.answer?.type === 'objective' && isNonEmptyText(answers[item.id])) {
+        answered += 1
+        if (answers[item.id] === item.answer?.correct) correct += 1
+      }
+    })
+    return { correct, answered, rate: answered ? Math.round((correct / answered) * 100) : 0 }
+  }, [quiz, mode, answers])
 
   useEffect(() => {
     if (mode !== 'exam' || !quiz || submitted || isPaused || remainingSeconds <= 0) return
@@ -240,6 +311,13 @@ export default function CleanWorkspacePage() {
     }, 1000)
     return () => window.clearInterval(timer)
   }, [mode, quiz, submitted, isPaused, remainingSeconds])
+
+  useEffect(() => {
+    if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
+    if (submitted || isPaused || remainingSeconds % 5 === 0) {
+      void persistNow()
+    }
+  }, [remainingSeconds, isPaused, submitted])
 
   const handleFinish = async (forced = false) => {
     if (!quiz?.items?.length || !activeProfile?.id) return
@@ -254,19 +332,17 @@ export default function CleanWorkspacePage() {
       }
       return Boolean(answers[item.id])
     }).length
-
     if (mode === 'exam' && !forced && answeredCount < totalQuestions) {
       const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
       if (!ok) return
     }
-
     const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
     const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
     setScore(nextScore)
     setSubmitted(true)
     setIsPaused(false)
-
-    if (mode === 'exam') {
+    await persistNow({ submitted: true, score: nextScore, isPaused: false })
+    if (mode === 'exam' && source !== 'favorites') {
       await saveAttemptRecord({
         profileId: activeProfile.id,
         subject: SUBJECT_KEY,
@@ -322,52 +398,76 @@ export default function CleanWorkspacePage() {
     })
   }
 
+  const handleJump = (nextIndex) => {
+    setCurrentIndex(nextIndex)
+    void persistNow({ currentIndex: nextIndex })
+  }
+
+  const handlePrev = () => {
+    const nextIndex = Math.max(currentIndex - 1, 0)
+    setCurrentIndex(nextIndex)
+    void persistNow({ currentIndex: nextIndex })
+  }
+
+  const handleNext = () => {
+    const nextIndex = Math.min(currentIndex + 1, (quiz?.items?.length || 1) - 1)
+    setCurrentIndex(nextIndex)
+    void persistNow({ currentIndex: nextIndex })
+  }
+
   const handleSelectOption = (questionId, optionLetter) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type === 'reading' || currentItem?.answer?.type !== 'objective') return
     const nextAnswers = { ...answers, [questionId]: optionLetter }
     setAnswers(nextAnswers)
-
     if (mode === 'practice') {
-      setRevealedMap((prev) => ({ ...prev, [questionId]: true }))
+      const nextRevealed = { ...revealedMap, [questionId]: true }
+      setRevealedMap(nextRevealed)
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
       return
     }
-
+    let nextIndex = currentIndex
     if (autoAdvance && currentIndex < quiz.items.length - 1) {
-      setCurrentIndex((value) => value + 1)
+      nextIndex = currentIndex + 1
+      setCurrentIndex(nextIndex)
     }
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
   }
 
   const handleSelectReadingOption = (questionId, subQuestionId, optionLetter) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'reading' || currentItem.id !== questionId) return
-    const nextItemResponse = {
-      ...(answers[questionId] || {}),
-      [subQuestionId]: optionLetter,
-    }
+    const nextItemResponse = { ...(answers[questionId] || {}), [subQuestionId]: optionLetter }
     const nextAnswers = { ...answers, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
-
     if (mode === 'practice') {
-      setRevealedMap((prev) => ({ ...prev, [`${questionId}:${subQuestionId}`]: true }))
+      const nextRevealed = { ...revealedMap, [`${questionId}:${subQuestionId}`]: true }
+      setRevealedMap(nextRevealed)
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
       return
     }
-
     const answeredCount = currentItem.questions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
+    let nextIndex = currentIndex
     if (autoAdvance && answeredCount === currentItem.questions.length && currentIndex < quiz.items.length - 1) {
-      setCurrentIndex((value) => value + 1)
+      nextIndex = currentIndex + 1
+      setCurrentIndex(nextIndex)
     }
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
   }
 
   const handleTextChange = (questionId, text) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
-    setAnswers((prev) => ({ ...prev, [questionId]: { text } }))
+    const nextAnswers = { ...answers, [questionId]: { text } }
+    setAnswers(nextAnswers)
+    void persistNow({ answers: nextAnswers })
   }
 
   const handleReset = async () => {
     if (!activeProfile?.id || !sessionPaperId) return
+    const ok = window.confirm('确定重置当前进度吗？')
+    if (!ok) return
     await clearProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId)
     setAnswers({})
     setRevealedMap({})
@@ -376,12 +476,52 @@ export default function CleanWorkspacePage() {
     setCurrentIndex(0)
     setRemainingSeconds(EXAM_DURATION_SECONDS)
     setIsPaused(false)
+    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId, {
+      answers: {},
+      revealedMap: {},
+      submitted: false,
+      score: 0,
+      currentIndex: 0,
+      timerSecondsRemaining: EXAM_DURATION_SECONDS,
+      isPaused: false,
+      mode,
+      updatedAt: Date.now(),
+      title: quiz?.title || entry?.title || '未命名试卷',
+    })
+  }
+
+  const favoriteQuestionKey = useMemo(() => {
+    if (!quiz?.items?.[currentIndex]) return ''
+    const item = quiz.items[currentIndex]
+    if (source === 'favorites') {
+      const favoriteEntry = favoriteEntries[currentIndex]
+      return favoriteEntry?.questionKey || ''
+    }
+    return `${SUBJECT_KEY}:${paperId}:${item.id}`
+  }, [quiz, currentIndex, source, favoriteEntries, paperId])
+
+  const favoriteMap = useMemo(() => {
+    const map = {}
+    favoriteEntries.forEach((entry) => {
+      map[entry.questionKey] = entry
+    })
+    return map
+  }, [favoriteEntries])
+
+  const handleToggleFavorite = async () => {
+    if (!activeProfile?.id || !quiz?.items?.[currentIndex] || source === 'favorites') return
+    const item = quiz.items[currentIndex]
+    const entryToToggle = buildFavoriteEntryFromItem(item, {
+      subject: SUBJECT_KEY,
+      paperId,
+      paperTitle: entry?.title || quiz.title || '未命名试卷',
+    })
+    const result = await toggleFavoriteEntry(activeProfile.id, SUBJECT_KEY, entryToToggle)
+    setFavoriteEntries(result.entries)
   }
 
   if (loading) {
-    return (
-      <div className="app-shell"><div className="container"><section className="hero-card"><h1>加载中</h1></section></div></div>
-    )
+    return <div className="app-shell"><div className="container"><section className="hero-card"><h1>加载中</h1></section></div></div>
   }
 
   if (!entry || !quiz) {
@@ -389,10 +529,10 @@ export default function CleanWorkspacePage() {
       <div className="app-shell">
         <div className="container">
           <section className="hero-card workspace-empty-state">
-            <h1>未找到可用文件</h1>
+            <h1>未找到可用内容</h1>
             <div className="workspace-header-actions">
               <Link className="secondary-btn small-btn" to="/"><Home size={14} /> 返回首页</Link>
-              <Link className="secondary-btn small-btn" to="/exam/english"><ArrowLeft size={14} /> 返回文件列表</Link>
+              <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : '/exam/english'}><ArrowLeft size={14} /> 返回</Link>
             </div>
           </section>
         </div>
@@ -408,32 +548,18 @@ export default function CleanWorkspacePage() {
             <div className="workspace-title">{entry.title}</div>
             <div className="workspace-mode-row">
               <span className="tag blue">{mode === 'practice' ? '刷题模式' : '考试模式'}</span>
-              {mode === 'exam' && (
-                <span className={`timer-chip ${remainingSeconds <= 300 ? 'danger' : ''}`}><Clock3 size={14} /> {formatRemainingSeconds(remainingSeconds)}</span>
-              )}
+              {mode === 'practice' && <span className="accuracy-chip"><Star size={14} /> 正确率 {practiceAccuracy.rate}%</span>}
+              {mode === 'exam' && <span className={`timer-chip ${remainingSeconds <= 300 ? 'danger' : ''}`}><Clock3 size={14} /> {formatRemainingSeconds(remainingSeconds)}</span>}
             </div>
           </div>
           <div className="workspace-header-actions">
-            {mode === 'exam' && (
-              <button className="secondary-btn small-btn" onClick={() => setIsPaused((value) => !value)} disabled={submitted}>
-                {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                {isPaused ? '继续' : '暂停'}
-              </button>
-            )}
+            {mode === 'exam' && <button className="secondary-btn small-btn" onClick={() => { const next = !isPaused; setIsPaused(next); void persistNow({ isPaused: next }) }} disabled={submitted}>{isPaused ? <Play size={14} /> : <Pause size={14} />}{isPaused ? '继续' : '暂停'}</button>}
             <button className="secondary-btn small-btn" onClick={handleReset}><RefreshCw size={14} /> 重置</button>
-            <Link className="secondary-btn small-btn" to="/exam/english"><ArrowLeft size={14} /> 返回文件列表</Link>
+            <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : '/exam/english'}><ArrowLeft size={14} /> 返回</Link>
             <Link className="secondary-btn small-btn" to="/"><Home size={14} /> 返回首页</Link>
           </div>
         </section>
-
-        {!submitted && mode === 'exam' && isPaused && <div className="paused-banner">答题已暂停。</div>}
-
-        {submitted && (
-          <section className="score-card compact-score-card">
-            <div className="score-line"><strong>{score}</strong><span>/ {objectiveTotalScore}</span></div>
-          </section>
-        )}
-
+        {submitted && <section className="score-card compact-score-card"><div className="score-line"><strong>{score}</strong><span>/ {objectiveTotalScore}</span></div></section>}
         <CleanQuizView
           quiz={quiz}
           answers={answers}
@@ -445,12 +571,14 @@ export default function CleanWorkspacePage() {
           isPaused={isPaused}
           spoilerExpanded={spoilerExpanded}
           revealedMap={revealedMap}
+          isFavorite={Boolean(favoriteMap[favoriteQuestionKey])}
+          onToggleFavorite={handleToggleFavorite}
           onToggleSpoiler={handleToggleSpoiler}
           onToggleAutoAdvance={handleToggleAutoAdvance}
-          onTogglePause={() => setIsPaused((value) => !value)}
-          onJump={setCurrentIndex}
-          onPrev={() => setCurrentIndex((value) => Math.max(value - 1, 0))}
-          onNext={() => setCurrentIndex((value) => Math.min(value + 1, quiz.items.length - 1))}
+          onTogglePause={() => { const next = !isPaused; setIsPaused(next); void persistNow({ isPaused: next }) }}
+          onJump={handleJump}
+          onPrev={handlePrev}
+          onNext={handleNext}
           onSelectOption={handleSelectOption}
           onSelectReadingOption={handleSelectReadingOption}
           onTextChange={handleTextChange}

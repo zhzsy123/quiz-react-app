@@ -12,6 +12,7 @@ import {
   Minimize2,
   Pause,
   Play,
+  Star,
   XCircle,
 } from 'lucide-react'
 
@@ -84,17 +85,7 @@ function formatRemainingSeconds(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function ReadingBlock({
-  item,
-  response,
-  submitted,
-  isPaused,
-  mode,
-  revealedMap,
-  focusSubQuestionId,
-  onFocusSubQuestion,
-  onSelectReadingOption,
-}) {
+function ReadingBlock({ item, response, submitted, isPaused, mode, revealedMap, focusSubQuestionId, onFocusSubQuestion, onSelectReadingOption }) {
   const [immersiveReading, setImmersiveReading] = useState(false)
   const readingResponse = response || {}
   const questionRefs = useRef({})
@@ -109,25 +100,15 @@ function ReadingBlock({
     <div className={`reading-layout ${immersiveReading ? 'immersive' : ''}`}>
       <section className={`reading-passage-card ${immersiveReading ? 'immersive' : ''}`}>
         <div className="reading-passage-head">
-          <div className="reading-passage-title">
-            <FileText size={16} />
-            <span>{item.passage?.title || item.title || '阅读文章'}</span>
-          </div>
-          <button
-            type="button"
-            className="reading-mode-btn"
-            onClick={() => setImmersiveReading((value) => !value)}
-            disabled={isPaused}
-          >
+          <div className="reading-passage-title"><FileText size={16} /><span>{item.passage?.title || item.title || '阅读文章'}</span></div>
+          <button type="button" className="reading-mode-btn" onClick={() => setImmersiveReading((value) => !value)} disabled={isPaused}>
             {immersiveReading ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            {immersiveReading ? '退出沉浸' : '沉浸阅读'}
           </button>
         </div>
         <div className={`reading-passage-body ${immersiveReading ? 'immersive' : ''}`}>{item.passage?.content}</div>
       </section>
 
       <section className={`reading-questions-card ${immersiveReading ? 'immersive' : ''}`}>
-        <div className="reading-questions-head">问题区</div>
         <div className="reading-question-list">
           {item.questions.map((subQuestion, subIndex) => {
             const userAnswer = readingResponse[subQuestion.id]
@@ -135,23 +116,13 @@ function ReadingBlock({
             const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
             const isFocused = focusSubQuestionId === subQuestion.id
             return (
-              <div
-                key={subQuestion.id}
-                ref={(node) => {
-                  questionRefs.current[subQuestion.id] = node
-                }}
-                className={`reading-question-item ${isFocused ? 'focused' : ''}`}
-              >
-                <div className="reading-question-title">
-                  <span className="tag">第 {subIndex + 1} 小题</span>
-                  <span>{subQuestion.prompt}</span>
-                </div>
+              <div key={subQuestion.id} ref={(node) => { questionRefs.current[subQuestion.id] = node }} className={`reading-question-item ${isFocused ? 'focused' : ''}`}>
+                <div className="reading-question-title"><span className="tag">{subIndex + 1}</span><span>{subQuestion.prompt}</span></div>
                 <div className="options compact-options">
                   {subQuestion.options.map((option, optionIndex) => {
                     const selected = userAnswer === option.key
                     let className = 'option compact-option'
                     let icon = null
-
                     if (!showFeedback) {
                       if (selected) className += ' selected'
                     } else if (option.key === subQuestion.answer?.correct) {
@@ -163,7 +134,6 @@ function ReadingBlock({
                     } else {
                       className += ' muted'
                     }
-
                     return (
                       <button
                         key={optionIndex}
@@ -180,12 +150,7 @@ function ReadingBlock({
                     )
                   })}
                 </div>
-                {showFeedback && (
-                  <div className="analysis-box compact-analysis-box">
-                    <div>正确答案：<strong>{subQuestion.answer?.correct}</strong></div>
-                    <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
-                  </div>
-                )}
+                {showFeedback && <div className="analysis-box compact-analysis-box"><div>正确答案：<strong>{subQuestion.answer?.correct}</strong></div><div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div></div>}
               </div>
             )
           })}
@@ -198,26 +163,10 @@ function ReadingBlock({
 function TranslationBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   return (
     <div className="subjective-block translation-card">
-      <div className="translation-source-meta">
-        <Languages size={16} />
-        <span>{item.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span>
-      </div>
+      <div className="translation-source-meta"><Languages size={16} /><span>{item.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span></div>
       <div className="translation-source">{item.source_text}</div>
-      <textarea
-        className="subjective-textarea"
-        value={getSubjectiveText(userResponse)}
-        onChange={(e) => onTextChange(item.id, e.target.value)}
-        disabled={disabled}
-        rows={6}
-        spellCheck={false}
-        autoCorrect="off"
-        autoCapitalize="off"
-      />
-      {submitted && item.answer?.reference_answer && (
-        <div className="analysis-box">
-          <div>参考答案：{item.answer.reference_answer}</div>
-        </div>
-      )}
+      <textarea className="subjective-textarea" value={getSubjectiveText(userResponse)} onChange={(e) => onTextChange(item.id, e.target.value)} disabled={disabled} rows={6} spellCheck={false} autoCorrect="off" autoCapitalize="off" />
+      {submitted && item.answer?.reference_answer && <div className="analysis-box"><div>{item.answer.reference_answer}</div></div>}
     </div>
   )
 }
@@ -227,26 +176,10 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   const wordCount = countWords(text)
   return (
     <div className="subjective-block essay-card">
-      <div className="essay-head">
-        <div className="essay-type-chip">{item.essay_type || 'writing'}</div>
-        <div className="essay-word-count">当前字数：{wordCount}</div>
-      </div>
+      <div className="essay-head"><div className="essay-type-chip">{item.essay_type || 'writing'}</div><div className="essay-word-count">{wordCount}</div></div>
       {item.requirements?.topic && <div className="essay-topic">{item.requirements.topic}</div>}
-      <textarea
-        className="subjective-textarea essay-textarea"
-        value={text}
-        onChange={(e) => onTextChange(item.id, e.target.value)}
-        disabled={disabled}
-        rows={12}
-        spellCheck={false}
-        autoCorrect="off"
-        autoCapitalize="off"
-      />
-      {submitted && item.answer?.reference_answer && (
-        <div className="analysis-box">
-          <div>参考范文：{item.answer.reference_answer}</div>
-        </div>
-      )}
+      <textarea className="subjective-textarea essay-textarea" value={text} onChange={(e) => onTextChange(item.id, e.target.value)} disabled={disabled} rows={12} spellCheck={false} autoCorrect="off" autoCapitalize="off" />
+      {submitted && item.answer?.reference_answer && <div className="analysis-box"><div>{item.answer.reference_answer}</div></div>}
     </div>
   )
 }
@@ -262,6 +195,8 @@ export default function CleanQuizView({
   isPaused = false,
   spoilerExpanded = false,
   revealedMap = {},
+  isFavorite = false,
+  onToggleFavorite,
   onToggleSpoiler,
   onToggleAutoAdvance,
   onTogglePause,
@@ -329,57 +264,33 @@ export default function CleanQuizView({
   return (
     <section className="quiz-layout clean-workspace-layout">
       <aside className="sidebar-card nav-sidebar">
-        <div className="sidebar-head-row">
-          <h3>题目导航</h3>
-        </div>
-
+        <div className="sidebar-head-row"><h3>题目导航</h3></div>
         {mode === 'exam' && (
           <div className="sidebar-tools">
             <div className="sidebar-tool-card timer-tool-card">
-              <div className={`sidebar-timer-value ${remainingSeconds <= 300 ? 'danger' : ''}`}>
-                <Clock3 size={16} />
-                <strong>{formatRemainingSeconds(remainingSeconds)}</strong>
-              </div>
-              <button type="button" className="secondary-btn small-btn full-width-btn" onClick={onTogglePause} disabled={submitted}>
-                {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                {isPaused ? '继续' : '暂停'}
-              </button>
+              <div className={`sidebar-timer-value ${remainingSeconds <= 300 ? 'danger' : ''}`}><Clock3 size={16} /><strong>{formatRemainingSeconds(remainingSeconds)}</strong></div>
+              <button type="button" className="secondary-btn small-btn full-width-btn" onClick={onTogglePause} disabled={submitted}>{isPaused ? <Play size={14} /> : <Pause size={14} />}{isPaused ? '继续' : '暂停'}</button>
             </div>
           </div>
         )}
-
         {mode === 'exam' && (
           <div className="sidebar-tools compact-sidebar-tools">
             <div className="sidebar-tool-card compact-toggle-card">
               <span className="sidebar-tool-title">自动切题</span>
-              <button type="button" className={`toggle-switch ${autoAdvance ? 'on' : ''}`} onClick={onToggleAutoAdvance} aria-pressed={autoAdvance} disabled={disabled}>
-                <span className="toggle-knob" />
-              </button>
+              <button type="button" className={`toggle-switch ${autoAdvance ? 'on' : ''}`} onClick={onToggleAutoAdvance} aria-pressed={autoAdvance} disabled={disabled}><span className="toggle-knob" /></button>
             </div>
           </div>
         )}
-
         <div className="nav-accordion">
           {groupedNavSections.map((section) => {
             const isOpen = openGroups[section.key] ?? true
-            const displayCount = section.key === 'reading'
-              ? section.items.reduce((sum, { item }) => sum + (item.questions?.length || 0), 0)
-              : section.items.length
-
+            const displayCount = section.key === 'reading' ? section.items.reduce((sum, { item }) => sum + (item.questions?.length || 0), 0) : section.items.length
             return (
               <div key={section.key} className="nav-group">
-                <button
-                  type="button"
-                  className={`nav-group-header ${isOpen ? 'open' : ''}`}
-                  onClick={() => setOpenGroups((prev) => ({ ...prev, [section.key]: !isOpen }))}
-                >
-                  <div className="nav-group-title-wrap">
-                    <span className="nav-group-title">{section.label}</span>
-                    <span className="nav-group-count">{displayCount}</span>
-                  </div>
+                <button type="button" className={`nav-group-header ${isOpen ? 'open' : ''}`} onClick={() => setOpenGroups((prev) => ({ ...prev, [section.key]: !isOpen }))}>
+                  <div className="nav-group-title-wrap"><span className="nav-group-title">{section.label}</span><span className="nav-group-count">{displayCount}</span></div>
                   {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
-
                 {isOpen && (
                   <div className={`nav-group-grid ${section.key === 'reading' ? 'reading-nav-grid' : ''}`}>
                     {section.items.map(({ item, index }) => {
@@ -388,40 +299,18 @@ export default function CleanQuizView({
                         return item.questions.map((question, subIndex) => {
                           const answered = typeof readingResponse[question.id] === 'string' && readingResponse[question.id].length > 0
                           const wrong = submitted && answered && readingResponse[question.id] !== question.answer?.correct
-                          const active =
-                            index === currentIndex &&
-                            focusedReadingQuestion?.itemId === item.id &&
-                            focusedReadingQuestion?.subQuestionId === question.id
+                          const active = index === currentIndex && focusedReadingQuestion?.itemId === item.id && focusedReadingQuestion?.subQuestionId === question.id
                           return (
-                            <button
-                              key={question.id}
-                              className={`nav-item nav-sub-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`}
-                              onClick={() => {
-                                if (disabled) return
-                                setFocusedReadingQuestion({ itemId: item.id, subQuestionId: question.id })
-                                onJump(index)
-                              }}
-                              disabled={disabled}
-                            >
+                            <button key={question.id} className={`nav-item nav-sub-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`} onClick={() => { if (disabled) return; setFocusedReadingQuestion({ itemId: item.id, subQuestionId: question.id }); onJump(index) }} disabled={disabled}>
                               {index + 1}-{subIndex + 1}
                             </button>
                           )
                         })
                       }
-
                       const answered = isAnswered(item, answers[item.id])
                       const active = index === currentIndex
                       const wrong = submitted && isObjectiveWrong(item, answers[item.id])
-                      return (
-                        <button
-                          key={item.id}
-                          className={`nav-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`}
-                          onClick={() => onJump(index)}
-                          disabled={disabled}
-                        >
-                          {index + 1}
-                        </button>
-                      )
+                      return <button key={item.id} className={`nav-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`} onClick={() => onJump(index)} disabled={disabled}>{index + 1}</button>
                     })}
                   </div>
                 )}
@@ -434,48 +323,25 @@ export default function CleanQuizView({
       <div className="question-list">
         <article className="question-card current">
           {disabled && !submitted && <div className="paused-banner">答题已暂停。</div>}
-
           <div className="question-top">
             <div className="question-meta">
               <span className="tag">第 {currentIndex + 1} 题</span>
-              <span className="tag blue">{mode === 'practice' ? '刷题模式' : '考试模式'}</span>
               {isTranslation && <span className="tag purple">{currentItem.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span>}
               {isEssay && <span className="tag purple">作文</span>}
               {isReading && <span className="tag purple">阅读理解</span>}
-              {spoilerTags.length > 0 && (
-                <button type="button" className={`spoiler-toggle ${spoilerExpanded ? 'open' : ''}`} onClick={onToggleSpoiler}>
-                  <span>{spoilerExpanded ? '隐藏考点' : '考点'}</span>
-                  {spoilerExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-              )}
+              {spoilerTags.length > 0 && <button type="button" className="spoiler-icon-toggle" onClick={onToggleSpoiler}>{spoilerExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</button>}
               {spoilerExpanded && spoilerTags.map((tag) => <span key={tag} className="tag spoiler-tag">{tag}</span>)}
             </div>
-            {currentItem.difficulty && <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>}
-          </div>
-
-          <div className="progress-text">进度：{currentIndex + 1} / {total}</div>
-
-          {!isReading && currentItem.context && (
-            <div className="question-context">
-              {currentItem.context_title && <div className="question-context-title">{currentItem.context_title}</div>}
-              <div className="question-context-body">{currentItem.context}</div>
+            <div className="question-top-actions">
+              {onToggleFavorite && <button type="button" className={`favorite-toggle ${isFavorite ? 'active' : ''}`} onClick={onToggleFavorite}><Star size={15} fill={isFavorite ? 'currentColor' : 'none'} /></button>}
+              {currentItem.difficulty && <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>}
             </div>
-          )}
-
+          </div>
+          <div className="progress-text">进度：{currentIndex + 1} / {total}</div>
+          {!isReading && currentItem.context && <div className="question-context">{currentItem.context_title && <div className="question-context-title">{currentItem.context_title}</div>}<div className="question-context-body">{currentItem.context}</div></div>}
           <h3>{currentItem.prompt}</h3>
-
           {isReading ? (
-            <ReadingBlock
-              item={currentItem}
-              response={userResponse}
-              submitted={submitted}
-              isPaused={disabled}
-              mode={mode}
-              revealedMap={revealedMap}
-              focusSubQuestionId={focusedReadingQuestion?.itemId === currentItem.id ? focusedReadingQuestion?.subQuestionId : null}
-              onFocusSubQuestion={(subQuestionId) => setFocusedReadingQuestion({ itemId: currentItem.id, subQuestionId })}
-              onSelectReadingOption={onSelectReadingOption}
-            />
+            <ReadingBlock item={currentItem} response={userResponse} submitted={submitted} isPaused={disabled} mode={mode} revealedMap={revealedMap} focusSubQuestionId={focusedReadingQuestion?.itemId === currentItem.id ? focusedReadingQuestion?.subQuestionId : null} onFocusSubQuestion={(subQuestionId) => setFocusedReadingQuestion({ itemId: currentItem.id, subQuestionId })} onSelectReadingOption={onSelectReadingOption} />
           ) : !isSubjective ? (
             <div className="options">
               {currentItem.options.map((opt, optIndex) => {
@@ -483,7 +349,6 @@ export default function CleanQuizView({
                 const selected = userResponse === option.key
                 let className = 'option'
                 let icon = null
-
                 if (!objectiveReveal) {
                   if (selected) className += ' selected'
                 } else if (option.key === currentItem.answer?.correct) {
@@ -495,64 +360,27 @@ export default function CleanQuizView({
                 } else {
                   className += ' muted'
                 }
-
-                return (
-                  <button
-                    key={optIndex}
-                    className={className}
-                    disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
-                    onClick={() => onSelectOption(currentItem.id, option.key)}
-                  >
-                    <span>{renderOptionLabel(option)}</span>
-                    {icon}
-                  </button>
-                )
+                return <button key={optIndex} className={className} disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)} onClick={() => onSelectOption(currentItem.id, option.key)}><span>{renderOptionLabel(option)}</span>{icon}</button>
               })}
             </div>
           ) : isTranslation ? (
-            <TranslationBlock item={currentItem} userResponse={userResponse} submitted={submitted} disabled={disabled || submitted} onTextChange={onTextChange} />
+            <TranslationBlock item={currentItem} userResponse={userResponse} disabled={disabled || submitted} submitted={submitted} onTextChange={onTextChange} />
           ) : (
-            <EssayBlock item={currentItem} userResponse={userResponse} submitted={submitted} disabled={disabled || submitted} onTextChange={onTextChange} />
+            <EssayBlock item={currentItem} userResponse={userResponse} disabled={disabled || submitted} submitted={submitted} onTextChange={onTextChange} />
           )}
-
-          {objectiveReveal && !isSubjective && !isReading && (
-            <div className="analysis-box">
-              <div>正确答案：<strong>{currentItem.answer?.correct}</strong></div>
-              <div>解析：{currentItem.answer?.rationale || '暂无解析'}</div>
-            </div>
-          )}
-
-          {submitted && isTranslation && currentItem.answer?.reference_answer && (
-            <div className="analysis-box"><div>参考答案：{currentItem.answer.reference_answer}</div></div>
-          )}
-
-          {submitted && isEssay && currentItem.answer?.reference_answer && (
-            <div className="analysis-box"><div>参考范文：{currentItem.answer.reference_answer}</div></div>
-          )}
-
+          {objectiveReveal && !isSubjective && !isReading && <div className="analysis-box"><div>正确答案：<strong>{currentItem.answer?.correct}</strong></div><div>解析：{currentItem.answer?.rationale || '暂无解析'}</div></div>}
+          {submitted && isTranslation && currentItem.answer?.reference_answer && <div className="analysis-box"><div>{currentItem.answer.reference_answer}</div></div>}
+          {submitted && isEssay && currentItem.answer?.reference_answer && <div className="analysis-box"><div>{currentItem.answer.reference_answer}</div></div>}
           <div className="question-actions">
             <button className="secondary-btn" onClick={onPrev} disabled={isFirst || disabled}>上一题</button>
             {!submitted ? (
-              isLast ? (
-                <button className="submit-btn small-submit-btn" onClick={() => onSubmit()} disabled={disabled}>
-                  {mode === 'practice' ? '结束练习' : '交卷并查看解析'}
-                </button>
-              ) : (
-                <button className="secondary-btn" onClick={onNext} disabled={disabled}>下一题<ChevronRight size={16} /></button>
-              )
+              isLast ? <button className="submit-btn small-submit-btn" onClick={() => onSubmit()} disabled={disabled}>{mode === 'practice' ? '结束练习' : '交卷并查看解析'}</button> : <button className="secondary-btn" onClick={onNext} disabled={disabled}>下一题<ChevronRight size={16} /></button>
             ) : (
               <button className="secondary-btn" onClick={onNext} disabled={isLast}>下一题<ChevronRight size={16} /></button>
             )}
           </div>
         </article>
-
-        {!submitted && total > 0 && !isLast && (
-          <div className="submit-wrap">
-            <button className="submit-btn" onClick={() => onSubmit()} disabled={disabled}>
-              {mode === 'practice' ? '结束练习' : '交卷并查看解析'}
-            </button>
-          </div>
-        )}
+        {!submitted && total > 0 && !isLast && <div className="submit-wrap"><button className="submit-btn" onClick={() => onSubmit()} disabled={disabled}>{mode === 'practice' ? '结束练习' : '交卷并查看解析'}</button></div>}
       </div>
     </section>
   )
