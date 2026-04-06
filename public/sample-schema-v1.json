@@ -3,9 +3,9 @@
   "paper_id": "english_schema_v1_test_001",
   "title": "Schema v1 测试卷",
   "subject": "english",
-  "description": "用于测试 single_choice、cloze、reading 和 translation 的兼容渲染。",
-  "duration_minutes": 30,
-  "total_score": 19,
+  "description": "用于测试 single_choice、cloze、reading、translation 和 essay 的兼容渲染。",
+  "duration_minutes": 40,
+  "total_score": 34,
   "sections": [
     {
       "id": "sec_1",
@@ -26,6 +26,11 @@
       "id": "sec_4",
       "title": "翻译",
       "question_ids": ["translation_001"]
+    },
+    {
+      "id": "sec_5",
+      "title": "作文",
+      "question_ids": ["essay_001"]
     }
   ],
   "questions": [
@@ -172,6 +177,53 @@
         "ai_scoring": {
           "enabled": true,
           "rubric": "translation_basic_v1"
+        }
+      }
+    },
+    {
+      "id": "essay_001",
+      "type": "essay",
+      "section_id": "sec_5",
+      "title": "应用文写作测试",
+      "prompt": "For this part, you are supposed to write an email in at least 80 words.",
+      "score": 15,
+      "difficulty": "hard",
+      "tags": ["writing", "email"],
+      "essay_type": "email",
+      "requirements": {
+        "topic": "Write an email to your friend Jason to give him advice on how to live a healthier life.",
+        "min_words": 80,
+        "max_words": 120,
+        "must_include": [
+          "give at least two suggestions",
+          "use proper email format"
+        ],
+        "language": "en"
+      },
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "Dear Jason,\n\nI am writing to give you some advice on how to live a healthier life. First of all, you should go to bed early and get enough sleep every day. Secondly, it is a good idea to do more exercise and eat more fresh fruit and vegetables. Only in this way can you keep fit and study efficiently.\n\nYours,\nLi Hua",
+        "outline": [
+          "greeting",
+          "state purpose",
+          "advice 1: sleep well",
+          "advice 2: exercise and healthy diet",
+          "closing"
+        ],
+        "scoring_rubric": {
+          "content": 5,
+          "organization": 3,
+          "language": 4,
+          "format": 3
+        },
+        "common_errors": [
+          "word count too short",
+          "missing greeting or closing",
+          "serious grammar mistakes"
+        ],
+        "ai_scoring": {
+          "enabled": true,
+          "rubric": "essay_college_english_v1"
         }
       }
     }

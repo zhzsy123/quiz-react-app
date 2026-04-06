@@ -99,10 +99,10 @@ function convertSingleChoice(question) {
 
 function convertReading(question) {
   if (!question.passage?.content || !Array.isArray(question.questions)) {
-    return { items: [], skippedCount: 1, skippedTypes: ['reading'] }
+    return null
   }
 
-  const items = []
+  const normalizedQuestions = []
   let skippedCount = 0
   const skippedTypes = []
 
@@ -119,26 +119,44 @@ function convertReading(question) {
       return
     }
 
-    items.push({
+    normalizedQuestions.push({
       id: subQuestion.id,
       type: 'single_choice',
       prompt: subQuestion.prompt,
-      context_title: question.passage?.title || question.title,
-      context: question.passage.content,
       options: subQuestion.options.map(normalizeOption),
       answer: {
         type: 'objective',
         correct: subQuestion.answer.correct,
         rationale: subQuestion.answer.rationale || '暂无解析',
       },
+      score: Number(subQuestion.score) || 1,
       difficulty: subQuestion.difficulty || question.difficulty,
       tags: [...new Set([...(question.tags || []), ...(subQuestion.tags || [])])],
-      score: Number(subQuestion.score) || 1,
-      source_type: 'reading',
     })
   })
 
-  return { items, skippedCount, skippedTypes }
+  return {
+    item: {
+      id: question.id,
+      type: 'reading',
+      prompt: question.prompt,
+      title: question.title,
+      passage: {
+        title: question.passage?.title || question.title,
+        content: question.passage.content,
+      },
+      questions: normalizedQuestions,
+      answer: {
+        type: 'objective',
+      },
+      difficulty: question.difficulty,
+      tags: question.tags || [],
+      score: normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 1), 0),
+      source_type: 'reading',
+    },
+    skippedCount,
+    skippedTypes,
+  }
 }
 
 function convertCloze(question) {
@@ -197,6 +215,28 @@ function convertTranslation(question) {
   }
 }
 
+function convertEssay(question) {
+  return {
+    id: question.id,
+    type: 'essay',
+    prompt: question.prompt || '请完成作文',
+    essay_type: question.essay_type || 'writing',
+    requirements: question.requirements || {},
+    answer: {
+      type: 'subjective',
+      reference_answer: question.answer?.reference_answer || '',
+      outline: question.answer?.outline || [],
+      scoring_rubric: question.answer?.scoring_rubric || null,
+      common_errors: question.answer?.common_errors || [],
+      ai_scoring: question.answer?.ai_scoring || { enabled: false },
+    },
+    difficulty: question.difficulty,
+    tags: question.tags || [],
+    score: Number(question.score) || 1,
+    source_type: 'essay',
+  }
+}
+
 export function normalizeQuizPayload(data) {
   if (Array.isArray(data?.items)) {
     return normalizeLegacySchema(data)
@@ -229,9 +269,14 @@ export function normalizeQuizPayload(data) {
 
     if (question.type === 'reading') {
       const result = convertReading(question)
-      items.push(...result.items)
-      skippedCount += result.skippedCount
-      skippedTypes.push(...result.skippedTypes)
+      if (result?.item) {
+        items.push(result.item)
+        skippedCount += result.skippedCount
+        skippedTypes.push(...result.skippedTypes)
+      } else {
+        skippedCount += 1
+        skippedTypes.push(question.type)
+      }
       return
     }
 
@@ -256,12 +301,18 @@ export function normalizeQuizPayload(data) {
       return
     }
 
+    if (question.type === 'essay') {
+      const converted = convertEssay(question)
+      items.push(converted)
+      return
+    }
+
     skippedCount += 1
     skippedTypes.push(question.type)
   })
 
   if (!items.length) {
-    throw new Error('当前版本暂时只能导入新版 schema 中的 single_choice、reading（单选子题）、cloze 和 translation 题目。')
+    throw new Error('当前版本暂时只能导入新版 schema 中的 single_choice、reading、cloze、translation 和 essay 题目。')
   }
 
   return {
