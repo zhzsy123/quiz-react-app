@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   FileText,
   Languages,
   Maximize2,
@@ -51,6 +53,25 @@ function renderOptionLabel(option) {
 
 function countWords(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
+}
+
+function getNavGroupMeta(item) {
+  if (item.type === 'reading') return { key: 'reading', label: '阅读理解' }
+  if (item.type === 'translation') return { key: 'translation', label: '翻译题' }
+  if (item.type === 'essay') return { key: 'essay', label: '作文题' }
+  if (item.source_type === 'cloze') return { key: 'cloze', label: '完形填空' }
+  return { key: 'single_choice', label: '单项选择' }
+}
+
+function getSpoilerTags(item) {
+  const hiddenTags = new Set()
+
+  if (item.type) hiddenTags.add(String(item.type).toLowerCase())
+  if (item.source_type) hiddenTags.add(String(item.source_type).toLowerCase())
+  if (item.direction) hiddenTags.add(String(item.direction).toLowerCase())
+  if (item.essay_type) hiddenTags.add(String(item.essay_type).toLowerCase())
+
+  return (item.tags || []).filter((tag) => !hiddenTags.has(String(tag).toLowerCase()))
 }
 
 function ReadingBlock({ item, response, submitted, onSelectReadingOption }) {
@@ -238,6 +259,8 @@ export default function QuizView({
   answers,
   submitted,
   currentIndex,
+  autoAdvance,
+  onToggleAutoAdvance,
   onJump,
   onPrev,
   onNext,
@@ -248,6 +271,45 @@ export default function QuizView({
 }) {
   const total = quiz.items.length
   const currentItem = quiz.items[currentIndex]
+  const [showSpoilerTags, setShowSpoilerTags] = useState(false)
+  const [openGroups, setOpenGroups] = useState({})
+
+  const groupedNavSections = useMemo(() => {
+    const order = ['single_choice', 'cloze', 'reading', 'translation', 'essay']
+    const map = new Map()
+
+    quiz.items.forEach((item, index) => {
+      const meta = getNavGroupMeta(item)
+      if (!map.has(meta.key)) {
+        map.set(meta.key, { ...meta, items: [] })
+      }
+      map.get(meta.key).items.push({ item, index })
+    })
+
+    return Array.from(map.values()).sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+  }, [quiz])
+
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = {}
+      groupedNavSections.forEach((section) => {
+        next[section.key] = prev[section.key] ?? true
+      })
+      return next
+    })
+  }, [groupedNavSections])
+
+  useEffect(() => {
+    setShowSpoilerTags(false)
+    if (!currentItem) return
+    const currentGroupKey = getNavGroupMeta(currentItem).key
+    setOpenGroups((prev) => {
+      if (prev[currentGroupKey] === false) {
+        return { ...prev, [currentGroupKey]: true }
+      }
+      return prev
+    })
+  }, [currentItem?.id])
 
   if (!currentItem) return null
 
@@ -258,23 +320,72 @@ export default function QuizView({
   const isReading = currentItem.type === 'reading'
   const isEssay = currentItem.type === 'essay'
   const isTranslation = currentItem.type === 'translation'
+  const spoilerTags = getSpoilerTags(currentItem)
 
   return (
     <section className="quiz-layout">
-      <aside className="sidebar-card">
-        <h3>题号导航</h3>
-        <div className="nav-grid">
-          {quiz.items.map((item, index) => {
-            const answered = isAnswered(item, answers[item.id])
-            const active = index === currentIndex
+      <aside className="sidebar-card nav-sidebar">
+        <div className="sidebar-head-row">
+          <h3>题号导航</h3>
+        </div>
+
+        <div className="sidebar-tools">
+          <div className="sidebar-tool-card">
+            <div className="sidebar-tool-copy">
+              <div className="sidebar-tool-title">自动切题</div>
+              <div className="sidebar-tool-desc">选中选项后自动跳到下一题</div>
+            </div>
+            <button
+              type="button"
+              className={`toggle-switch ${autoAdvance ? 'on' : ''}`}
+              onClick={onToggleAutoAdvance}
+              aria-pressed={autoAdvance}
+            >
+              <span className="toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="nav-accordion">
+          {groupedNavSections.map((section) => {
+            const isOpen = openGroups[section.key] ?? true
             return (
-              <button
-                key={item.id}
-                className={`nav-item ${active ? 'active' : ''} ${answered ? 'answered' : ''}`}
-                onClick={() => onJump(index)}
-              >
-                {index + 1}
-              </button>
+              <div key={section.key} className="nav-group">
+                <button
+                  type="button"
+                  className={`nav-group-header ${isOpen ? 'open' : ''}`}
+                  onClick={() =>
+                    setOpenGroups((prev) => ({
+                      ...prev,
+                      [section.key]: !isOpen,
+                    }))
+                  }
+                >
+                  <div className="nav-group-title-wrap">
+                    <span className="nav-group-title">{section.label}</span>
+                    <span className="nav-group-count">{section.items.length}</span>
+                  </div>
+                  {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {isOpen && (
+                  <div className="nav-group-grid">
+                    {section.items.map(({ item, index }) => {
+                      const answered = isAnswered(item, answers[item.id])
+                      const active = index === currentIndex
+                      return (
+                        <button
+                          key={item.id}
+                          className={`nav-item ${active ? 'active' : ''} ${answered ? 'answered' : ''}`}
+                          onClick={() => onJump(index)}
+                        >
+                          {index + 1}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
@@ -285,12 +396,24 @@ export default function QuizView({
           <div className="question-top">
             <div className="question-meta">
               <span className="tag">第 {currentIndex + 1} 题</span>
-              {currentItem.tags?.map((tag) => (
-                <span key={tag} className="tag blue">{tag}</span>
-              ))}
               {isTranslation && <span className="tag purple">{currentItem.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span>}
               {isEssay && <span className="tag purple">作文</span>}
               {isReading && <span className="tag purple">阅读理解</span>}
+
+              {spoilerTags.length > 0 && (
+                <button
+                  type="button"
+                  className={`spoiler-toggle ${showSpoilerTags ? 'open' : ''}`}
+                  onClick={() => setShowSpoilerTags((value) => !value)}
+                >
+                  <span>{showSpoilerTags ? '隐藏考点' : '考点'}</span>
+                  {showSpoilerTags ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+              )}
+
+              {showSpoilerTags && spoilerTags.map((tag) => (
+                <span key={tag} className="tag spoiler-tag">{tag}</span>
+              ))}
             </div>
             {currentItem.difficulty && (
               <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>

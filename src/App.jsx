@@ -12,6 +12,8 @@ import {
 } from './utils/storage'
 import { normalizeQuizPayload } from './utils/normalizeQuizSchema'
 
+const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
+
 function isNonEmptyText(value) {
   return typeof value === 'string' && value.trim().length > 0
 }
@@ -64,6 +66,18 @@ function App() {
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [autoAdvance, setAutoAdvance] = useState(true)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(AUTO_ADVANCE_KEY)
+      if (stored !== null) {
+        setAutoAdvance(stored === 'true')
+      }
+    } catch {
+      // ignore browser storage errors
+    }
+  }, [])
 
   useEffect(() => {
     const last = loadLastQuizRaw()
@@ -109,6 +123,18 @@ function App() {
       currentIndex: next.currentIndex,
       updatedAt: Date.now(),
       title: quiz.title || '未命名试卷',
+    })
+  }
+
+  const handleToggleAutoAdvance = () => {
+    setAutoAdvance((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(AUTO_ADVANCE_KEY, String(next))
+      } catch {
+        // ignore browser storage errors
+      }
+      return next
     })
   }
 
@@ -184,10 +210,14 @@ function App() {
       ...answers,
       [questionId]: optionLetter,
     }
-    const nextIndex = currentIndex < quiz.items.length - 1 ? currentIndex + 1 : currentIndex
+    const nextIndex = autoAdvance && currentIndex < quiz.items.length - 1
+      ? currentIndex + 1
+      : currentIndex
 
     setAnswers(nextAnswers)
-    setCurrentIndex(nextIndex)
+    if (nextIndex !== currentIndex) {
+      setCurrentIndex(nextIndex)
+    }
 
     persist({
       answers: nextAnswers,
@@ -198,12 +228,27 @@ function App() {
   }
 
   const handleSelectReadingOption = (questionId, subQuestionId, optionLetter) => {
-    if (submitted) return
+    if (submitted || !quiz?.items?.length) return
 
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'reading' || currentItem.id !== questionId) return
+
+    const previousItemResponse = answers[questionId] || {}
     const nextItemResponse = {
-      ...(answers[questionId] || {}),
+      ...previousItemResponse,
       [subQuestionId]: optionLetter,
     }
+
+    const previousAnsweredCount = currentItem.questions.filter((question) => isNonEmptyText(previousItemResponse[question.id])).length
+    const nextAnsweredCount = currentItem.questions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
+
+    const shouldAdvance =
+      autoAdvance &&
+      previousAnsweredCount < currentItem.questions.length &&
+      nextAnsweredCount === currentItem.questions.length &&
+      currentIndex < quiz.items.length - 1
+
+    const nextIndex = shouldAdvance ? currentIndex + 1 : currentIndex
 
     const nextAnswers = {
       ...answers,
@@ -211,11 +256,15 @@ function App() {
     }
 
     setAnswers(nextAnswers)
+    if (shouldAdvance) {
+      setCurrentIndex(nextIndex)
+    }
+
     persist({
       answers: nextAnswers,
       submitted,
       score,
-      currentIndex,
+      currentIndex: nextIndex,
     })
   }
 
@@ -333,6 +382,8 @@ function App() {
             answers={answers}
             submitted={submitted}
             currentIndex={currentIndex}
+            autoAdvance={autoAdvance}
+            onToggleAutoAdvance={handleToggleAutoAdvance}
             onJump={handleJump}
             onPrev={handlePrev}
             onNext={handleNext}
