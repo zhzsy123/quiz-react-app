@@ -23,7 +23,7 @@ button, input, label, textarea { font: inherit; }
 button { border: none; }
 
 .app-shell { padding: 24px; }
-.container { max-width: 1200px; margin: 0 auto; }
+.container { max-width: 1280px; margin: 0 auto; }
 .hero-card, .score-card, .sidebar-card, .question-card {
   background: rgba(17, 24, 39, 0.95);
   border: 1px solid var(--border);
@@ -233,11 +233,13 @@ button { border: none; }
 
 .reading-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(360px, 1fr);
+  gap: 20px;
+  align-items: start;
 }
 .reading-passage-card,
 .reading-questions-card {
+  min-width: 0;
   padding: 18px;
   border-radius: 16px;
   background: rgba(15,23,42,0.72);
@@ -254,8 +256,19 @@ button { border: none; }
 }
 .reading-passage-body {
   color: #f8fafc;
-  line-height: 1.85;
+  font-size: 1.02rem;
+  line-height: 1.95;
   white-space: pre-wrap;
+  max-height: 72vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+.reading-passage-body::-webkit-scrollbar {
+  width: 8px;
+}
+.reading-passage-body::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.35);
+  border-radius: 999px;
 }
 .reading-question-list {
   display: flex;
@@ -330,6 +343,11 @@ button { border: none; }
 @media (max-width: 1100px) {
   .reading-layout {
     grid-template-columns: 1fr;
+  }
+  .reading-passage-body {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 }
 
