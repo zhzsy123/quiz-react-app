@@ -10,11 +10,12 @@ import {
   Filter,
   ListChecks,
   Pencil,
+  Trash2,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { listAttempts } from '../utils/indexedDb'
-import { updateAttemptRecord } from '../utils/attemptRecords'
+import { deleteAttemptRecord, updateAttemptRecord } from '../utils/attemptRecords'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
 
 function Sparkline({ values }) {
@@ -176,6 +177,16 @@ export default function HistoryPageV2() {
     await refreshAttempts()
   }
 
+  const handleDeleteAttempt = async (attempt) => {
+    const ok = window.confirm(`确定删除这条历史记录吗？\n《${attemptDisplayTitle(attempt)}》`)
+    if (!ok) return
+    await deleteAttemptRecord(attempt.id)
+    if (expandedAttemptId === attempt.id) {
+      setExpandedAttemptId(null)
+    }
+    await refreshAttempts()
+  }
+
   return (
     <div className="app-shell">
       <div className="container dashboard-page">
@@ -188,7 +199,7 @@ export default function HistoryPageV2() {
               <Link className="secondary-btn small-btn" to="/wrong-book"><BookX size={16} /> 打开错题本</Link>
             </div>
           </div>
-          <p>当前档案：{activeProfile?.name || '未命名档案'}。本页展示本地持久化的历史考试记录、趋势和分科目概览，也支持编辑记录名称与备注，并查看当次作答详情。</p>
+          <p>当前档案：{activeProfile?.name || '未命名档案'}。本页展示本地持久化的历史考试记录、趋势和分科目概览，也支持编辑记录名称、备注、删除记录，并查看当次作答详情。</p>
         </section>
 
         <section className="profile-card compact-card">
@@ -288,6 +299,9 @@ export default function HistoryPageV2() {
                       >
                         {expanded ? <EyeOff size={14} /> : <Eye size={14} />}
                         {expanded ? '收起作答' : '查看作答'}
+                      </button>
+                      <button className="danger-btn small-btn" onClick={() => handleDeleteAttempt(attempt)}>
+                        <Trash2 size={14} /> 删除记录
                       </button>
                       {subjectMeta.route && (
                         <Link className="secondary-btn small-btn" to={subjectMeta.route}>进入该模块</Link>

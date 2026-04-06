@@ -1,14 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Clock3,
   FileText,
   Languages,
   Maximize2,
   Minimize2,
+  Pause,
+  Play,
   XCircle,
 } from 'lucide-react'
 
@@ -55,6 +58,13 @@ function countWords(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
 }
 
+function formatRemainingSeconds(totalSeconds) {
+  const safeSeconds = Math.max(0, totalSeconds)
+  const minutes = Math.floor(safeSeconds / 60)
+  const seconds = safeSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 function getNavGroupMeta(item) {
   if (item.type === 'reading') return { key: 'reading', label: '阅读理解' }
   if (item.type === 'translation') return { key: 'translation', label: '翻译题' }
@@ -74,9 +84,31 @@ function getSpoilerTags(item) {
   return (item.tags || []).filter((tag) => !hiddenTags.has(String(tag).toLowerCase()))
 }
 
-function ReadingBlock({ item, response, submitted, onSelectReadingOption }) {
+function isObjectiveWrong(item, response) {
+  if (!item || item.answer?.type !== 'objective') return false
+  return Boolean(response) && response !== item.answer?.correct
+}
+
+function ReadingBlock({
+  item,
+  response,
+  submitted,
+  isPaused,
+  focusSubQuestionId,
+  onFocusSubQuestion,
+  onSelectReadingOption,
+}) {
   const [immersiveReading, setImmersiveReading] = useState(false)
   const readingResponse = response || {}
+  const questionRefs = useRef({})
+
+  useEffect(() => {
+    if (!focusSubQuestionId) return
+    const target = questionRefs.current[focusSubQuestionId]
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [focusSubQuestionId])
 
   return (
     <div className={`reading-layout ${immersiveReading ? 'immersive' : ''}`}>
@@ -91,6 +123,7 @@ function ReadingBlock({ item, response, submitted, onSelectReadingOption }) {
             type="button"
             className="reading-mode-btn"
             onClick={() => setImmersiveReading((value) => !value)}
+            disabled={isPaused}
           >
             {immersiveReading ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             {immersiveReading ? '退出沉浸' : '沉浸阅读'}
@@ -112,8 +145,15 @@ function ReadingBlock({ item, response, submitted, onSelectReadingOption }) {
         <div className="reading-question-list">
           {item.questions.map((subQuestion, subIndex) => {
             const userAnswer = readingResponse[subQuestion.id]
+            const isFocused = focusSubQuestionId === subQuestion.id
             return (
-              <div key={subQuestion.id} className="reading-question-item">
+              <div
+                key={subQuestion.id}
+                ref={(node) => {
+                  questionRefs.current[subQuestion.id] = node
+                }}
+                className={`reading-question-item ${isFocused ? 'focused' : ''}`}
+              >
                 <div className="reading-question-title">
                   <span className="tag">第 {subIndex + 1} 小题</span>
                   <span>{subQuestion.prompt}</span>
@@ -141,7 +181,11 @@ function ReadingBlock({ item, response, submitted, onSelectReadingOption }) {
                       <button
                         key={optionIndex}
                         className={className}
-                        onClick={() => onSelectReadingOption(item.id, subQuestion.id, option.key)}
+                        disabled={submitted || isPaused}
+                        onClick={() => {
+                          onFocusSubQuestion(subQuestion.id)
+                          onSelectReadingOption(item.id, subQuestion.id, option.key)
+                        }}
                       >
                         <span>{renderOptionLabel(option)}</span>
                         {icon}
@@ -167,7 +211,7 @@ function ReadingBlock({ item, response, submitted, onSelectReadingOption }) {
   )
 }
 
-function TranslationBlock({ item, userResponse, submitted, onTextChange }) {
+function TranslationBlock({ item, userResponse, submitted, isPaused, onTextChange }) {
   return (
     <div className="subjective-block translation-card">
       <div className="translation-source-meta">
@@ -181,7 +225,7 @@ function TranslationBlock({ item, userResponse, submitted, onTextChange }) {
         className="subjective-textarea"
         value={getSubjectiveText(userResponse)}
         onChange={(e) => onTextChange(item.id, e.target.value)}
-        disabled={submitted}
+        disabled={submitted || isPaused}
         placeholder="请在这里输入你的翻译答案"
         rows={6}
         spellCheck={false}
@@ -198,7 +242,7 @@ function TranslationBlock({ item, userResponse, submitted, onTextChange }) {
   )
 }
 
-function EssayBlock({ item, userResponse, submitted, onTextChange }) {
+function EssayBlock({ item, userResponse, submitted, isPaused, onTextChange }) {
   const text = getSubjectiveText(userResponse)
   const wordCount = countWords(text)
   const minWords = item.requirements?.min_words || 0
@@ -237,7 +281,7 @@ function EssayBlock({ item, userResponse, submitted, onTextChange }) {
         className="subjective-textarea essay-textarea"
         value={text}
         onChange={(e) => onTextChange(item.id, e.target.value)}
-        disabled={submitted}
+        disabled={submitted || isPaused}
         placeholder="请在这里输入作文内容"
         rows={12}
         spellCheck={false}
@@ -260,7 +304,10 @@ export default function QuizView({
   submitted,
   currentIndex,
   autoAdvance,
+  remainingSeconds,
+  isPaused,
   onToggleAutoAdvance,
+  onTogglePause,
   onJump,
   onPrev,
   onNext,
@@ -273,6 +320,7 @@ export default function QuizView({
   const currentItem = quiz.items[currentIndex]
   const [showSpoilerTags, setShowSpoilerTags] = useState(false)
   const [openGroups, setOpenGroups] = useState({})
+  const [focusedReadingQuestion, setFocusedReadingQuestion] = useState(null)
 
   const groupedNavSections = useMemo(() => {
     const order = ['single_choice', 'cloze', 'reading', 'translation', 'essay']
@@ -309,6 +357,18 @@ export default function QuizView({
       }
       return prev
     })
+
+    if (currentItem.type === 'reading') {
+      setFocusedReadingQuestion((prev) => {
+        if (prev?.itemId === currentItem.id && prev?.subQuestionId) return prev
+        return {
+          itemId: currentItem.id,
+          subQuestionId: currentItem.questions?.[0]?.id || null,
+        }
+      })
+    } else {
+      setFocusedReadingQuestion(null)
+    }
   }, [currentItem?.id])
 
   if (!currentItem) return null
@@ -326,10 +386,30 @@ export default function QuizView({
     <section className="quiz-layout">
       <aside className="sidebar-card nav-sidebar">
         <div className="sidebar-head-row">
-          <h3>题号导航</h3>
+          <h3>题目导航</h3>
         </div>
 
         <div className="sidebar-tools">
+          <div className="sidebar-tool-card timer-tool-card">
+            <div className="sidebar-tool-copy">
+              <div className="sidebar-tool-title">模考计时器</div>
+              <div className="sidebar-tool-desc">总时长 90 分钟，暂停后将冻结答题</div>
+            </div>
+            <div className={`sidebar-timer-value ${remainingSeconds <= 300 ? 'danger' : ''}`}>
+              <Clock3 size={16} />
+              <strong>{formatRemainingSeconds(remainingSeconds)}</strong>
+            </div>
+            <button
+              type="button"
+              className="secondary-btn small-btn full-width-btn"
+              onClick={onTogglePause}
+              disabled={submitted}
+            >
+              {isPaused ? <Play size={14} /> : <Pause size={14} />}
+              {isPaused ? '继续答题' : '暂停答题'}
+            </button>
+          </div>
+
           <div className="sidebar-tool-card">
             <div className="sidebar-tool-copy">
               <div className="sidebar-tool-title">自动切题</div>
@@ -340,6 +420,7 @@ export default function QuizView({
               className={`toggle-switch ${autoAdvance ? 'on' : ''}`}
               onClick={onToggleAutoAdvance}
               aria-pressed={autoAdvance}
+              disabled={isPaused}
             >
               <span className="toggle-knob" />
             </button>
@@ -349,6 +430,10 @@ export default function QuizView({
         <div className="nav-accordion">
           {groupedNavSections.map((section) => {
             const isOpen = openGroups[section.key] ?? true
+            const displayCount = section.key === 'reading'
+              ? section.items.reduce((sum, { item }) => sum + (item.questions?.length || 0), 0)
+              : section.items.length
+
             return (
               <div key={section.key} className="nav-group">
                 <button
@@ -363,21 +448,52 @@ export default function QuizView({
                 >
                   <div className="nav-group-title-wrap">
                     <span className="nav-group-title">{section.label}</span>
-                    <span className="nav-group-count">{section.items.length}</span>
+                    <span className="nav-group-count">{displayCount}</span>
                   </div>
                   {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
 
                 {isOpen && (
-                  <div className="nav-group-grid">
+                  <div className={`nav-group-grid ${section.key === 'reading' ? 'reading-nav-grid' : ''}`}>
                     {section.items.map(({ item, index }) => {
+                      if (section.key === 'reading') {
+                        const readingResponse = answers[item.id] || {}
+                        return item.questions.map((question, subIndex) => {
+                          const answered = typeof readingResponse[question.id] === 'string' && readingResponse[question.id].length > 0
+                          const wrong = submitted && answered && readingResponse[question.id] !== question.answer?.correct
+                          const active =
+                            index === currentIndex &&
+                            focusedReadingQuestion?.itemId === item.id &&
+                            focusedReadingQuestion?.subQuestionId === question.id
+
+                          return (
+                            <button
+                              key={question.id}
+                              className={`nav-item nav-sub-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`}
+                              onClick={() => {
+                                if (isPaused) return
+                                setFocusedReadingQuestion({ itemId: item.id, subQuestionId: question.id })
+                                onJump(index)
+                              }}
+                              disabled={isPaused}
+                              title={question.prompt}
+                            >
+                              {index + 1}-{subIndex + 1}
+                            </button>
+                          )
+                        })
+                      }
+
                       const answered = isAnswered(item, answers[item.id])
                       const active = index === currentIndex
+                      const wrong = submitted && isObjectiveWrong(item, answers[item.id])
+
                       return (
                         <button
                           key={item.id}
-                          className={`nav-item ${active ? 'active' : ''} ${answered ? 'answered' : ''}`}
+                          className={`nav-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`}
                           onClick={() => onJump(index)}
+                          disabled={isPaused}
                         >
                           {index + 1}
                         </button>
@@ -393,6 +509,12 @@ export default function QuizView({
 
       <div className="question-list">
         <article className="question-card current">
+          {isPaused && !submitted && (
+            <div className="paused-banner">
+              答题已暂停，计时器已冻结。点击左侧“继续答题”后恢复操作。
+            </div>
+          )}
+
           <div className="question-top">
             <div className="question-meta">
               <span className="tag">第 {currentIndex + 1} 题</span>
@@ -439,6 +561,9 @@ export default function QuizView({
               item={currentItem}
               response={userResponse}
               submitted={submitted}
+              isPaused={isPaused}
+              focusSubQuestionId={focusedReadingQuestion?.itemId === currentItem.id ? focusedReadingQuestion?.subQuestionId : null}
+              onFocusSubQuestion={(subQuestionId) => setFocusedReadingQuestion({ itemId: currentItem.id, subQuestionId })}
               onSelectReadingOption={onSelectReadingOption}
             />
           ) : !isSubjective ? (
@@ -466,6 +591,7 @@ export default function QuizView({
                   <button
                     key={optIndex}
                     className={className}
+                    disabled={submitted || isPaused}
                     onClick={() => onSelectOption(currentItem.id, option.key)}
                   >
                     <span>{renderOptionLabel(option)}</span>
@@ -479,6 +605,7 @@ export default function QuizView({
               item={currentItem}
               userResponse={userResponse}
               submitted={submitted}
+              isPaused={isPaused}
               onTextChange={onTextChange}
             />
           ) : (
@@ -486,6 +613,7 @@ export default function QuizView({
               item={currentItem}
               userResponse={userResponse}
               submitted={submitted}
+              isPaused={isPaused}
               onTextChange={onTextChange}
             />
           )}
@@ -580,18 +708,18 @@ export default function QuizView({
           )}
 
           <div className="question-actions">
-            <button className="secondary-btn" onClick={onPrev} disabled={isFirst}>
+            <button className="secondary-btn" onClick={onPrev} disabled={isFirst || isPaused}>
               <ChevronLeft size={16} />
               上一题
             </button>
 
             {!submitted ? (
               isLast ? (
-                <button className="submit-btn small-submit-btn" onClick={onSubmit}>
+                <button className="submit-btn small-submit-btn" onClick={() => onSubmit()} disabled={isPaused}>
                   交卷并查看解析
                 </button>
               ) : (
-                <button className="secondary-btn" onClick={onNext}>
+                <button className="secondary-btn" onClick={onNext} disabled={isPaused}>
                   下一题
                   <ChevronRight size={16} />
                 </button>
@@ -607,7 +735,7 @@ export default function QuizView({
 
         {!submitted && total > 0 && !isLast && (
           <div className="submit-wrap">
-            <button className="submit-btn" onClick={onSubmit}>
+            <button className="submit-btn" onClick={() => onSubmit()} disabled={isPaused}>
               交卷并查看解析
             </button>
           </div>

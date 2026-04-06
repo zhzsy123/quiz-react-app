@@ -1,11 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
   FolderOpen,
   History,
+  Pause,
   Pencil,
+  Play,
   RefreshCw,
   Tags,
+  TimerReset,
   Trash2,
   UserCircle2,
 } from 'lucide-react'
@@ -30,6 +36,7 @@ import {
 
 const SUBJECT_KEY = 'english'
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
+const DEFAULT_DURATION_SECONDS = 90 * 60
 
 function isNonEmptyText(value) {
   return typeof value === 'string' && value.trim().length > 0
@@ -132,6 +139,7 @@ function buildWrongItems(items, answers, meta) {
           paperId: meta.paperId,
           paperTitle: meta.paperTitle,
           parentType: 'reading',
+          sourceType: 'reading',
           type: question.type || 'single_choice',
           questionId: item.id,
           subQuestionId: question.id,
@@ -161,6 +169,7 @@ function buildWrongItems(items, answers, meta) {
       subject: meta.subject,
       paperId: meta.paperId,
       paperTitle: meta.paperTitle,
+      sourceType: item.source_type || item.type,
       type: item.type,
       questionId: item.id,
       prompt: item.prompt,
@@ -180,6 +189,13 @@ function buildWrongItems(items, answers, meta) {
   return wrongItems
 }
 
+function formatRemainingSeconds(totalSeconds) {
+  const safeSeconds = Math.max(0, totalSeconds)
+  const minutes = Math.floor(safeSeconds / 60)
+  const seconds = safeSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 export default function EnglishExamPageV2() {
   const { activeProfile } = useAppContext()
   const [quiz, setQuiz] = useState(null)
@@ -191,6 +207,9 @@ export default function EnglishExamPageV2() {
   const [autoAdvance, setAutoAdvance] = useState(true)
   const [libraryEntries, setLibraryEntries] = useState([])
   const [libraryLoading, setLibraryLoading] = useState(false)
+  const [showLibraryPanel, setShowLibraryPanel] = useState(true)
+  const [remainingSeconds, setRemainingSeconds] = useState(DEFAULT_DURATION_SECONDS)
+  const [isPaused, setIsPaused] = useState(false)
 
   useEffect(() => {
     try {
@@ -229,11 +248,26 @@ export default function EnglishExamPageV2() {
     }
   }
 
+  const persist = async (next) => {
+    if (!paperId || !quiz || !activeProfile?.id) return
+    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, paperId, {
+      answers: next.answers,
+      submitted: next.submitted,
+      score: next.score,
+      currentIndex: next.currentIndex,
+      timerSecondsRemaining: next.remainingSeconds,
+      isPaused: next.isPaused,
+      updatedAt: Date.now(),
+      title: quiz.title || '未命名试卷',
+    })
+  }
+
   const applyQuizState = async (parsed, rawText) => {
     if (!activeProfile?.id) return
     const nextPaperId = buildPaperId(rawText)
     setQuiz(parsed)
     setPaperId(nextPaperId)
+    setSubmitted(false)
     await saveLastOpenedPaper(activeProfile.id, SUBJECT_KEY, rawText)
 
     const progress = await loadProgressRecord(activeProfile.id, SUBJECT_KEY, nextPaperId)
@@ -242,16 +276,22 @@ export default function EnglishExamPageV2() {
       setSubmitted(Boolean(progress.submitted))
       setScore(progress.score || 0)
       setCurrentIndex(Math.max(0, Math.min(progress.currentIndex || 0, parsed.items.length - 1)))
+      setRemainingSeconds(typeof progress.timerSecondsRemaining === 'number' ? progress.timerSecondsRemaining : DEFAULT_DURATION_SECONDS)
+      setIsPaused(Boolean(progress.isPaused))
     } else {
       setAnswers({})
       setSubmitted(false)
       setScore(0)
       setCurrentIndex(0)
+      setRemainingSeconds(DEFAULT_DURATION_SECONDS)
+      setIsPaused(false)
       await saveProgressRecord(activeProfile.id, SUBJECT_KEY, nextPaperId, {
         answers: {},
         submitted: false,
         score: 0,
         currentIndex: 0,
+        timerSecondsRemaining: DEFAULT_DURATION_SECONDS,
+        isPaused: false,
         updatedAt: Date.now(),
         title: parsed.title || '未命名试卷',
       })
@@ -272,6 +312,8 @@ export default function EnglishExamPageV2() {
         setSubmitted(false)
         setScore(0)
         setCurrentIndex(0)
+        setRemainingSeconds(DEFAULT_DURATION_SECONDS)
+        setIsPaused(false)
         return
       }
 
@@ -288,6 +330,8 @@ export default function EnglishExamPageV2() {
           setSubmitted(false)
           setScore(0)
           setCurrentIndex(0)
+          setRemainingSeconds(DEFAULT_DURATION_SECONDS)
+          setIsPaused(false)
         }
       }
     }
@@ -299,17 +343,85 @@ export default function EnglishExamPageV2() {
     }
   }, [activeProfile?.id])
 
-  const persist = async (next) => {
-    if (!paperId || !quiz || !activeProfile?.id) return
-    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, paperId, {
-      answers: next.answers,
-      submitted: next.submitted,
-      score: next.score,
-      currentIndex: next.currentIndex,
-      updatedAt: Date.now(),
-      title: quiz.title || '未命名试卷',
+  useEffect(() => {
+    if (!quiz || submitted || isPaused || remainingSeconds <= 0) return
+
+    const timer = window.setInterval(() => {
+      setRemainingSeconds((value) => Math.max(0, value - 1))
+    }, 1000)
+
+    return () => window.clearInterval(timer)
+  }, [quiz, submitted, isPaused, remainingSeconds])
+
+  useEffect(() => {
+    if (!quiz || !paperId || !activeProfile?.id) return
+    if (submitted) {
+      void persist({ answers, submitted, score, currentIndex, remainingSeconds, isPaused })
+      return
+    }
+    if (isPaused || remainingSeconds % 5 === 0) {
+      void persist({ answers, submitted, score, currentIndex, remainingSeconds, isPaused })
+    }
+  }, [remainingSeconds, isPaused, submitted, currentIndex, paperId, quiz, activeProfile?.id])
+
+  const handleSubmit = async (options = {}) => {
+    if (!quiz?.items?.length || !activeProfile?.id) return
+    const { force = false } = options
+
+    if (!force && answeredCount < totalQuestions) {
+      const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
+      if (!ok) return
+    }
+
+    const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
+    const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
+    const submittedAt = Date.now()
+    const wrongItems = buildWrongItems(quiz.items, answers, {
+      subject: SUBJECT_KEY,
+      paperId,
+      paperTitle: quiz.title || '未命名试卷',
     })
+
+    setScore(nextScore)
+    setSubmitted(true)
+    setIsPaused(false)
+
+    await persist({
+      answers,
+      submitted: true,
+      score: nextScore,
+      currentIndex,
+      remainingSeconds,
+      isPaused: false,
+    })
+
+    await saveAttemptRecord({
+      profileId: activeProfile.id,
+      subject: SUBJECT_KEY,
+      paperId,
+      title: quiz.title || '未命名试卷',
+      objectiveScore: nextScore,
+      objectiveTotal: objectiveTotalScore,
+      questionCount: totalQuestions,
+      answeredCount,
+      wrongCount,
+      submittedAt,
+      answersSnapshot: answers,
+      itemsSnapshot: quiz.items,
+      wrongItems,
+      subjectiveCount,
+      timerSecondsRemaining: remainingSeconds,
+      durationSeconds: DEFAULT_DURATION_SECONDS,
+    })
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    if (!quiz || submitted) return
+    if (remainingSeconds !== 0) return
+    void handleSubmit({ force: true })
+  }, [remainingSeconds, quiz, submitted])
 
   const handleToggleAutoAdvance = () => {
     setAutoAdvance((prev) => {
@@ -321,6 +433,13 @@ export default function EnglishExamPageV2() {
       }
       return next
     })
+  }
+
+  const handleTogglePause = () => {
+    if (!quiz || submitted) return
+    const nextPaused = !isPaused
+    setIsPaused(nextPaused)
+    void persist({ answers, submitted, score, currentIndex, remainingSeconds, isPaused: nextPaused })
   }
 
   const handleQuizLoaded = async ({ parsed, rawText }) => {
@@ -374,41 +493,27 @@ export default function EnglishExamPageV2() {
   }
 
   const handleJump = (index) => {
+    if (isPaused) return
     setCurrentIndex(index)
-    void persist({
-      answers,
-      submitted,
-      score,
-      currentIndex: index,
-    })
+    void persist({ answers, submitted, score, currentIndex: index, remainingSeconds, isPaused })
   }
 
   const handlePrev = () => {
-    if (currentIndex <= 0) return
+    if (isPaused || currentIndex <= 0) return
     const nextIndex = currentIndex - 1
     setCurrentIndex(nextIndex)
-    void persist({
-      answers,
-      submitted,
-      score,
-      currentIndex: nextIndex,
-    })
+    void persist({ answers, submitted, score, currentIndex: nextIndex, remainingSeconds, isPaused })
   }
 
   const handleNext = () => {
-    if (!quiz?.items?.length || currentIndex >= quiz.items.length - 1) return
+    if (isPaused || !quiz?.items?.length || currentIndex >= quiz.items.length - 1) return
     const nextIndex = currentIndex + 1
     setCurrentIndex(nextIndex)
-    void persist({
-      answers,
-      submitted,
-      score,
-      currentIndex: nextIndex,
-    })
+    void persist({ answers, submitted, score, currentIndex: nextIndex, remainingSeconds, isPaused })
   }
 
   const handleSelectOption = (questionId, optionLetter) => {
-    if (submitted || !quiz?.items?.length) return
+    if (submitted || isPaused || !quiz?.items?.length) return
 
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type === 'reading' || currentItem?.answer?.type !== 'objective') return
@@ -429,11 +534,13 @@ export default function EnglishExamPageV2() {
       submitted,
       score,
       currentIndex: nextIndex,
+      remainingSeconds,
+      isPaused,
     })
   }
 
   const handleSelectReadingOption = (questionId, subQuestionId, optionLetter) => {
-    if (submitted || !quiz?.items?.length) return
+    if (submitted || isPaused || !quiz?.items?.length) return
 
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'reading' || currentItem.id !== questionId) return
@@ -470,11 +577,13 @@ export default function EnglishExamPageV2() {
       submitted,
       score,
       currentIndex: nextIndex,
+      remainingSeconds,
+      isPaused,
     })
   }
 
   const handleTextResponse = (questionId, text) => {
-    if (submitted) return
+    if (submitted || isPaused) return
 
     const nextAnswers = {
       ...answers,
@@ -487,54 +596,9 @@ export default function EnglishExamPageV2() {
       submitted,
       score,
       currentIndex,
+      remainingSeconds,
+      isPaused,
     })
-  }
-
-  const handleSubmit = async () => {
-    if (!quiz?.items?.length || !activeProfile?.id) return
-
-    if (answeredCount < totalQuestions) {
-      const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
-      if (!ok) return
-    }
-
-    const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
-    const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
-    const submittedAt = Date.now()
-    const wrongItems = buildWrongItems(quiz.items, answers, {
-      subject: SUBJECT_KEY,
-      paperId,
-      paperTitle: quiz.title || '未命名试卷',
-    })
-
-    setScore(nextScore)
-    setSubmitted(true)
-
-    await persist({
-      answers,
-      submitted: true,
-      score: nextScore,
-      currentIndex,
-    })
-
-    await saveAttemptRecord({
-      profileId: activeProfile.id,
-      subject: SUBJECT_KEY,
-      paperId,
-      title: quiz.title || '未命名试卷',
-      objectiveScore: nextScore,
-      objectiveTotal: objectiveTotalScore,
-      questionCount: totalQuestions,
-      answeredCount,
-      wrongCount,
-      submittedAt,
-      answersSnapshot: answers,
-      itemsSnapshot: quiz.items,
-      wrongItems,
-      subjectiveCount,
-    })
-
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleResetCurrentPaper = async () => {
@@ -543,12 +607,16 @@ export default function EnglishExamPageV2() {
     setSubmitted(false)
     setScore(0)
     setCurrentIndex(0)
+    setRemainingSeconds(DEFAULT_DURATION_SECONDS)
+    setIsPaused(false)
     await clearProgressRecord(activeProfile.id, SUBJECT_KEY, paperId)
     await saveProgressRecord(activeProfile.id, SUBJECT_KEY, paperId, {
       answers: {},
       submitted: false,
       score: 0,
       currentIndex: 0,
+      timerSecondsRemaining: DEFAULT_DURATION_SECONDS,
+      isPaused: false,
       updatedAt: Date.now(),
       title: quiz?.title || '未命名试卷',
     })
@@ -563,7 +631,7 @@ export default function EnglishExamPageV2() {
             <div className="hero-icon">
               <UserCircle2 size={30} />
             </div>
-            <h1>英语在线模拟考试 V1.0</h1>
+            <h1>英语模考系统 V2.0</h1>
             <p>正在加载本地档案...</p>
           </section>
         </div>
@@ -578,60 +646,81 @@ export default function EnglishExamPageV2() {
           <div className="hero-icon">
             <BookOpen size={30} />
           </div>
-          <h1>英语在线模拟考试 V1.0</h1>
+          <h1>英语模考系统 V2.0</h1>
           <p>
-            导入 JSON 试卷即可开始刷题。支持自动保存进度、刷新恢复、交卷后查看解析。
+            导入 JSON 试卷即可开始刷题。支持 90 分钟计时、暂停答题、自动保存进度、刷新恢复与交卷后查看解析。
           </p>
 
-          <div className="profile-inline-bar">
+          <div className="profile-inline-bar exam-top-toolbar">
             <div className="profile-inline-badge">
               <UserCircle2 size={16} />
               当前本地档案：{activeProfile.name}
             </div>
+            <div className={`timer-chip ${remainingSeconds <= 300 ? 'danger' : ''}`}>
+              <Clock3 size={16} />
+              剩余时间：{formatRemainingSeconds(remainingSeconds)}
+            </div>
+            <button className="secondary-btn small-btn" onClick={handleTogglePause} disabled={!quiz || submitted}>
+              {isPaused ? <Play size={14} /> : <Pause size={14} />}
+              {isPaused ? '继续答题' : '暂停答题'}
+            </button>
+            <button className="secondary-btn small-btn" onClick={handleResetCurrentPaper} disabled={!quiz}>
+              <TimerReset size={14} /> 重置本卷
+            </button>
             <Link to="/" className="secondary-btn small-btn">返回仪表盘</Link>
           </div>
 
           <QuizImporter onQuizLoaded={handleQuizLoaded} />
         </section>
 
-        <section className="local-library-panel">
+        <section className="local-library-panel collapsible-panel">
           <div className="section-header-row">
             <h2><FolderOpen size={18} /> 从本地历史文件导入</h2>
-            <span className="section-header-tip">{libraryEntries.length} 份本地题库</span>
+            <div className="collapsible-panel-actions">
+              <span className="section-header-tip">{libraryEntries.length} 份本地题库</span>
+              <button className="secondary-btn small-btn" onClick={() => setShowLibraryPanel((value) => !value)}>
+                {showLibraryPanel ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {showLibraryPanel ? '收起' : '展开'}
+              </button>
+            </div>
           </div>
 
-          {libraryLoading ? (
-            <div className="local-library-empty">正在加载本地题库...</div>
-          ) : libraryEntries.length === 0 ? (
-            <div className="local-library-empty">当前档案还没有本地题库。先导入一份 JSON/TXT 试卷，系统会自动写入本地文件库。</div>
-          ) : (
-            <div className="local-library-list">
-              {libraryEntries.map((entry) => (
-                <article key={entry.id} className="local-library-item">
-                  <div className="local-library-main">
-                    <div className="local-library-title">{entry.title}</div>
-                    <div className="local-library-meta">
-                      <span><History size={14} /> {new Date(entry.updatedAt).toLocaleString()}</span>
-                      <span>题量：{entry.questionCount || '--'}</span>
-                    </div>
-                    {Array.isArray(entry.tags) && entry.tags.length > 0 && (
-                      <div className="local-library-tags">
-                        {entry.tags.map((tag) => (
-                          <span key={tag} className="tag blue">{tag}</span>
-                        ))}
+          {showLibraryPanel && (
+            <>
+              {libraryLoading ? (
+                <div className="local-library-empty">正在加载本地题库...</div>
+              ) : libraryEntries.length === 0 ? (
+                <div className="local-library-empty">当前档案还没有本地题库。先导入一份 JSON/TXT 试卷，系统会自动写入本地文件库。</div>
+              ) : (
+                <div className="local-library-list">
+                  {libraryEntries.map((entry) => (
+                    <article key={entry.id} className="local-library-item">
+                      <div className="local-library-main">
+                        <div className="local-library-title">{entry.title}</div>
+                        <div className="local-library-meta">
+                          <span><History size={14} /> {new Date(entry.updatedAt).toLocaleString()}</span>
+                          <span>题量：{entry.questionCount || '--'}</span>
+                        </div>
+                        {Array.isArray(entry.tags) && entry.tags.length > 0 && (
+                          <div className="local-library-tags">
+                            {entry.tags.map((tag) => (
+                              <span key={tag} className="tag blue">{tag}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  <div className="local-library-actions">
-                    <button className="primary-btn small-btn" onClick={() => handleImportLocalEntry(entry)}>导入</button>
-                    <button className="secondary-btn small-btn" onClick={() => handleRenameLibraryEntry(entry)}><Pencil size={14} /> 重命名</button>
-                    <button className="secondary-btn small-btn" onClick={() => handleTagLibraryEntry(entry)}><Tags size={14} /> 标签</button>
-                    <button className="danger-btn small-btn" onClick={() => handleDeleteLibraryEntry(entry)}><Trash2 size={14} /> 删除</button>
-                  </div>
-                </article>
-              ))}
-            </div>
+                      <div className="local-library-actions">
+                        <button className="primary-btn small-btn" onClick={() => handleImportLocalEntry(entry)}>导入</button>
+                        <button className="secondary-btn small-btn" onClick={() => handleRenameLibraryEntry(entry)}><Pencil size={14} /> 重命名</button>
+                        <button className="secondary-btn small-btn" onClick={() => handleTagLibraryEntry(entry)}><Tags size={14} /> 标签</button>
+                        <button className="danger-btn small-btn" onClick={() => handleDeleteLibraryEntry(entry)}><Trash2 size={14} /> 删除</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
 
@@ -657,6 +746,7 @@ export default function EnglishExamPageV2() {
             )}
 
             <p>已作答：{answeredCount} / {totalQuestions} 题</p>
+            <p>本次用时：{formatRemainingSeconds(DEFAULT_DURATION_SECONDS - remainingSeconds)}</p>
 
             {subjectiveCount > 0 && (
               <p className="score-note">
@@ -678,7 +768,10 @@ export default function EnglishExamPageV2() {
             submitted={submitted}
             currentIndex={currentIndex}
             autoAdvance={autoAdvance}
+            remainingSeconds={remainingSeconds}
+            isPaused={isPaused}
             onToggleAutoAdvance={handleToggleAutoAdvance}
+            onTogglePause={handleTogglePause}
             onJump={handleJump}
             onPrev={handlePrev}
             onNext={handleNext}

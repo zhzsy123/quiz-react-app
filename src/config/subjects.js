@@ -1,9 +1,9 @@
 export const SUBJECT_REGISTRY = [
   {
     key: 'english',
-    label: '英语在线模拟考试 V1.0',
+    label: '英语模考系统 V2.0',
     shortLabel: '英语',
-    description: '支持本地档案、历史题库、自动保存进度与交卷记录。',
+    description: '支持 90 分钟计时、断点续刷、历史记录与错题本闭环。',
     route: '/exam/english',
     isAvailable: true,
   },
