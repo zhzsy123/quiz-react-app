@@ -1,16 +1,17 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom'
 import { AppProvider } from './context/AppContext'
 import AppRouter from './router/AppRouter'
 import './index.css'
+import './system.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <HashRouter>
       <AppProvider>
         <AppRouter />
       </AppProvider>
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>
 )
