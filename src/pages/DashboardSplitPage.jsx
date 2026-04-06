@@ -53,6 +53,7 @@ export default function DashboardSplitPage() {
   } = useAppContext()
 
   const [newProfileName, setNewProfileName] = useState('')
+  const [showCreateProfile, setShowCreateProfile] = useState(false)
   const [dashboardState, setDashboardState] = useState({
     attempts: [],
     englishFiles: [],
@@ -97,22 +98,29 @@ export default function DashboardSplitPage() {
           )
         : 0
 
+      const trend = attempts
+        .slice()
+        .reverse()
+        .map((item) => (item.objectiveTotal ? Math.round((item.objectiveScore / item.objectiveTotal) * 100) : 0))
+
       return {
         ...subject,
         latest,
         averageRate,
+        trend,
         attemptCount: attempts.length,
       }
     })
   }, [dashboardState.attempts])
 
   const englishSummary = subjectSummaries.find((item) => item.key === 'english') || null
-  const activeModules = subjectSummaries.filter((item) => item.isAvailable)
   const pendingModules = subjectSummaries.filter((item) => !item.isAvailable)
+  const recentAttempts = dashboardState.attempts.slice(0, 3)
 
   const handleCreateProfile = async () => {
     await createLocalProfile(newProfileName)
     setNewProfileName('')
+    setShowCreateProfile(false)
   }
 
   const handleRenameProfile = async () => {
@@ -140,9 +148,9 @@ export default function DashboardSplitPage() {
 
   return (
     <div className="app-shell">
-      <div className="container dashboard-split-shell">
+      <div className="container dashboard-split-shell dashboard-split-shell-refined">
         <aside className="dashboard-left-rail">
-          <section className="rail-card workspace-card">
+          <section className="rail-card workspace-card compact-workspace-card">
             <div className="rail-card-head">
               <div className="rail-card-title"><User2 size={18} /> 本地工作区</div>
               {activeProfile && (
@@ -156,7 +164,18 @@ export default function DashboardSplitPage() {
               当前档案：<strong>{activeProfile?.name || '未命名档案'}</strong>
             </div>
 
-            <div className="profile-controls">
+            <div className="workspace-summary-row">
+              <div className="workspace-mini-stat">
+                <span>历史考试</span>
+                <strong>{dashboardState.attempts.length}</strong>
+              </div>
+              <div className="workspace-mini-stat">
+                <span>英语题库</span>
+                <strong>{dashboardState.englishFiles.length}</strong>
+              </div>
+            </div>
+
+            <div className="profile-controls compact-profile-controls">
               <label className="form-field">
                 <span>切换档案</span>
                 <select value={activeProfileId || ''} onChange={(e) => switchProfile(e.target.value)}>
@@ -166,40 +185,51 @@ export default function DashboardSplitPage() {
                 </select>
               </label>
 
-              <div className="profile-create-row">
-                <label className="form-field grow">
-                  <span>新建档案</span>
-                  <input
-                    value={newProfileName}
-                    onChange={(e) => setNewProfileName(e.target.value)}
-                    placeholder="输入新的本地用户名"
-                  />
-                </label>
-                <button className="primary-btn profile-create-btn" onClick={handleCreateProfile}>
-                  <Plus size={16} /> 新建
-                </button>
-              </div>
+              <button className="ghost-btn" onClick={() => setShowCreateProfile((value) => !value)}>
+                {showCreateProfile ? '收起新建档案' : '展开新建档案'}
+              </button>
+
+              {showCreateProfile && (
+                <div className="profile-create-panel">
+                  <label className="form-field grow">
+                    <span>新建档案</span>
+                    <input
+                      value={newProfileName}
+                      onChange={(e) => setNewProfileName(e.target.value)}
+                      placeholder="输入新的本地用户名"
+                    />
+                  </label>
+                  <button className="primary-btn profile-create-btn" onClick={handleCreateProfile}>
+                    <Plus size={16} /> 新建并切换
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 
-          <section className="rail-card">
-            <div className="rail-card-head">
-              <div className="rail-card-title"><BookOpen size={18} /> 核心模块</div>
-            </div>
-            <div className="module-card-stack">
-              <Link className="module-link-card active" to="/exam/english">
-                <div className="module-link-card-top">
-                  <span className="module-link-name">英语在线模拟考试 V1.0</span>
-                  <span className="module-badge">已接入</span>
-                </div>
-                <p>继续本地刷题、交卷并沉淀历史记录。</p>
-                <div className="module-link-meta">
-                  <span>历史考试 {englishSummary?.attemptCount || 0}</span>
-                  <span>题库 {dashboardState.englishFiles.length}</span>
-                </div>
-              </Link>
+          <section className="rail-card primary-task-rail">
+            <div className="rail-section-label">主任务</div>
+            <Link className="module-link-card active primary-task-card" to="/exam/english">
+              <div className="module-link-card-top">
+                <span className="module-link-name">英语在线模拟考试 V1.0</span>
+                <span className="module-badge">主入口</span>
+              </div>
+              <p>继续本地刷题、交卷并沉淀历史记录。这应该是你回到首页后最先点击的入口。</p>
+              <div className="module-link-meta">
+                <span>历史考试 {englishSummary?.attemptCount || 0}</span>
+                <span>平均率 {englishSummary?.averageRate || 0}%</span>
+              </div>
+              <div className="primary-task-footer">
+                <span>继续进入英语模块</span>
+                <ArrowRight size={16} />
+              </div>
+            </Link>
+          </section>
 
-              <Link className="module-link-card active" to="/history">
+          <section className="rail-card tools-rail">
+            <div className="rail-section-label">工具模块</div>
+            <div className="module-card-stack compact-stack">
+              <Link className="module-link-card active utility-card" to="/history">
                 <div className="module-link-card-top">
                   <span className="module-link-name">历史考试记录</span>
                   <span className="module-badge">已接入</span>
@@ -211,7 +241,7 @@ export default function DashboardSplitPage() {
                 </div>
               </Link>
 
-              <Link className="module-link-card active" to="/library">
+              <Link className="module-link-card active utility-card" to="/library">
                 <div className="module-link-card-top">
                   <span className="module-link-name">本地题库库</span>
                   <span className="module-badge">已接入</span>
@@ -225,13 +255,11 @@ export default function DashboardSplitPage() {
             </div>
           </section>
 
-          <section className="rail-card">
-            <div className="rail-card-head">
-              <div className="rail-card-title"><Database size={18} /> 预留科目</div>
-            </div>
-            <div className="module-card-stack">
+          <section className="rail-card reserve-rail">
+            <div className="rail-section-label">预留模块</div>
+            <div className="module-card-stack compact-stack">
               {pendingModules.map((subject) => (
-                <article key={subject.key} className="module-link-card pending">
+                <article key={subject.key} className="module-link-card pending reserve-card">
                   <div className="module-link-card-top">
                     <span className="module-link-name">{subject.label}</span>
                     <span className="module-badge pending">预留</span>
@@ -248,12 +276,12 @@ export default function DashboardSplitPage() {
         </aside>
 
         <main className="dashboard-right-pane">
-          <section className="dashboard-board-hero">
-            <div className="dashboard-board-head">
+          <section className="dashboard-board-hero compact-board-hero">
+            <div className="dashboard-board-head compact-board-head">
               <div>
                 <div className="dashboard-board-kicker">右侧监控面板</div>
                 <h1>本地备考仪表盘</h1>
-                <p>左侧是模块与工作区，右侧只保留数据面板与趋势信息。这样进入首页时，动线会更清晰，先选模块，再看状态。</p>
+                <p>右侧只保留状态信息与数据面板，压缩说明文字，把最关键的结果尽量放进首屏。</p>
               </div>
               <div className="dashboard-board-links">
                 <Link className="secondary-btn small-btn" to="/history">查看考试记录</Link>
@@ -261,7 +289,7 @@ export default function DashboardSplitPage() {
               </div>
             </div>
 
-            <div className="dashboard-overview-grid">
+            <div className="dashboard-overview-grid dense-overview-grid">
               <div className="overview-tile">
                 <span className="overview-label">当前档案</span>
                 <strong>{activeProfile?.name || '未命名档案'}</strong>
@@ -274,22 +302,30 @@ export default function DashboardSplitPage() {
                 <span className="overview-label">英语题库</span>
                 <strong>{dashboardState.englishFiles.length} 份</strong>
               </div>
+              <div className="overview-tile">
+                <span className="overview-label">平均率</span>
+                <strong>{englishSummary?.averageRate || 0}%</strong>
+              </div>
             </div>
           </section>
 
-          <section className="stats-grid dashboard-stats-grid">
+          <section className="stats-grid dashboard-stats-grid dense-stats-grid">
             <article className="metric-card">
-              <div className="metric-head"><BookOpen size={18} /> 英语最近一次考试</div>
+              <div className="metric-head"><BookOpen size={18} /> 最近一次考试</div>
               <div className="metric-value">
-                {englishSummary?.latest ? `${englishSummary.latest.objectiveScore}/${englishSummary.latest.objectiveTotal}` : '--'}
+                {englishSummary?.latest
+                  ? `${englishSummary.latest.objectiveScore}/${englishSummary.latest.objectiveTotal}`
+                  : '--'}
               </div>
               <div className="metric-subtext">
-                {englishSummary?.latest ? `最近一次作答：${new Date(englishSummary.latest.submittedAt).toLocaleString()}` : '还没有历史记录'}
+                {englishSummary?.latest
+                  ? `最近一次作答：${new Date(englishSummary.latest.submittedAt).toLocaleString()}`
+                  : '还没有历史记录'}
               </div>
             </article>
 
             <article className="metric-card">
-              <div className="metric-head"><BarChart3 size={18} /> 英语历史平均分</div>
+              <div className="metric-head"><BarChart3 size={18} /> 历史平均分</div>
               <div className="metric-value">{englishSummary?.averageRate || 0}%</div>
               <div className="metric-subtext">按客观题得分率统计</div>
             </article>
@@ -307,33 +343,45 @@ export default function DashboardSplitPage() {
             </article>
           </section>
 
-          <section className="trend-card">
-            <div className="section-header-row">
-              <h2><BarChart3 size={18} /> 英语历史平均分趋势</h2>
-              <span className="section-header-tip">最近 {englishSummary?.attemptCount || 0} 次记录</span>
-            </div>
-            <div className="trend-body">
-              <Sparkline values={englishSummary?.trend || []} />
-            </div>
-          </section>
+          <section className="dashboard-bottom-grid">
+            <section className="trend-card">
+              <div className="section-header-row">
+                <h2><BarChart3 size={18} /> 英语历史平均分趋势</h2>
+                <span className="section-header-tip">最近 {englishSummary?.attemptCount || 0} 次记录</span>
+              </div>
+              <div className="trend-body">
+                <Sparkline values={englishSummary?.trend || []} />
+              </div>
+            </section>
 
-          <section className="subject-summary-grid compact">
-            {activeModules.map((subject) => (
-              <article key={subject.key} className="subject-summary-card active">
-                <div className="module-badge">已接入</div>
-                <h3>{subject.label}</h3>
-                <p>{subject.description}</p>
-                <div className="subject-summary-row">
-                  <span>历史考试：{subject.attemptCount}</span>
-                  <span>平均率：{subject.averageRate}%</span>
+            <section className="record-list-card recent-activity-card">
+              <div className="section-header-row">
+                <h2><LayoutDashboard size={18} /> 最近活动</h2>
+                <span className="section-header-tip">最近 3 次考试</span>
+              </div>
+
+              {recentAttempts.length === 0 ? (
+                <div className="local-library-empty">当前还没有历史考试记录，先进入英语模块刷一套题。</div>
+              ) : (
+                <div className="recent-attempt-list">
+                  {recentAttempts.map((attempt) => {
+                    const rate = attempt.objectiveTotal
+                      ? Math.round((attempt.objectiveScore / attempt.objectiveTotal) * 100)
+                      : 0
+                    return (
+                      <article key={attempt.id} className="recent-attempt-item">
+                        <div className="recent-attempt-title">{attempt.title || '未命名试卷'}</div>
+                        <div className="recent-attempt-meta">
+                          <span>{new Date(attempt.submittedAt).toLocaleString()}</span>
+                          <span>{attempt.objectiveScore}/{attempt.objectiveTotal}</span>
+                          <span>{rate}%</span>
+                        </div>
+                      </article>
+                    )
+                  })}
                 </div>
-                {subject.route && (
-                  <Link className="secondary-btn small-btn module-inline-btn" to={subject.route}>
-                    进入模块 <ArrowRight size={14} />
-                  </Link>
-                )}
-              </article>
-            ))}
+              )}
+            </section>
           </section>
         </main>
       </div>
