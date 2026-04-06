@@ -1,0 +1,195 @@
+.attempt-action-row {
+  align-items: flex-start;
+}
+
+.attempt-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(59,130,246,0.08);
+  border: 1px solid rgba(59,130,246,0.16);
+  color: #dbeafe;
+  line-height: 1.7;
+}
+
+.record-item-expanded-shell {
+  flex-direction: column;
+}
+
+.attempt-answer-panel {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.answer-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.answer-review-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,0.16);
+  background: rgba(15,23,42,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answer-review-card.correct {
+  border-color: rgba(16,185,129,0.28);
+  background: rgba(16,185,129,0.08);
+}
+
+.answer-review-card.wrong {
+  border-color: rgba(239,68,68,0.22);
+  background: rgba(239,68,68,0.08);
+}
+
+.answer-review-card.subjective {
+  border-color: rgba(59,130,246,0.22);
+  background: rgba(59,130,246,0.08);
+}
+
+.answer-review-parent {
+  color: #93c5fd;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.answer-review-prompt {
+  color: #f8fafc;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.answer-review-line {
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.wrongbook-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.small-metric-value {
+  font-size: 1.4rem;
+}
+
+.wrongbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wrongbook-card {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(15,23,42,0.62);
+  border: 1px solid rgba(148,163,184,0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wrongbook-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.wrongbook-card-title {
+  color: #f8fafc;
+  font-weight: 700;
+  line-height: 1.7;
+  font-size: 1.02rem;
+}
+
+.wrongbook-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 0.86rem;
+}
+
+.wrongbook-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.wrongbook-context {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(30,41,59,0.82);
+  border: 1px solid rgba(148,163,184,0.14);
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.wrongbook-answer-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wrongbook-answer-pill {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,0.14);
+}
+
+.wrongbook-answer-pill span {
+  display: block;
+  margin-bottom: 6px;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.wrongbook-answer-pill strong {
+  color: #f8fafc;
+}
+
+.wrongbook-answer-pill.wrong {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.22);
+}
+
+.wrongbook-answer-pill.correct {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.22);
+}
+
+.wrongbook-rationale {
+  color: #cbd5e1;
+  line-height: 1.75;
+}
+
+@media (max-width: 1100px) {
+  .wrongbook-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .answer-review-grid,
+  .wrongbook-answer-compare,
+  .wrongbook-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wrongbook-card-head {
+    flex-direction: column;
+  }
+
+  .wrongbook-tags {
+    justify-content: flex-start;
+  }
+}
