@@ -1,17 +1,34 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { BookOpen, RefreshCw } from 'lucide-react'
+import {
+  BookOpen,
+  FolderOpen,
+  History,
+  Pencil,
+  RefreshCw,
+  Tags,
+  Trash2,
+  UserCircle2,
+} from 'lucide-react'
+import { Link } from 'react-router-dom'
 import QuizImporter from './components/QuizImporter'
 import QuizView from './components/QuizView'
-import {
-  buildPaperId,
-  loadProgress,
-  saveProgress,
-  clearProgress,
-  saveLastQuizRaw,
-  loadLastQuizRaw,
-} from './utils/storage'
+import { buildPaperId } from './utils/storage'
 import { normalizeQuizPayload } from './utils/normalizeQuizSchema'
+import { useAppContext } from './context/AppContext'
+import {
+  clearProgressRecord,
+  deleteLibraryEntry,
+  listLibraryEntries,
+  loadLastOpenedPaper,
+  loadProgressRecord,
+  saveAttemptRecord,
+  saveLastOpenedPaper,
+  saveProgressRecord,
+  updateLibraryEntry,
+  upsertLibraryEntry,
+} from './utils/indexedDb'
 
+const SUBJECT_KEY = 'english'
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 
 function isNonEmptyText(value) {
@@ -59,7 +76,27 @@ function getObjectiveItemScore(item, response) {
   return 0
 }
 
-function App() {
+function getObjectiveWrongCount(item, response) {
+  if (!item) return 0
+
+  if (item.type === 'reading') {
+    if (!response || typeof response !== 'object') {
+      return item.questions.length
+    }
+    return item.questions.reduce((sum, question) => {
+      return sum + (response[question.id] === question.answer?.correct ? 0 : 1)
+    }, 0)
+  }
+
+  if (item.answer?.type === 'objective') {
+    return response === item.answer?.correct ? 0 : 1
+  }
+
+  return 0
+}
+
+export default function App() {
+  const { activeProfile } = useAppContext()
   const [quiz, setQuiz] = useState(null)
   const [paperId, setPaperId] = useState('')
   const [answers, setAnswers] = useState({})
@@ -67,6 +104,8 @@ function App() {
   const [score, setScore] = useState(0)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [autoAdvance, setAutoAdvance] = useState(true)
+  const [libraryEntries, setLibraryEntries] = useState([])
+  const [libraryLoading, setLibraryLoading] = useState(false)
 
   useEffect(() => {
     try {
@@ -76,26 +115,6 @@ function App() {
       }
     } catch {
       // ignore browser storage errors
-    }
-  }, [])
-
-  useEffect(() => {
-    const last = loadLastQuizRaw()
-    if (!last) return
-    try {
-      const normalized = normalizeQuizPayload(JSON.parse(last))
-      const nextPaperId = buildPaperId(last)
-      setQuiz(normalized)
-      setPaperId(nextPaperId)
-      const progress = loadProgress(nextPaperId)
-      if (progress) {
-        setAnswers(progress.answers || {})
-        setSubmitted(Boolean(progress.submitted))
-        setScore(progress.score || 0)
-        setCurrentIndex(Math.max(0, Math.min(progress.currentIndex || 0, normalized.items.length - 1)))
-      }
-    } catch {
-      // ignore broken cache
     }
   }, [])
 
@@ -114,9 +133,90 @@ function App() {
     return quiz.items.filter((item) => isResponseAnswered(item, answers[item.id])).length
   }, [quiz, answers])
 
-  const persist = (next) => {
-    if (!paperId || !quiz) return
-    saveProgress(paperId, {
+  const refreshLibrary = async () => {
+    if (!activeProfile?.id) return
+    setLibraryLoading(true)
+    try {
+      const nextEntries = await listLibraryEntries(activeProfile.id, SUBJECT_KEY)
+      setLibraryEntries(nextEntries)
+    } finally {
+      setLibraryLoading(false)
+    }
+  }
+
+  const applyQuizState = async (parsed, rawText) => {
+    if (!activeProfile?.id) return
+    const nextPaperId = buildPaperId(rawText)
+    setQuiz(parsed)
+    setPaperId(nextPaperId)
+    await saveLastOpenedPaper(activeProfile.id, SUBJECT_KEY, rawText)
+
+    const progress = await loadProgressRecord(activeProfile.id, SUBJECT_KEY, nextPaperId)
+    if (progress) {
+      setAnswers(progress.answers || {})
+      setSubmitted(Boolean(progress.submitted))
+      setScore(progress.score || 0)
+      setCurrentIndex(Math.max(0, Math.min(progress.currentIndex || 0, parsed.items.length - 1)))
+    } else {
+      setAnswers({})
+      setSubmitted(false)
+      setScore(0)
+      setCurrentIndex(0)
+      await saveProgressRecord(activeProfile.id, SUBJECT_KEY, nextPaperId, {
+        answers: {},
+        submitted: false,
+        score: 0,
+        currentIndex: 0,
+        updatedAt: Date.now(),
+        title: parsed.title || '未命名试卷',
+      })
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function initializeForProfile() {
+      if (!activeProfile?.id) return
+      await refreshLibrary()
+      const lastRaw = await loadLastOpenedPaper(activeProfile.id, SUBJECT_KEY)
+      if (!lastRaw || cancelled) {
+        setQuiz(null)
+        setPaperId('')
+        setAnswers({})
+        setSubmitted(false)
+        setScore(0)
+        setCurrentIndex(0)
+        return
+      }
+
+      try {
+        const parsed = normalizeQuizPayload(JSON.parse(lastRaw))
+        if (!cancelled) {
+          await applyQuizState(parsed, lastRaw)
+        }
+      } catch {
+        if (!cancelled) {
+          setQuiz(null)
+          setPaperId('')
+          setAnswers({})
+          setSubmitted(false)
+          setScore(0)
+          setCurrentIndex(0)
+        }
+      }
+    }
+
+    initializeForProfile()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeProfile?.id])
+
+  const persist = async (next) => {
+    if (!paperId || !quiz || !activeProfile?.id) return
+    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, paperId, {
       answers: next.answers,
       submitted: next.submitted,
       score: next.score,
@@ -138,37 +238,59 @@ function App() {
     })
   }
 
-  const handleQuizLoaded = ({ parsed, rawText }) => {
+  const handleQuizLoaded = async ({ parsed, rawText }) => {
+    if (!activeProfile?.id) return
     const nextPaperId = buildPaperId(rawText)
-    setQuiz(parsed)
-    setPaperId(nextPaperId)
-    saveLastQuizRaw(rawText)
 
-    const progress = loadProgress(nextPaperId)
-    if (progress) {
-      setAnswers(progress.answers || {})
-      setSubmitted(Boolean(progress.submitted))
-      setScore(progress.score || 0)
-      setCurrentIndex(Math.max(0, Math.min(progress.currentIndex || 0, parsed.items.length - 1)))
-    } else {
-      setAnswers({})
-      setSubmitted(false)
-      setScore(0)
-      setCurrentIndex(0)
-      saveProgress(nextPaperId, {
-        answers: {},
-        submitted: false,
-        score: 0,
-        currentIndex: 0,
-        updatedAt: Date.now(),
-        title: parsed.title || '未命名试卷',
-      })
-    }
+    await upsertLibraryEntry({
+      profileId: activeProfile.id,
+      subject: SUBJECT_KEY,
+      paperId: nextPaperId,
+      title: parsed.title || '未命名题库',
+      rawText,
+      tags: parsed.compatibility?.skippedTypes?.length ? ['兼容导入'] : [],
+      schemaVersion: parsed.compatibility?.sourceSchema || parsed.schema_version || 'unknown',
+      questionCount: parsed.items?.length || 0,
+    })
+
+    await refreshLibrary()
+    await applyQuizState(parsed, rawText)
+  }
+
+  const handleImportLocalEntry = async (entry) => {
+    const parsed = normalizeQuizPayload(JSON.parse(entry.rawText))
+    await applyQuizState(parsed, entry.rawText)
+  }
+
+  const handleRenameLibraryEntry = async (entry) => {
+    const nextTitle = window.prompt('请输入新的题库名称：', entry.title)
+    if (!nextTitle) return
+    await updateLibraryEntry(entry.id, { title: nextTitle })
+    await refreshLibrary()
+  }
+
+  const handleTagLibraryEntry = async (entry) => {
+    const initialTags = Array.isArray(entry.tags) ? entry.tags.join(', ') : ''
+    const rawTags = window.prompt('请输入标签，使用英文逗号分隔：', initialTags)
+    if (rawTags === null) return
+    const nextTags = rawTags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+    await updateLibraryEntry(entry.id, { tags: nextTags })
+    await refreshLibrary()
+  }
+
+  const handleDeleteLibraryEntry = async (entry) => {
+    const ok = window.confirm(`确定删除本地题库《${entry.title}》吗？`)
+    if (!ok) return
+    await deleteLibraryEntry(entry.id)
+    await refreshLibrary()
   }
 
   const handleJump = (index) => {
     setCurrentIndex(index)
-    persist({
+    void persist({
       answers,
       submitted,
       score,
@@ -180,7 +302,7 @@ function App() {
     if (currentIndex <= 0) return
     const nextIndex = currentIndex - 1
     setCurrentIndex(nextIndex)
-    persist({
+    void persist({
       answers,
       submitted,
       score,
@@ -192,7 +314,7 @@ function App() {
     if (!quiz?.items?.length || currentIndex >= quiz.items.length - 1) return
     const nextIndex = currentIndex + 1
     setCurrentIndex(nextIndex)
-    persist({
+    void persist({
       answers,
       submitted,
       score,
@@ -210,16 +332,14 @@ function App() {
       ...answers,
       [questionId]: optionLetter,
     }
-    const nextIndex = autoAdvance && currentIndex < quiz.items.length - 1
-      ? currentIndex + 1
-      : currentIndex
+    const nextIndex = autoAdvance && currentIndex < quiz.items.length - 1 ? currentIndex + 1 : currentIndex
 
     setAnswers(nextAnswers)
     if (nextIndex !== currentIndex) {
       setCurrentIndex(nextIndex)
     }
 
-    persist({
+    void persist({
       answers: nextAnswers,
       submitted,
       score,
@@ -260,7 +380,7 @@ function App() {
       setCurrentIndex(nextIndex)
     }
 
-    persist({
+    void persist({
       answers: nextAnswers,
       submitted,
       score,
@@ -277,7 +397,7 @@ function App() {
     }
 
     setAnswers(nextAnswers)
-    persist({
+    void persist({
       answers: nextAnswers,
       submitted,
       score,
@@ -285,37 +405,51 @@ function App() {
     })
   }
 
-  const handleSubmit = () => {
-    if (!quiz?.items?.length) return
+  const handleSubmit = async () => {
+    if (!quiz?.items?.length || !activeProfile?.id) return
 
     if (answeredCount < totalQuestions) {
       const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
       if (!ok) return
     }
 
-    const nextScore = quiz.items.reduce((sum, item) => {
-      return sum + getObjectiveItemScore(item, answers[item.id])
-    }, 0)
+    const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
+    const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
 
     setScore(nextScore)
     setSubmitted(true)
-    persist({
+
+    await persist({
       answers,
       submitted: true,
       score: nextScore,
       currentIndex,
     })
+
+    await saveAttemptRecord({
+      profileId: activeProfile.id,
+      subject: SUBJECT_KEY,
+      paperId,
+      title: quiz.title || '未命名试卷',
+      objectiveScore: nextScore,
+      objectiveTotal: objectiveTotalScore,
+      questionCount: totalQuestions,
+      answeredCount,
+      wrongCount,
+      submittedAt: Date.now(),
+    })
+
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleResetCurrentPaper = () => {
-    if (!paperId) return
+  const handleResetCurrentPaper = async () => {
+    if (!paperId || !activeProfile?.id) return
     setAnswers({})
     setSubmitted(false)
     setScore(0)
     setCurrentIndex(0)
-    clearProgress(paperId)
-    saveProgress(paperId, {
+    await clearProgressRecord(activeProfile.id, SUBJECT_KEY, paperId)
+    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, paperId, {
       answers: {},
       submitted: false,
       score: 0,
@@ -324,6 +458,22 @@ function App() {
       title: quiz?.title || '未命名试卷',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  if (!activeProfile) {
+    return (
+      <div className="app-shell">
+        <div className="container">
+          <section className="hero-card">
+            <div className="hero-icon">
+              <UserCircle2 size={30} />
+            </div>
+            <h1>英语在线模拟考试 V1.0</h1>
+            <p>正在加载本地档案...</p>
+          </section>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -337,7 +487,57 @@ function App() {
           <p>
             导入 JSON 试卷即可开始刷题。支持自动保存进度、刷新恢复、交卷后查看解析。
           </p>
+
+          <div className="profile-inline-bar">
+            <div className="profile-inline-badge">
+              <UserCircle2 size={16} />
+              当前本地档案：{activeProfile.name}
+            </div>
+            <Link to="/" className="secondary-btn small-btn">返回仪表盘</Link>
+          </div>
+
           <QuizImporter onQuizLoaded={handleQuizLoaded} />
+        </section>
+
+        <section className="local-library-panel">
+          <div className="section-header-row">
+            <h2><FolderOpen size={18} /> 从本地历史文件导入</h2>
+            <span className="section-header-tip">{libraryEntries.length} 份本地题库</span>
+          </div>
+
+          {libraryLoading ? (
+            <div className="local-library-empty">正在加载本地题库...</div>
+          ) : libraryEntries.length === 0 ? (
+            <div className="local-library-empty">当前档案还没有本地题库。先导入一份 JSON/TXT 试卷，系统会自动写入本地文件库。</div>
+          ) : (
+            <div className="local-library-list">
+              {libraryEntries.map((entry) => (
+                <article key={entry.id} className="local-library-item">
+                  <div className="local-library-main">
+                    <div className="local-library-title">{entry.title}</div>
+                    <div className="local-library-meta">
+                      <span><History size={14} /> {new Date(entry.updatedAt).toLocaleString()}</span>
+                      <span>题量：{entry.questionCount || '--'}</span>
+                    </div>
+                    {Array.isArray(entry.tags) && entry.tags.length > 0 && (
+                      <div className="local-library-tags">
+                        {entry.tags.map((tag) => (
+                          <span key={tag} className="tag blue">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="local-library-actions">
+                    <button className="primary-btn small-btn" onClick={() => handleImportLocalEntry(entry)}>导入</button>
+                    <button className="secondary-btn small-btn" onClick={() => handleRenameLibraryEntry(entry)}><Pencil size={14} /> 重命名</button>
+                    <button className="secondary-btn small-btn" onClick={() => handleTagLibraryEntry(entry)}><Tags size={14} /> 标签</button>
+                    <button className="danger-btn small-btn" onClick={() => handleDeleteLibraryEntry(entry)}><Trash2 size={14} /> 删除</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         {quiz && submitted && (
@@ -397,5 +597,3 @@ function App() {
     </div>
   )
 }
-
-export default App
