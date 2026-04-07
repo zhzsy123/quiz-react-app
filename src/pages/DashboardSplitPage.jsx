@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
-  BarChart3,
   BookOpen,
   Download,
-  FileJson,
   History,
   LayoutDashboard,
   Pencil,
@@ -21,11 +19,8 @@ function WorkflowBand() {
   return (
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
-        <span className="dashboard-eyebrow">
-          <FileJson size={14} />
-          JSON Workflow
-        </span>
-        <h2>使用说明，推荐使用DeepSeek清洗试卷</h2>
+        <span className="dashboard-eyebrow">JSON Workflow</span>
+        <h2>使用说明，推荐使用 DeepSeek 清洗试卷</h2>
         <p>PDF / DOCX 先交给 AI 清洗，再把 JSON 导入本站。</p>
       </div>
 
@@ -38,13 +33,9 @@ function WorkflowBand() {
       </div>
 
       <div className="dashboard-band-actions">
-        <a className="secondary-btn small-btn" href="./json-schema-v2.md" download>
+        <a className="secondary-btn small-btn" href="./json-schema.md" download>
           <Download size={14} />
           JSON 规范
-        </a>
-        <a className="secondary-btn small-btn" href="./sample-schema-v2.json" download>
-          <Download size={14} />
-          v2 示例
         </a>
       </div>
     </section>
@@ -92,7 +83,7 @@ export default function DashboardSplitPage() {
       }
     }
 
-    loadDashboard()
+    void loadDashboard()
     return () => {
       cancelled = true
     }
@@ -156,7 +147,7 @@ export default function DashboardSplitPage() {
             <div className="hero-icon">
               <LayoutDashboard size={30} />
             </div>
-            <h1>本地备考仪表盘</h1>
+            <h1>智能在线模考系统V2.0</h1>
           </section>
         </div>
       </div>
@@ -168,20 +159,15 @@ export default function DashboardSplitPage() {
       <div className="container dashboard-minimal-shell">
         <section className="dashboard-showcase">
           <div className="dashboard-showcase-copy">
-            <span className="dashboard-eyebrow">
-              <LayoutDashboard size={14} />
-              Study Workspace
-            </span>
-            <h1>智能在线模考2.0。</h1>
-            <p>
-              极速刷题 - 快速巩固 - 智能模考 - 错题本支持。
-            </p>
+            <span className="dashboard-eyebrow">Study Workspace</span>
+            <h1>智能在线模考系统V2.0</h1>
+            <p>极速刷题、快速巩固、智能模考、错题本支持。</p>
 
             <div className="dashboard-showcase-actions">
               <Link className="primary-btn" to="/exam/english">
                 进入主科目
               </Link>
-              <a className="secondary-btn" href="./json-schema-v2.md" download>
+              <a className="secondary-btn" href="./json-schema.md" download>
                 下载 JSON 规范
               </a>
             </div>
@@ -212,7 +198,7 @@ export default function DashboardSplitPage() {
               </div>
 
               <strong>{activeProfile?.name || '未命名档案'}</strong>
-              <p>档案切换多角色分离，暂未支持跨设备同步。</p>
+              <p>档案切换按多角色分离，暂不支持跨设备同步。</p>
 
               <label className="form-field">
                 <span>切换档案</span>
@@ -305,13 +291,13 @@ export default function DashboardSplitPage() {
           <article className="dashboard-summary-card">
             <span className="dashboard-summary-label">总刷题量</span>
             <strong>{dashboardState.totalQuestionVolume}</strong>
-            <p>累计刷题</p>
+            <p>累计参与练习和考试的题目数量。</p>
           </article>
 
           <article className="dashboard-summary-card">
             <span className="dashboard-summary-label">当前重点</span>
             <strong>{dashboardState.totalWrong} 道错题</strong>
-            <p>定期清空错题本，二次巩固。</p>
+            <p>如果今天只做一件事，优先从错题本开始。</p>
           </article>
         </section>
       </div>

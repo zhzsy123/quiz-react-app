@@ -386,6 +386,7 @@ export default function CleanQuizView({
   currentIndex,
   mode = 'exam',
   autoAdvance = false,
+  practiceWritesWrongBook = true,
   remainingSeconds = 0,
   isPaused = false,
   spoilerExpanded = false,
@@ -394,6 +395,7 @@ export default function CleanQuizView({
   onToggleFavorite,
   onToggleSpoiler,
   onToggleAutoAdvance,
+  onTogglePracticeWrongBook,
   onTogglePause,
   onJump,
   onPrev,
@@ -498,6 +500,25 @@ export default function CleanQuizView({
                 onClick={onToggleAutoAdvance}
                 aria-pressed={autoAdvance}
                 disabled={disabled}
+              >
+                <span className="toggle-knob" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === 'practice' && (
+          <div className="sidebar-tools compact-sidebar-tools">
+            <div className="sidebar-tool-card compact-toggle-card">
+              <div className="sidebar-tool-copy">
+                <span className="sidebar-tool-title">写入错题库</span>
+                <span className="sidebar-tool-desc">关闭后，本次刷题不会进入错题本。</span>
+              </div>
+              <button
+                type="button"
+                className={`toggle-switch ${practiceWritesWrongBook ? 'on' : ''}`}
+                onClick={onTogglePracticeWrongBook}
+                aria-pressed={practiceWritesWrongBook}
               >
                 <span className="toggle-knob" />
               </button>

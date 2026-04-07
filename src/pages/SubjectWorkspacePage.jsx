@@ -20,6 +20,7 @@ import { getSubjectMetaByRouteParam } from '../config/subjects'
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
 const EXAM_DURATION_SECONDS = 90 * 60
+const DEFAULT_PRACTICE_WRONG_BOOK = true
 
 function isNonEmptyText(value) {
   return typeof value === 'string' && value.trim().length > 0
@@ -277,6 +278,7 @@ export default function SubjectWorkspacePage() {
   const [score, setScore] = useState(0)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [autoAdvance, setAutoAdvance] = useState(false)
+  const [practiceWritesWrongBook, setPracticeWritesWrongBook] = useState(DEFAULT_PRACTICE_WRONG_BOOK)
   const [spoilerExpanded, setSpoilerExpanded] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(EXAM_DURATION_SECONDS)
   const [isPaused, setIsPaused] = useState(false)
@@ -340,6 +342,11 @@ export default function SubjectWorkspacePage() {
       setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, (resolvedQuiz.items?.length || 1) - 1)))
       setRemainingSeconds(typeof progress?.timerSecondsRemaining === 'number' ? progress.timerSecondsRemaining : EXAM_DURATION_SECONDS)
       setIsPaused(Boolean(progress?.isPaused))
+      setPracticeWritesWrongBook(
+        typeof progress?.practiceWritesWrongBook === 'boolean'
+          ? progress.practiceWritesWrongBook
+          : DEFAULT_PRACTICE_WRONG_BOOK
+      )
       setReadyToPersist(true)
       setLoading(false)
     }
@@ -358,6 +365,7 @@ export default function SubjectWorkspacePage() {
     currentIndex,
     timerSecondsRemaining: remainingSeconds,
     isPaused,
+    practiceWritesWrongBook,
     mode,
     updatedAt: Date.now(),
     title: quiz?.title || entry?.title || '未命名试卷',
@@ -435,7 +443,7 @@ export default function SubjectWorkspacePage() {
 
     await persistNow({ submitted: true, score: nextScore, isPaused: false })
 
-    if (mode === 'exam' && source !== 'favorites') {
+    if (source !== 'favorites' && (mode === 'exam' || practiceWritesWrongBook)) {
       await saveAttemptRecord({
         profileId: activeProfile.id,
         subject: subjectKey,
@@ -455,6 +463,8 @@ export default function SubjectWorkspacePage() {
           paperTitle: entry?.title || quiz.title || '未命名试卷',
         }),
         mode,
+        includeInHistory: mode === 'exam',
+        practiceWritesWrongBook,
         durationSeconds: EXAM_DURATION_SECONDS,
         timerSecondsRemaining: remainingSeconds,
       })
@@ -481,6 +491,12 @@ export default function SubjectWorkspacePage() {
       savePreference(AUTO_ADVANCE_KEY, next)
       return next
     })
+  }
+
+  const handleTogglePracticeWrongBook = () => {
+    const next = !practiceWritesWrongBook
+    setPracticeWritesWrongBook(next)
+    void persistNow({ practiceWritesWrongBook: next })
   }
 
   const handleJump = (nextIndex) => {
@@ -610,6 +626,7 @@ export default function SubjectWorkspacePage() {
       currentIndex: 0,
       timerSecondsRemaining: EXAM_DURATION_SECONDS,
       isPaused: false,
+      practiceWritesWrongBook,
       mode,
       updatedAt: Date.now(),
       title: quiz?.title || entry?.title || '未命名试卷',
@@ -761,11 +778,13 @@ export default function SubjectWorkspacePage() {
           onToggleFavorite={handleToggleFavorite}
           onToggleSpoiler={handleToggleSpoiler}
           onToggleAutoAdvance={handleToggleAutoAdvance}
+          onTogglePracticeWrongBook={handleTogglePracticeWrongBook}
           onTogglePause={() => {
             const next = !isPaused
             setIsPaused(next)
             void persistNow({ isPaused: next })
           }}
+          practiceWritesWrongBook={practiceWritesWrongBook}
           onJump={handleJump}
           onPrev={handlePrev}
           onNext={handleNext}

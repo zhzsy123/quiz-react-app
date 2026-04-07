@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { CheckCircle2, AlertCircle, Upload } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Upload } from 'lucide-react'
 import { parseQuizText } from '../boundaries/quizSchema'
 
 export default function QuizImporter({ onQuizLoaded }) {
@@ -9,8 +9,8 @@ export default function QuizImporter({ onQuizLoaded }) {
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0]
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0]
     if (!file) return
 
     try {
@@ -23,11 +23,9 @@ export default function QuizImporter({ onQuizLoaded }) {
 
       const { compatibility } = normalized
       if (compatibility?.skippedCount > 0) {
-        setInfo(
-          `已兼容导入 ${compatibility.supportedCount} 题；暂跳过 ${compatibility.skippedCount} 题（${compatibility.skippedTypes.join(' / ')}）。`
-        )
+        setInfo(`已导入 ${compatibility.supportedCount} 题，跳过 ${compatibility.skippedCount} 题。`)
       } else {
-        setInfo(`已兼容导入 ${compatibility?.supportedCount || normalized.items.length} 题。`)
+        setInfo(`已成功导入 ${compatibility?.supportedCount || normalized.items.length} 题。`)
       }
 
       onQuizLoaded({ parsed: normalized, rawText: cleanedText })

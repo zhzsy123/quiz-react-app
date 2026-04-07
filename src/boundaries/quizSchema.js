@@ -4,13 +4,14 @@ function fallbackOptionKey(index) {
 
 function normalizeOption(option, index) {
   if (typeof option === 'string') {
-    const match = option.match(/^([A-Z])[\.\s、]+(.*)$/)
+    const match = option.match(/^([A-Z])[.\s、](.*)$/)
     if (match) {
       return {
         key: match[1],
-        text: match[2],
+        text: match[2].trim(),
       }
     }
+
     return {
       key: fallbackOptionKey(index),
       text: option,
@@ -34,9 +35,11 @@ function normalizeMultiCorrect(correct) {
   if (Array.isArray(correct)) {
     return [...new Set(correct.map((value) => String(value).trim()).filter(Boolean))].sort()
   }
+
   if (typeof correct === 'string') {
     return [...new Set(correct.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean))].sort()
   }
+
   return []
 }
 
@@ -65,38 +68,30 @@ export function parseQuizText(text) {
 }
 
 function normalizeLegacySchema(data) {
-  if (!data || !Array.isArray(data.items)) {
-    throw new Error('旧版题库需要包含 items 数组。')
+  if (!Array.isArray(data.items)) {
+    throw new Error('题库必须包含 questions 数组。')
   }
 
-  const items = data.items.map((item, index) => {
-    const required = ['id', 'question', 'options', 'correct_answer', 'rationale']
-    required.forEach((key) => {
-      if (!(key in item)) {
-        throw new Error(`第 ${index + 1} 题缺少字段：${key}`)
-      }
-    })
+  const items = data.items.map((item) => ({
+    id: item.id,
+    type: 'single_choice',
+    prompt: item.question,
+    difficulty: item.difficulty,
+    tags: item.tags || [],
+    score: Number(item.score) || 1,
+    source_type: 'legacy_single_choice',
+    assets: [],
+    options: (item.options || []).map(normalizeOption),
+    answer: {
+      type: 'objective',
+      correct: item.correct_answer,
+      rationale: item.rationale || '暂无解析',
+    },
+  }))
 
-    if (!Array.isArray(item.options) || item.options.length < 2) {
-      throw new Error(`第 ${index + 1} 题的 options 必须是至少含 2 项的数组`)
-    }
-
-    return {
-      id: item.id,
-      type: 'single_choice',
-      prompt: item.question,
-      options: item.options.map(normalizeOption),
-      answer: {
-        type: 'objective',
-        correct: item.correct_answer,
-        rationale: item.rationale || '暂无解析',
-      },
-      difficulty: item.difficulty,
-      tags: item.tags || [],
-      score: Number(item.score) || 1,
-      source_type: 'legacy_single_choice',
-    }
-  })
+  if (!items.length) {
+    throw new Error('旧题库没有可用题目。')
+  }
 
   return {
     title: data.title || '未命名试卷',
@@ -111,23 +106,30 @@ function normalizeLegacySchema(data) {
   }
 }
 
+function ensureQuestionBase(question, fallbackType) {
+  return {
+    id: question.id,
+    type: fallbackType || question.type,
+    prompt: question.prompt,
+    difficulty: question.difficulty,
+    tags: question.tags || [],
+    score: Number(question.score) || 1,
+    source_type: question.type,
+    assets: Array.isArray(question.assets) ? question.assets : [],
+  }
+}
+
 function convertSingleChoice(question) {
   if (!Array.isArray(question.options) || !question.answer?.correct) return null
 
   return {
-    id: question.id,
-    type: 'single_choice',
-    prompt: question.prompt,
+    ...ensureQuestionBase(question, 'single_choice'),
     options: question.options.map(normalizeOption),
     answer: {
       type: 'objective',
       correct: question.answer.correct,
       rationale: question.answer.rationale || '暂无解析',
     },
-    difficulty: question.difficulty,
-    tags: question.tags || [],
-    score: Number(question.score) || 1,
-    source_type: question.type,
   }
 }
 
@@ -137,19 +139,13 @@ function convertMultipleChoice(question) {
   if (!correct.length) return null
 
   return {
-    id: question.id,
-    type: 'multiple_choice',
-    prompt: question.prompt,
+    ...ensureQuestionBase(question, 'multiple_choice'),
     options: question.options.map(normalizeOption),
     answer: {
       type: 'objective',
       correct,
       rationale: question.answer?.rationale || '暂无解析',
     },
-    difficulty: question.difficulty,
-    tags: question.tags || [],
-    score: Number(question.score) || 1,
-    source_type: question.type,
   }
 }
 
@@ -158,9 +154,7 @@ function convertTrueFalse(question) {
   if (!correct) return null
 
   return {
-    id: question.id,
-    type: 'true_false',
-    prompt: question.prompt,
+    ...ensureQuestionBase(question, 'true_false'),
     options: [
       { key: 'T', text: '正确' },
       { key: 'F', text: '错误' },
@@ -170,10 +164,6 @@ function convertTrueFalse(question) {
       correct,
       rationale: question.answer?.rationale || '暂无解析',
     },
-    difficulty: question.difficulty,
-    tags: question.tags || [],
-    score: Number(question.score) || 1,
-    source_type: question.type,
   }
 }
 
@@ -200,81 +190,38 @@ function convertFillBlank(question) {
   if (!blanks.length) return null
 
   return {
-    id: question.id,
-    type: 'fill_blank',
-    prompt: question.prompt,
+    ...ensureQuestionBase(question, 'fill_blank'),
     blanks,
     answer: {
       type: 'objective',
       correct: blanks.map((blank) => blank.accepted_answers),
       rationale: question.answer?.rationale || '',
     },
-    difficulty: question.difficulty,
-    tags: question.tags || [],
     score: blanks.reduce((sum, blank) => sum + (blank.score || 1), 0),
-    source_type: question.type,
   }
 }
 
 function convertReading(question) {
-  if (!question.passage?.content || !Array.isArray(question.questions)) {
-    return null
-  }
+  if (!question.passage?.content || !Array.isArray(question.questions)) return null
 
-  const normalizedQuestions = []
-  let skippedCount = 0
-  const skippedTypes = []
+  const normalizedQuestions = question.questions
+    .map((subQuestion) => convertSingleChoice(subQuestion))
+    .filter(Boolean)
 
-  question.questions.forEach((subQuestion) => {
-    if (subQuestion.type !== 'single_choice') {
-      skippedCount += 1
-      skippedTypes.push(`reading:${subQuestion.type || 'unknown'}`)
-      return
-    }
-
-    if (!Array.isArray(subQuestion.options) || !subQuestion.answer?.correct) {
-      skippedCount += 1
-      skippedTypes.push('reading:single_choice_invalid')
-      return
-    }
-
-    normalizedQuestions.push({
-      id: subQuestion.id,
-      type: 'single_choice',
-      prompt: subQuestion.prompt,
-      options: subQuestion.options.map(normalizeOption),
-      answer: {
-        type: 'objective',
-        correct: subQuestion.answer.correct,
-        rationale: subQuestion.answer.rationale || '暂无解析',
-      },
-      score: Number(subQuestion.score) || 1,
-      difficulty: subQuestion.difficulty || question.difficulty,
-      tags: [...new Set([...(question.tags || []), ...(subQuestion.tags || [])])],
-    })
-  })
+  if (!normalizedQuestions.length) return null
 
   return {
-    item: {
-      id: question.id,
-      type: 'reading',
-      prompt: question.prompt,
-      title: question.title,
-      passage: {
-        title: question.passage?.title || question.title,
-        content: question.passage.content,
-      },
-      questions: normalizedQuestions,
-      answer: {
-        type: 'objective',
-      },
-      difficulty: question.difficulty,
-      tags: question.tags || [],
-      score: normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 1), 0),
-      source_type: 'reading',
+    ...ensureQuestionBase(question, 'reading'),
+    title: question.title,
+    passage: {
+      title: question.passage?.title || question.title,
+      content: question.passage.content,
     },
-    skippedCount,
-    skippedTypes,
+    questions: normalizedQuestions,
+    answer: {
+      type: 'objective',
+    },
+    score: normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 1), 0),
   }
 }
 
@@ -285,27 +232,23 @@ function convertCloze(question) {
     .map((blank) => {
       if (!Array.isArray(blank.options) || !blank.correct) return null
 
-      const articleWithMarker = question.article.replace(
-        `[[${blank.blank_id}]]`,
-        `____(${blank.blank_id})____`
-      )
-
       return {
         id: `${question.id}_blank_${blank.blank_id}`,
         type: 'single_choice',
         prompt: `${question.prompt}（第 ${blank.blank_id} 空）`,
         context_title: question.title || '完形填空',
-        context: articleWithMarker,
+        context: question.article.replace(`[[${blank.blank_id}]]`, `____(${blank.blank_id})____`),
+        difficulty: question.difficulty,
+        tags: question.tags || [],
+        score: Number(blank.score) || 1,
+        source_type: 'cloze',
+        assets: Array.isArray(question.assets) ? question.assets : [],
         options: blank.options.map(normalizeOption),
         answer: {
           type: 'objective',
           correct: blank.correct,
           rationale: blank.rationale || '暂无解析',
         },
-        difficulty: question.difficulty,
-        tags: question.tags || [],
-        score: Number(blank.score) || 1,
-        source_type: 'cloze',
       }
     })
     .filter(Boolean)
@@ -315,9 +258,7 @@ function convertTranslation(question) {
   if (!question.source_text) return null
 
   return {
-    id: question.id,
-    type: 'translation',
-    prompt: question.prompt || '请完成翻译',
+    ...ensureQuestionBase(question, 'translation'),
     direction: question.direction || 'en_to_zh',
     source_text: question.source_text,
     answer: {
@@ -327,18 +268,12 @@ function convertTranslation(question) {
       scoring_points: question.answer?.scoring_points || [],
       ai_scoring: question.answer?.ai_scoring || { enabled: false },
     },
-    difficulty: question.difficulty,
-    tags: question.tags || [],
-    score: Number(question.score) || 1,
-    source_type: 'translation',
   }
 }
 
 function convertEssay(question) {
   return {
-    id: question.id,
-    type: 'essay',
-    prompt: question.prompt || '请完成作文',
+    ...ensureQuestionBase(question, 'essay'),
     essay_type: question.essay_type || 'writing',
     requirements: question.requirements || {},
     answer: {
@@ -349,10 +284,6 @@ function convertEssay(question) {
       common_errors: question.answer?.common_errors || [],
       ai_scoring: question.answer?.ai_scoring || { enabled: false },
     },
-    difficulty: question.difficulty,
-    tags: question.tags || [],
-    score: Number(question.score) || 1,
-    source_type: 'essay',
   }
 }
 
@@ -362,7 +293,7 @@ export function normalizeQuizPayload(data) {
   }
 
   if (!Array.isArray(data?.questions)) {
-    throw new Error('新版题库需要包含 questions 数组；旧版题库需要包含 items 数组。')
+    throw new Error('题库必须包含 questions 数组。')
   }
 
   const items = []
@@ -370,97 +301,83 @@ export function normalizeQuizPayload(data) {
   const skippedTypes = []
 
   data.questions.forEach((question) => {
-    if (!question?.type) {
-      skippedCount += 1
-      skippedTypes.push('unknown')
-      return
-    }
-
-    if (question.type === 'single_choice') {
-      const converted = convertSingleChoice(question)
-      if (converted) items.push(converted)
-      else {
-        skippedCount += 1
-        skippedTypes.push(question.type)
+    switch (question?.type) {
+      case 'single_choice': {
+        const converted = convertSingleChoice(question)
+        if (converted) items.push(converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
       }
-      return
-    }
-
-    if (question.type === 'multiple_choice') {
-      const converted = convertMultipleChoice(question)
-      if (converted) items.push(converted)
-      else {
-        skippedCount += 1
-        skippedTypes.push(question.type)
+      case 'multiple_choice': {
+        const converted = convertMultipleChoice(question)
+        if (converted) items.push(converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
       }
-      return
-    }
-
-    if (question.type === 'true_false') {
-      const converted = convertTrueFalse(question)
-      if (converted) items.push(converted)
-      else {
-        skippedCount += 1
-        skippedTypes.push(question.type)
+      case 'true_false': {
+        const converted = convertTrueFalse(question)
+        if (converted) items.push(converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
       }
-      return
-    }
-
-    if (question.type === 'fill_blank') {
-      const converted = convertFillBlank(question)
-      if (converted) items.push(converted)
-      else {
-        skippedCount += 1
-        skippedTypes.push(question.type)
+      case 'fill_blank': {
+        const converted = convertFillBlank(question)
+        if (converted) items.push(converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
       }
-      return
-    }
-
-    if (question.type === 'reading') {
-      const result = convertReading(question)
-      if (result?.item) {
-        items.push(result.item)
-        skippedCount += result.skippedCount
-        skippedTypes.push(...result.skippedTypes)
-      } else {
-        skippedCount += 1
-        skippedTypes.push(question.type)
+      case 'reading': {
+        const converted = convertReading(question)
+        if (converted) items.push(converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
       }
-      return
-    }
-
-    if (question.type === 'cloze') {
-      const converted = convertCloze(question)
-      if (converted.length > 0) {
-        items.push(...converted)
-      } else {
-        skippedCount += 1
-        skippedTypes.push(question.type)
+      case 'cloze': {
+        const converted = convertCloze(question)
+        if (converted.length) items.push(...converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
       }
-      return
-    }
-
-    if (question.type === 'translation') {
-      const converted = convertTranslation(question)
-      if (converted) items.push(converted)
-      else {
-        skippedCount += 1
-        skippedTypes.push(question.type)
+      case 'translation': {
+        const converted = convertTranslation(question)
+        if (converted) items.push(converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
       }
-      return
+      case 'essay': {
+        items.push(convertEssay(question))
+        break
+      }
+      default: {
+        skippedCount += 1
+        skippedTypes.push(question?.type || 'unknown')
+      }
     }
-
-    if (question.type === 'essay') {
-      items.push(convertEssay(question))
-      return
-    }
-
-    skippedCount += 1
-    skippedTypes.push(question.type)
   })
 
   if (!items.length) {
-    throw new Error('当前版本暂时只能导入新版 schema 中的 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation 和 essay 题目。')
+    throw new Error('当前 JSON 规范只支持 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation、essay。')
   }
 
   return {
@@ -468,7 +385,7 @@ export function normalizeQuizPayload(data) {
     paper_id: data.paper_id,
     items,
     compatibility: {
-      sourceSchema: data.schema_version || 'schema_v1_unknown',
+      sourceSchema: data.schema_version || 'json-schema',
       supportedCount: items.length,
       skippedCount,
       skippedTypes: [...new Set(skippedTypes)],

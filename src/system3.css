@@ -1,7 +1,7 @@
 .dashboard-minimal-shell {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 26px;
   max-width: 1320px;
 }
 
@@ -19,28 +19,17 @@
 .dashboard-showcase {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(330px, 0.75fr);
-  gap: 28px;
-  padding: 42px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
+  gap: 24px;
+  padding: 28px 30px;
   border-radius: 32px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.12);
   background:
-    radial-gradient(circle at 12% 18%, rgba(56, 189, 248, 0.14), transparent 24%),
-    radial-gradient(circle at 88% 82%, rgba(244, 114, 182, 0.1), transparent 20%),
+    radial-gradient(circle at 12% 18%, rgba(56, 189, 248, 0.12), transparent 24%),
+    radial-gradient(circle at 88% 82%, rgba(244, 114, 182, 0.08), transparent 20%),
     linear-gradient(145deg, #0b1120 0%, #101827 52%, #172033 100%);
   box-shadow: 0 28px 80px rgba(2, 6, 23, 0.42);
-}
-
-.dashboard-showcase::before {
-  content: '';
-  position: absolute;
-  inset: auto -120px -120px auto;
-  width: 360px;
-  height: 360px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(250, 204, 21, 0.1) 0%, transparent 68%);
-  pointer-events: none;
 }
 
 .dashboard-showcase-copy {
@@ -48,15 +37,15 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding-top: 6px;
+  gap: 18px;
+  padding-top: 4px;
 }
 
 .dashboard-showcase-copy h1 {
   margin: 0;
   max-width: 760px;
   color: #f8fafc;
-  font-size: clamp(2.5rem, 4.6vw, 4.4rem);
+  font-size: clamp(2.2rem, 4.2vw, 3.9rem);
   line-height: 1.02;
   letter-spacing: -0.045em;
 }
@@ -65,8 +54,8 @@
   margin: 0;
   max-width: 640px;
   color: rgba(226, 232, 240, 0.86);
-  line-height: 1.9;
-  font-size: 1.02rem;
+  line-height: 1.7;
+  font-size: 1rem;
 }
 
 .dashboard-showcase-actions {
@@ -78,17 +67,17 @@
 .dashboard-stat-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 8px;
+  gap: 12px;
+  margin-top: 6px;
 }
 
 .dashboard-stat-pill {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px 20px;
-  border-radius: 22px;
-  background: rgba(9, 14, 26, 0.5);
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(9, 14, 26, 0.42);
   border: 1px solid rgba(148, 163, 184, 0.12);
   backdrop-filter: blur(16px);
 }
@@ -100,7 +89,7 @@
 
 .dashboard-stat-pill strong {
   color: #f8fafc;
-  font-size: 1.55rem;
+  font-size: 1.45rem;
   line-height: 1.1;
 }
 
@@ -109,7 +98,7 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .dashboard-profile-panel,
@@ -126,8 +115,8 @@
 .dashboard-profile-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 24px;
+  gap: 12px;
+  padding: 22px;
 }
 
 .dashboard-panel-head {
@@ -146,14 +135,14 @@
 }
 
 .dashboard-profile-panel strong {
-  font-size: 1.7rem;
+  font-size: 1.35rem;
   color: #f8fafc;
 }
 
 .dashboard-profile-panel p {
   margin: 0;
   color: rgba(203, 213, 225, 0.82);
-  line-height: 1.75;
+  line-height: 1.68;
 }
 
 .form-field {
@@ -238,7 +227,7 @@
 }
 
 .dashboard-section-block {
-  padding: 28px;
+  padding: 22px 26px;
 }
 
 .dashboard-section-head {
@@ -246,32 +235,32 @@
   align-items: end;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .dashboard-section-head h2 {
   margin: 8px 0 0;
-  font-size: 1.7rem;
+  font-size: 1.55rem;
   color: #f8fafc;
 }
 
 .dashboard-module-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .dashboard-module-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-height: 250px;
-  padding: 24px;
-  border-radius: 26px;
+  gap: 12px;
+  min-height: 210px;
+  padding: 20px;
+  border-radius: 24px;
   color: inherit;
   text-decoration: none;
   background:
-    radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 24%),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 24%),
     linear-gradient(180deg, rgba(10, 16, 30, 0.86) 0%, rgba(15, 23, 42, 0.6) 100%);
   border: 1px solid rgba(148, 163, 184, 0.12);
   transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
@@ -292,7 +281,7 @@
 
 .dashboard-module-top strong {
   color: #f8fafc;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   line-height: 1.1;
 }
 
@@ -311,7 +300,7 @@
 .dashboard-module-card p {
   margin: 0;
   color: rgba(203, 213, 225, 0.86);
-  line-height: 1.82;
+  line-height: 1.68;
 }
 
 .dashboard-module-meta {
@@ -337,26 +326,26 @@
   grid-template-columns: minmax(0, 1.2fr) auto auto;
   align-items: center;
   gap: 18px;
-  padding: 24px 28px;
+  padding: 22px 26px;
 }
 
 .dashboard-band-copy {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .dashboard-band-copy h2 {
   margin: 0;
   color: #f8fafc;
-  font-size: 1.55rem;
-  line-height: 1.25;
+  font-size: 1.4rem;
+  line-height: 1.2;
 }
 
 .dashboard-band-copy p {
   margin: 0;
   color: rgba(203, 213, 225, 0.82);
-  line-height: 1.8;
+  line-height: 1.7;
 }
 
 .dashboard-band-steps {
@@ -391,7 +380,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 24px;
+  padding: 22px;
 }
 
 .dashboard-summary-label {
@@ -401,14 +390,14 @@
 
 .dashboard-summary-card strong {
   color: #f8fafc;
-  font-size: 2rem;
+  font-size: 1.8rem;
   line-height: 1.1;
 }
 
 .dashboard-summary-card p {
   margin: 0;
   color: rgba(203, 213, 225, 0.82);
-  line-height: 1.78;
+  line-height: 1.72;
 }
 
 @media (max-width: 1220px) {

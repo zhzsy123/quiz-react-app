@@ -163,7 +163,7 @@ export default function HistoryPage() {
   const refreshAttempts = async () => {
     if (!activeProfileId) return
     const rows = await listAttempts(activeProfileId)
-    setAttempts(rows)
+    setAttempts(rows.filter((item) => item.includeInHistory !== false))
   }
 
   useEffect(() => {

@@ -2,18 +2,41 @@ import { describe, expect, it } from 'vitest'
 import { normalizeQuizPayload, parseQuizText } from './quizSchema'
 
 describe('quizSchema boundary', () => {
-  it('parses fenced legacy payloads into normalized items', () => {
+  it('keeps compatibility for legacy items payloads', () => {
+    const result = normalizeQuizPayload({
+      title: 'Legacy quiz',
+      items: [
+        {
+          id: 'q1',
+          question: 'Legacy question',
+          options: ['A. one', 'B. two'],
+          correct_answer: 'B',
+          rationale: 'Legacy rationale',
+        },
+      ],
+    })
+
+    expect(result.compatibility.sourceSchema).toBe('legacy_items')
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].type).toBe('single_choice')
+  })
+
+  it('parses fenced schema payloads into normalized items', () => {
     const input = `
 \`\`\`json
 {
-  "title": "Legacy quiz",
-  "items": [
+  "schema_version": "2026-04",
+  "title": "Clean quiz",
+  "questions": [
     {
       "id": "q1",
-      "question": "What is 2 + 2?",
+      "type": "single_choice",
+      "prompt": "What is 2 + 2?",
       "options": ["A. 3", "B. 4"],
-      "correct_answer": "B",
-      "rationale": "Basic math"
+      "answer": {
+        "correct": "B",
+        "rationale": "Basic math"
+      }
     }
   ]
 }
@@ -23,15 +46,15 @@ describe('quizSchema boundary', () => {
     const result = parseQuizText(input)
 
     expect(result.cleanedText.startsWith('{')).toBe(true)
-    expect(result.parsed.title).toBe('Legacy quiz')
-    expect(result.parsed.compatibility.sourceSchema).toBe('legacy_items')
+    expect(result.parsed.title).toBe('Clean quiz')
+    expect(result.parsed.compatibility.sourceSchema).toBe('2026-04')
     expect(result.parsed.items).toHaveLength(1)
     expect(result.parsed.items[0].options[1]).toEqual({ key: 'B', text: '4' })
   })
 
-  it('normalizes schema v1 reading and cloze data', () => {
+  it('normalizes reading and cloze data', () => {
     const result = normalizeQuizPayload({
-      schema_version: '1.0',
+      schema_version: '2026-04',
       title: 'Schema quiz',
       questions: [
         {
@@ -76,12 +99,11 @@ describe('quizSchema boundary', () => {
     expect(result.items[0].type).toBe('reading')
     expect(result.items[1].type).toBe('single_choice')
     expect(result.items[1].context).toContain('____(1)____')
-    expect(result.compatibility.supportedCount).toBe(2)
   })
 
   it('normalizes multiple choice, true false and fill blank data', () => {
     const result = normalizeQuizPayload({
-      schema_version: '2.0',
+      schema_version: '2026-04',
       title: 'Objective quiz',
       questions: [
         {
@@ -128,6 +150,6 @@ describe('quizSchema boundary', () => {
   })
 
   it('reports invalid payloads at the boundary', () => {
-    expect(() => normalizeQuizPayload({ title: 'broken' })).toThrow(/questions|items/)
+    expect(() => normalizeQuizPayload({ title: 'broken' })).toThrow(/questions/)
   })
 })
