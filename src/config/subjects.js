@@ -1,37 +1,49 @@
 export const SUBJECT_REGISTRY = [
   {
     key: 'english',
+    routeSlug: 'english',
     label: '英语模考系统 V2.0',
     shortLabel: '英语',
-    description: '支持 90 分钟计时、断点续刷、历史记录与错题本闭环。',
+    description: '支持本地题库导入、刷题模式、考试模式、历史记录与错题本闭环。',
     route: '/exam/english',
+    workspaceRoute: '/workspace/english',
     isAvailable: true,
   },
   {
     key: 'data_structure',
-    label: '数据结构',
+    routeSlug: 'data-structure',
+    label: '数据结构模考系绷 V1.0',
     shortLabel: '数据结构',
-    description: '系统路由与本地数据库已为该科目预留扩展位。',
-    route: null,
-    isAvailable: false,
+    description: '支持本地题库导入、刷题模式、考试模式与历史记录。',
+    route: '/exam/data-structure',
+    workspaceRoute: '/workspace/data-structure',
+    isAvailable: true,
   },
   {
     key: 'database_principles',
-    label: '数据库原理',
+    routeSlug: 'database-principles',
+    label: '数据库原理模考系统 V1.0',
     shortLabel: '数据库原理',
-    description: '后续可复用当前的本地档案、题库与成绩记录框架。',
-    route: null,
-    isAvailable: false,
+    description: '支持本地题库导入、刷题模式、考试模式与历史记录。',
+    route: '/exam/database-principles',
+    workspaceRoute: '/workspace/database-principles',
+    isAvailable: true,
   },
 ]
 
 export function getSubjectMeta(subjectKey) {
   return SUBJECT_REGISTRY.find((item) => item.key === subjectKey) || {
     key: subjectKey,
+    routeSlug: subjectKey,
     label: subjectKey,
     shortLabel: subjectKey,
     description: '',
     route: null,
+    workspaceRoute: null,
     isAvailable: false,
   }
+}
+
+export function getSubjectMetaByRouteParam(subjectParam) {
+  return SUBJECT_REGISTRY.find((item) => item.routeSlug === subjectParam || item.key === subjectParam) || SUBJECT_REGISTRY[0]
 }
