@@ -25,8 +25,8 @@ function WorkflowBand() {
           <FileJson size={14} />
           JSON Workflow
         </span>
-        <h2>PDF / DOCX 先交给 AI 清洗，再把 JSON 导入本站。</h2>
-        <p>首页只保留这一条最核心的使用路径，不再堆满说明卡片。</p>
+        <h2>使用说明，推荐使用DeepSeek清洗试卷</h2>
+        <p>PDF / DOCX 先交给 AI 清洗，再把 JSON 导入本站。</p>
       </div>
 
       <div className="dashboard-band-steps">
@@ -172,9 +172,9 @@ export default function DashboardSplitPage() {
               <LayoutDashboard size={14} />
               Study Workspace
             </span>
-            <h1>个人题库、练习记录和复习入口，收成一个干净的首页。</h1>
+            <h1>智能在线模考2.0。</h1>
             <p>
-              首页不再承担所有说明和所有数据，只保留开始使用时最需要的几个动作，让你打开页面就知道下一步该做什么。
+              极速刷题 - 快速巩固 - 智能模考 - 错题本支持。
             </p>
 
             <div className="dashboard-showcase-actions">
@@ -212,7 +212,7 @@ export default function DashboardSplitPage() {
               </div>
 
               <strong>{activeProfile?.name || '未命名档案'}</strong>
-              <p>这里保留档案切换，其他管理动作不放在首页抢视觉焦点。</p>
+              <p>档案切换多角色分离，暂未支持跨设备同步。</p>
 
               <label className="form-field">
                 <span>切换档案</span>
@@ -268,7 +268,7 @@ export default function DashboardSplitPage() {
           <div className="dashboard-section-head">
             <div>
               <span className="dashboard-eyebrow">Modules</span>
-              <h2>选择要进入的科目模块</h2>
+              <h2>科目模块</h2>
             </div>
           </div>
 
@@ -281,7 +281,7 @@ export default function DashboardSplitPage() {
                 </div>
                 <p>{subject.description}</p>
                 <div className="dashboard-module-meta">
-                  <span>历史考试 {subject.attemptCount}</span>
+                  <span>总考试次数 {subject.attemptCount}</span>
                   <span>平均正确率 {subject.averageRate}%</span>
                 </div>
                 <div className="dashboard-module-entry">
@@ -305,13 +305,13 @@ export default function DashboardSplitPage() {
           <article className="dashboard-summary-card">
             <span className="dashboard-summary-label">总刷题量</span>
             <strong>{dashboardState.totalQuestionVolume}</strong>
-            <p>累计参与练习和考试的题目数量</p>
+            <p>累计刷题</p>
           </article>
 
           <article className="dashboard-summary-card">
             <span className="dashboard-summary-label">当前重点</span>
             <strong>{dashboardState.totalWrong} 道错题</strong>
-            <p>如果只是打开首页准备继续学习，优先从错题本开始更有效。</p>
+            <p>定期清空错题本，二次巩固。</p>
           </article>
         </section>
       </div>
