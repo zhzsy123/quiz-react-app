@@ -8,20 +8,17 @@ import {
   generateSimilarQuestions,
   gradeSubjectiveAttempt,
 } from '../../ai/reviewService'
+import { createAttempt, updateAttempt } from '../../../entities/attempt/api/attemptRepository'
+import { listFavoriteEntriesBySubject, toggleFavoriteEntry } from '../../../entities/favorite/api/favoriteRepository'
+import { listLibraryEntries } from '../../../entities/library/api/libraryRepository'
+import { getSubjectMetaByRouteParam } from '../../../entities/subject/model/subjects'
 import {
   clearProgressRecord,
-  listLibraryEntries,
-  loadFavoriteEntries,
-  loadPreference,
   loadProgressRecord,
-  savePreference,
-  saveAttemptRecord,
   saveProgressRecord,
-  toggleFavoriteEntry,
-  upsertWrongBookEntries,
-  updateAttemptRecord,
-} from '../../../shared/lib/storage/storageFacade'
-import { getSubjectMetaByRouteParam } from '../../../entities/subject/model/subjects'
+} from '../../../entities/workspace/api/workspaceSessionRepository'
+import { upsertWrongBookEntries } from '../../../entities/wrong-book/api/wrongBookRepository'
+import { loadPreference, savePreference } from '../../../shared/lib/preferences/preferenceRepository'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
@@ -359,7 +356,7 @@ export function useSubjectWorkspaceState() {
         return
       }
 
-      const favoriteRows = await loadFavoriteEntries(activeProfile.id, subjectKey)
+      const favoriteRows = await listFavoriteEntriesBySubject(activeProfile.id, subjectKey)
       if (cancelled) return
       setFavoriteEntries(favoriteRows)
 
@@ -461,7 +458,7 @@ export function useSubjectWorkspaceState() {
   const persistAttemptPatch = async (targetAttemptId, patch) => {
     if (!targetAttemptId) return
     try {
-      await updateAttemptRecord(targetAttemptId, patch)
+      await updateAttempt(targetAttemptId, patch)
     } catch (error) {
       console.error('AI 评阅记录更新失败', error)
     }
@@ -673,7 +670,7 @@ export function useSubjectWorkspaceState() {
 
     let savedAttempt = null
     if (source !== 'favorites' && (mode === 'exam' || practiceWritesWrongBook)) {
-      savedAttempt = await saveAttemptRecord({
+      savedAttempt = await createAttempt({
         profileId: activeProfile.id,
         subject: subjectKey,
         paperId,

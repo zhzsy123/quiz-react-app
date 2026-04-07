@@ -1,50 +1,33 @@
 import {
   createProfile,
   ensureDefaultProfile,
-  getActiveProfileId,
   listProfiles,
   renameProfile,
-  setActiveProfileId,
-} from '../../../entities/profile/api/profileRepository'
-import {
-  deleteLibraryEntry,
+  upsertLibraryEntry,
   listLibraryEntries,
   updateLibraryEntry,
-  upsertLibraryEntry,
-} from '../../../entities/library/api/libraryRepository'
-import {
-  clearProgressRecord,
-  loadLastOpenedPaper,
-  loadProgressRecord,
-  saveLastOpenedPaper,
+  deleteLibraryEntry,
   saveProgressRecord,
-} from '../../../entities/workspace/api/workspaceSessionRepository'
-import {
-  deleteAttemptRecord,
-  listAttempts,
+  loadProgressRecord,
+  clearProgressRecord,
+  saveLastOpenedPaper,
+  loadLastOpenedPaper,
   saveAttemptRecord,
+  listAttempts,
   updateAttemptRecord,
-} from '../../../entities/attempt/api/attemptRepository'
-import {
+  deleteAttemptRecord,
   loadMasteredWrongMap,
-  loadWrongBookEntries,
   markWrongQuestionMastered,
-  removeWrongBookEntries,
-  removeWrongBookEntry,
+  loadWrongBookEntries,
   upsertWrongBookEntries,
-} from '../../../entities/wrong-book/api/wrongBookRepository'
-import {
+  removeWrongBookEntry,
+  removeWrongBookEntries,
   loadFavoriteEntries,
-  removeFavoriteEntry,
   toggleFavoriteEntry,
-} from '../../../entities/favorite/api/favoriteRepository'
-import { loadPreference, savePreference } from '../preferences/preferenceRepository'
+  removeFavoriteEntry,
+} from '../indexedDb'
 
-export {
-  getActiveProfileId,
-  setActiveProfileId,
-  loadPreference,
-  savePreference,
+export const indexedDbAdapter = {
   listProfiles,
   createProfile,
   renameProfile,

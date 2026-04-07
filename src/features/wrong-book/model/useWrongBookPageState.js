@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
-import { SUBJECT_REGISTRY } from '../../../entities/subject/model/subjects'
 import {
-  loadWrongBookEntries,
+  listAllWrongBookEntries,
   removeWrongBookEntries,
   removeWrongBookEntry,
-} from '../../../shared/lib/storage/storageFacade'
+} from '../../../entities/wrong-book/api/wrongBookRepository'
 
 export function getWrongItemCategory(item) {
   if (item.parentType === 'reading' || item.sourceType === 'reading') return 'reading'
   if (
     item.sourceType === 'cloze' ||
     item.source_type === 'cloze' ||
-    String(item.contextTitle || '').includes('瀹屽舰') ||
+    String(item.contextTitle || '').includes('完形') ||
     (item.tags || []).some((tag) => String(tag).toLowerCase() === 'cloze')
   ) {
     return 'cloze'
@@ -21,9 +20,9 @@ export function getWrongItemCategory(item) {
 }
 
 export function getWrongItemCategoryLabel(category) {
-  if (category === 'reading') return '闃呰鐞嗚В'
-  if (category === 'cloze') return '瀹屽舰濉┖'
-  return '鍗曢」閫夋嫨'
+  if (category === 'reading') return '阅读理解'
+  if (category === 'cloze') return '完形填空'
+  return '客观题'
 }
 
 export function renderWrongBookOptionLabel(option) {
@@ -46,8 +45,7 @@ export function useWrongBookPageState() {
 
   const refreshEntries = async () => {
     if (!activeProfileId) return
-    const groups = await Promise.all(SUBJECT_REGISTRY.map((subject) => loadWrongBookEntries(activeProfileId, subject.key)))
-    const rows = groups.flat().sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+    const rows = await listAllWrongBookEntries(activeProfileId)
     setEntries(rows.map((row) => ({ ...row, category: getWrongItemCategory(row) })))
   }
 
@@ -123,7 +121,7 @@ export function useWrongBookPageState() {
   const handleRemoveSelected = async () => {
     const targets = filteredWrongItems.filter((item) => selectedKeys.includes(item.questionKey))
     if (!targets.length) return
-    const ok = window.confirm(`纭畾鍒犻櫎宸查€変腑鐨?${targets.length} 閬撻敊棰樺悧锛焋`)
+    const ok = window.confirm(`确定删除已选中的 ${targets.length} 道错题吗？`)
     if (!ok) return
     await removeItemsBulk(targets)
     setSelectedKeys([])
@@ -131,7 +129,7 @@ export function useWrongBookPageState() {
 
   const handleRemoveAllFiltered = async () => {
     if (!filteredWrongItems.length) return
-    const ok = window.confirm(`纭畾鍒犻櫎褰撳墠绛涢€夌粨鏋滀腑鐨勫叏閮?${filteredWrongItems.length} 閬撻敊棰樺悧锛焋`)
+    const ok = window.confirm(`确定删除当前筛选结果中的全部 ${filteredWrongItems.length} 道错题吗？`)
     if (!ok) return
     await removeItemsBulk(filteredWrongItems)
     setSelectedKeys([])
@@ -141,12 +139,12 @@ export function useWrongBookPageState() {
     if (!displayPracticeItem || holdSolvedItem) return
     setSelectedAnswer(optionKey)
     if (optionKey === displayPracticeItem.correctAnswer) {
-      setFeedback('鍥炵瓟姝ｇ‘锛屽凡浠庨敊棰樻湰绉婚櫎銆?')
+      setFeedback('回答正确，已从错题本中移除。')
       setHoldSolvedItem(displayPracticeItem)
       await handleRemove(displayPracticeItem)
       return
     }
-    setFeedback('鍥炵瓟閿欒锛屽彲浠ョ户缁皾璇曘€?')
+    setFeedback('回答错误，请继续查看解析。')
   }
 
   const handleAdvanceAfterSolved = () => {

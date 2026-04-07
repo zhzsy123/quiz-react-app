@@ -6,7 +6,7 @@ import {
   listProfiles,
   renameProfile,
   setActiveProfileId,
-} from '../../shared/lib/storage/storageFacade'
+} from '../../entities/profile/api/profileRepository'
 
 const AppContext = createContext(null)
 
@@ -41,12 +41,12 @@ export function AppProvider({ children }) {
           setLoading(false)
         }
       } catch (error) {
-        console.error('初始化本地档案失败:', error)
+        console.error('初始化本地档案失败', error)
         if (isMounted) setLoading(false)
       }
     }
 
-    initialize()
+    void initialize()
 
     return () => {
       isMounted = false

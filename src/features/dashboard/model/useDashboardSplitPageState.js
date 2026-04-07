@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
+import { listAttemptsByProfile } from '../../../entities/attempt/api/attemptRepository'
+import { listAllFavoriteEntries } from '../../../entities/favorite/api/favoriteRepository'
 import { SUBJECT_REGISTRY } from '../../../entities/subject/model/subjects'
 import { getDeepSeekConfig, updateDeepSeekConfig } from '../../../shared/api/deepseekClient'
-import { listAttempts, loadFavoriteEntries } from '../../../shared/lib/storage/storageFacade'
 
 export const DASHBOARD_DOWNLOAD_OPTIONS = [
   {
@@ -48,11 +49,10 @@ export function useDashboardSplitPageState() {
     async function loadDashboard() {
       if (!activeProfileId) return
 
-      const favoriteGroups = await Promise.all(
-        SUBJECT_REGISTRY.map((subject) => loadFavoriteEntries(activeProfileId, subject.key))
-      )
-      const attempts = await listAttempts(activeProfileId)
-      const favorites = favoriteGroups.flat()
+      const [favorites, attempts] = await Promise.all([
+        listAllFavoriteEntries(activeProfileId),
+        listAttemptsByProfile(activeProfileId),
+      ])
 
       if (!cancelled) {
         setDashboardState({
@@ -70,26 +70,24 @@ export function useDashboardSplitPageState() {
     }
   }, [activeProfileId])
 
-  const subjectSummaries = useMemo(
-    () =>
-      SUBJECT_REGISTRY.map((subject) => {
-        const attempts = dashboardState.attempts.filter((item) => item.subject === subject.key)
-        const averageRate = attempts.length
-          ? Math.round(
-              attempts.reduce((sum, item) => {
-                return sum + (item.objectiveTotal ? (item.objectiveScore / item.objectiveTotal) * 100 : 0)
-              }, 0) / attempts.length
-            )
-          : 0
+  const subjectSummaries = useMemo(() => {
+    return SUBJECT_REGISTRY.map((subject) => {
+      const attempts = dashboardState.attempts.filter((item) => item.subject === subject.key)
+      const averageRate = attempts.length
+        ? Math.round(
+            attempts.reduce((sum, item) => {
+              return sum + (item.objectiveTotal ? (item.objectiveScore / item.objectiveTotal) * 100 : 0)
+            }, 0) / attempts.length
+          )
+        : 0
 
-        return {
-          ...subject,
-          attemptCount: attempts.length,
-          averageRate,
-        }
-      }),
-    [dashboardState.attempts]
-  )
+      return {
+        ...subject,
+        attemptCount: attempts.length,
+        averageRate,
+      }
+    })
+  }, [dashboardState.attempts])
 
   const latestAttempt = dashboardState.attempts[0] || null
   const overallAverageRate = dashboardState.attempts.length

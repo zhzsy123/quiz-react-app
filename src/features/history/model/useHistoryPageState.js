@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
-import { deleteAttemptRecord, listAttempts, updateAttemptRecord } from '../../../shared/lib/storage/storageFacade'
+import { deleteAttemptRecord, listAttempts, updateAttemptRecord } from '../../../entities/attempt/api/attemptRepository'
 
 function attemptDisplayTitle(attempt) {
-  return attempt.customTitle?.trim() || attempt.title || '鏈懡鍚嶈瘯鍗?'
+  return attempt.customTitle?.trim() || attempt.title || '未命名答卷'
 }
 
 function normalizeChoiceArray(value) {
@@ -12,7 +12,7 @@ function normalizeChoiceArray(value) {
 }
 
 function optionLabel(options = [], key = '') {
-  if (!key) return '鏈綔绛?'
+  if (!key) return '未作答'
   const match = options.find((option) => option?.key === key)
   if (!match) return key
   return `${match.key}. ${match.text}`
@@ -21,15 +21,15 @@ function optionLabel(options = [], key = '') {
 function objectiveLabel(item, response) {
   if (item.type === 'multiple_choice') {
     const values = normalizeChoiceArray(response)
-    return values.length ? values.map((value) => optionLabel(item.options || [], value)).join(' / ') : '鏈綔绛?'
+    return values.length ? values.map((value) => optionLabel(item.options || [], value)).join(' / ') : '未作答'
   }
   if (item.type === 'fill_blank') {
-    if (!response || typeof response !== 'object') return '鏈綔绛?'
+    if (!response || typeof response !== 'object') return '未作答'
     return (
       item.blanks
         .map((blank) => String(response[blank.blank_id] || '').trim())
         .filter(Boolean)
-        .join(' / ') || '鏈綔绛?'
+        .join(' / ') || '未作答'
     )
   }
   return optionLabel(item.options || [], response || '')
@@ -74,12 +74,12 @@ function buildAnswerRows(attempt) {
       item.questions.forEach((question) => {
         rows.push({
           key: `${item.id}:${question.id}`,
-          parentTitle: item.passage?.title || item.title || '闃呰鐞嗚В',
+          parentTitle: item.passage?.title || item.title || '阅读理解',
           prompt: question.prompt,
           type: 'objective',
           userLabel: optionLabel(question.options || [], readingAnswers[question.id] || ''),
           correctLabel: optionLabel(question.options || [], question.answer?.correct || ''),
-          rationale: question.answer?.rationale || '鏆傛棤瑙ｆ瀽',
+          rationale: question.answer?.rationale || '暂无解析',
           isCorrect: (readingAnswers[question.id] || '') === question.answer?.correct,
         })
       })
@@ -96,8 +96,8 @@ function buildAnswerRows(attempt) {
         correctLabel: objectiveCorrectLabel(item),
         rationale:
           item.type === 'fill_blank'
-            ? item.blanks.map((blank, index) => `绗?${index + 1} 绌猴細${blank.rationale || '鏆傛棤瑙ｆ瀽'}`).join('锛?')
-            : item.answer?.rationale || '鏆傛棤瑙ｆ瀽',
+            ? item.blanks.map((blank, index) => `空 ${index + 1}：${blank.rationale || '暂无解析'}`).join('；')
+            : item.answer?.rationale || '暂无解析',
         isCorrect: isObjectiveCorrect(item, userValue),
       })
       return
@@ -160,16 +160,16 @@ export function useHistoryPageState() {
   }, [filteredAttempts])
 
   const handleEditAttempt = async (attempt) => {
-    const nextTitle = window.prompt('璇疯緭鍏ヨ褰曟爣棰橈細', attempt.customTitle?.trim() || attempt.title || '')
+    const nextTitle = window.prompt('请输入新的展示标题：', attempt.customTitle?.trim() || attempt.title || '')
     if (nextTitle === null) return
-    const nextNotes = window.prompt('璇疯緭鍏ヨ褰曞娉紙鍙负绌猴級锛?', attempt.notes || '')
+    const nextNotes = window.prompt('请输入备注：', attempt.notes || '')
     if (nextNotes === null) return
     await updateAttemptRecord(attempt.id, { customTitle: nextTitle, notes: nextNotes })
     await refreshAttempts()
   }
 
   const handleDeleteAttempt = async (attempt) => {
-    const ok = window.confirm(`纭畾鍒犻櫎杩欐潯鍘嗗彶璁板綍鍚楋紵\n銆?${attemptDisplayTitle(attempt)}銆?`)
+    const ok = window.confirm(`确定删除这条历史记录吗？\n\n${attemptDisplayTitle(attempt)}`)
     if (!ok) return
     await deleteAttemptRecord(attempt.id)
     if (expandedAttemptId === attempt.id) setExpandedAttemptId(null)

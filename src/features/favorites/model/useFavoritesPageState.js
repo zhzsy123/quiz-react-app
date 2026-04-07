@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppContext } from '../../../app/providers/AppContext'
-import { SUBJECT_REGISTRY, getSubjectMeta } from '../../../entities/subject/model/subjects'
-import { loadFavoriteEntries, removeFavoriteEntry } from '../../../shared/lib/storage/storageFacade'
+import { listAllFavoriteEntries, removeFavoriteEntry } from '../../../entities/favorite/api/favoriteRepository'
+import { getSubjectMeta } from '../../../entities/subject/model/subjects'
 
 export function formatFavoriteType(entry) {
-  if (entry.itemType === 'reading') return '闃呰鐞嗚В'
-  if (entry.itemType === 'translation') return '缈昏瘧棰?'
-  if (entry.itemType === 'short_answer') return '绠€绛旈'
-  if (entry.itemType === 'case_analysis') return '妗堜緥鍒嗘瀽'
-  if (entry.itemType === 'calculation') return '璁＄畻棰?'
-  if (entry.itemType === 'operation') return '鎿嶄綔棰?'
-  if (entry.itemType === 'essay') return '浣滄枃棰?'
-  if (entry.sourceType === 'cloze') return '瀹屽舰濉┖'
-  return '鍗曢」閫夋嫨'
+  if (entry.itemType === 'reading') return '阅读理解'
+  if (entry.itemType === 'translation') return '翻译题'
+  if (entry.itemType === 'short_answer') return '简答题'
+  if (entry.itemType === 'case_analysis') return '案例分析'
+  if (entry.itemType === 'calculation') return '计算题'
+  if (entry.itemType === 'operation') return '操作题'
+  if (entry.itemType === 'essay') return '作文题'
+  if (entry.sourceType === 'cloze') return '完形填空'
+  return '客观题'
 }
 
 export function useFavoritesPageState() {
@@ -25,8 +25,8 @@ export function useFavoritesPageState() {
 
   const refreshEntries = async () => {
     if (!activeProfileId) return
-    const groups = await Promise.all(SUBJECT_REGISTRY.map((subject) => loadFavoriteEntries(activeProfileId, subject.key)))
-    setEntries(groups.flat().sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0)))
+    const rows = await listAllFavoriteEntries(activeProfileId)
+    setEntries(rows)
   }
 
   useEffect(() => {

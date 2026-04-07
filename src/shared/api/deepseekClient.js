@@ -1,4 +1,4 @@
-import { loadPreference, savePreference } from '../lib/storage/storageFacade'
+import { getPreference, setPreference } from '../lib/preferences/preferenceRepository'
 
 const API_KEY_PREF = 'ai:deepseekApiKey'
 const BASE_URL_PREF = 'ai:deepseekBaseUrl'
@@ -33,21 +33,21 @@ function parseJsonContent(content) {
 
 export function getDeepSeekConfig() {
   return {
-    apiKey: loadPreference(API_KEY_PREF, ''),
-    baseUrl: loadPreference(BASE_URL_PREF, import.meta.env.VITE_DEEPSEEK_BASE_URL || DEFAULT_BASE_URL),
-    model: loadPreference(MODEL_PREF, import.meta.env.VITE_DEEPSEEK_MODEL || DEFAULT_MODEL),
+    apiKey: getPreference(API_KEY_PREF, ''),
+    baseUrl: getPreference(BASE_URL_PREF, import.meta.env.VITE_DEEPSEEK_BASE_URL || DEFAULT_BASE_URL),
+    model: getPreference(MODEL_PREF, import.meta.env.VITE_DEEPSEEK_MODEL || DEFAULT_MODEL),
   }
 }
 
 export function updateDeepSeekConfig(patch = {}) {
   if (typeof patch.apiKey === 'string') {
-    savePreference(API_KEY_PREF, patch.apiKey.trim())
+    setPreference(API_KEY_PREF, patch.apiKey.trim())
   }
   if (typeof patch.baseUrl === 'string' && patch.baseUrl.trim()) {
-    savePreference(BASE_URL_PREF, patch.baseUrl.trim())
+    setPreference(BASE_URL_PREF, patch.baseUrl.trim())
   }
   if (typeof patch.model === 'string' && patch.model.trim()) {
-    savePreference(MODEL_PREF, patch.model.trim())
+    setPreference(MODEL_PREF, patch.model.trim())
   }
   return getDeepSeekConfig()
 }
@@ -66,7 +66,7 @@ export function ensureDeepSeekConfigInteractive() {
   const apiKey = window.prompt('请输入 DeepSeek API Key。它只会保存在当前浏览器本地，用于个人使用。')
   if (!apiKey?.trim()) return null
 
-  savePreference(API_KEY_PREF, apiKey.trim())
+  setPreference(API_KEY_PREF, apiKey.trim())
   return {
     ...current,
     apiKey: apiKey.trim(),
