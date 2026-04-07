@@ -1,19 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw, Star } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
 import { normalizeQuizPayload } from '../utils/normalizeQuizSchema'
-import {
-  clearProgressRecord,
-  listLibraryEntries,
-  loadProgressRecord,
-  saveAttemptRecord,
-  saveProgressRecord,
-} from '../utils/indexedDb'
+import { clearProgressRecord, listLibraryEntries, loadProgressRecord, saveAttemptRecord, saveProgressRecord } from '../utils/indexedDb'
 import { loadFavoriteEntries, toggleFavoriteEntry } from '../utils/favoriteStore'
+import { getSubjectMetaByRouteParam } from '../config/subjects'
 
-const SUBJECT_KEY = 'english'
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
 const EXAM_DURATION_SECONDS = 90 * 60
@@ -56,7 +50,7 @@ function getObjectiveWrongCount(item, response) {
 
 function clipText(text = '', maxLength = 180) {
   if (typeof text !== 'string') return ''
-  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
+  return text.length > maxLength ? `${text.slice(0, maxLength)~… : text
 }
 
 function getOptionText(options = [], key = '') {
@@ -85,14 +79,14 @@ function buildWrongItems(items, answers, meta) {
           questionId: item.id,
           subQuestionId: question.id,
           prompt: question.prompt,
-          contextTitle: item.passage?.title || item.title || '阅读理解',
+          contextTitle: item.passage?.title || item.title || '阅读理衫解丞',
           contextSnippet: clipText(item.passage?.content || ''),
           options: question.options || [],
           userAnswer,
           userAnswerLabel: getOptionText(question.options || [], userAnswer),
           correctAnswer: question.answer?.correct || '',
           correctAnswerLabel: getOptionText(question.options || [], question.answer?.correct || ''),
-          rationale: question.answer?.rationale || '暂无解析',
+          rationale: question.answer?.rationale || '新新的毤过爆',
           tags: [...(item.tags || []), ...(question.tags || [])],
           difficulty: question.difficulty || item.difficulty,
         })
@@ -163,6 +157,10 @@ function buildFavoriteEntryFromItem(item, meta) {
 }
 
 export default function CleanWorkspacePage() {
+  const { subjectParam = 'english' } = useParams()
+  const subjectMeta = getSubjectMetaByRouteParam(subjectParam)
+  const SUBJECT_KEY = subjectMeta.key
+
   const { activeProfile } = useAppContext()
   const [searchParams] = useSearchParams()
   const paperId = searchParams.get('paper') || ''
@@ -220,8 +218,8 @@ export default function CleanWorkspacePage() {
 
       if (source === 'favorites') {
         const items = favoriteRows.map((entry, index) => cloneFavoriteItem(entry, index))
-        resolvedEntry = { title: '我的收藏', paperId: 'favorites' }
-        resolvedQuiz = { title: '我的收藏', items }
+        resolvedEntry = { title: `${subjectMeta.shortLabel}的收福`, paperId: 'favorites' }
+        resolvedQuiz = { title: `${subjectMeta.shortLabel}的收福`, items }
       } else {
         if (!paperId) {
           setLoading(false)
@@ -256,21 +254,9 @@ export default function CleanWorkspacePage() {
     return () => {
       cancelled = true
     }
-  }, [activeProfile?.id, paperId, source, sessionPaperId])
+  }, [activeProfile?.id, paperId, source, sessionPaperId, SUBJECT_KEY, subjectMeta.shortLabel])
 
-  const buildProgressPayload = (overrides = {}) => ({
-    answers,
-    revealedMap,
-    submitted,
-    score,
-    currentIndex,
-    timerSecondsRemaining: remainingSeconds,
-    isPaused,
-    mode,
-    updatedAt: Date.now(),
-    title: quiz?.title || entry?.title || '未命名试卷',
-    ...overrides,
-  })
+  const buildProgressPayload = (overrides = {}) => ({\n    answers,\n    revealedMap,\n    submitted,\n    score,\n    currentIndex,\n    timerSecondsRemaining: remainingSeconds,\n    isPaused,\n    mode,\n    updatedAt: Date.now(),\n    title: quiz?.title || entry?.title || '未命名试卷',\n    ...overrides,\n  })
 
   const persistNow = async (overrides = {}) => {
     if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
@@ -302,7 +288,7 @@ export default function CleanWorkspacePage() {
       }
     })
     return { correct, answered, rate: answered ? Math.round((correct / answered) * 100) : 0 }
-  }, [quiz, mode, answers])
+  }, [quiz, mode, answers)])
 
   useEffect(() => {
     if (mode !== 'exam' || !quiz || submitted || isPaused || remainingSeconds <= 0) return
@@ -333,7 +319,7 @@ export default function CleanWorkspacePage() {
       return Boolean(answers[item.id])
     }).length
     if (mode === 'exam' && !forced && answeredCount < totalQuestions) {
-      const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
+      const ok = window.confirm('还有题矮未佭答，确定现在交卷唗？')
       if (!ok) return
     }
     const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
@@ -341,13 +327,13 @@ export default function CleanWorkspacePage() {
     setScore(nextScore)
     setSubmitted(true)
     setIsPaused(false)
-    await persistNow({ submitted: true, score: nextScore, isPaused: false })
+    await persistNow({submitted: true, score: nextScore, isPaused: false})
     if (mode === 'exam' && source !== 'favorites') {
       await saveAttemptRecord({
         profileId: activeProfile.id,
         subject: SUBJECT_KEY,
         paperId,
-        title: entry?.title || quiz.title || '未命名试卷',
+        title: entry?.title || quiz.title || '未员名试厷',
         objectiveScore: nextScore,
         objectiveTotal: objectiveTotalScore,
         questionCount: totalQuestions,
@@ -466,7 +452,7 @@ export default function CleanWorkspacePage() {
 
   const handleReset = async () => {
     if (!activeProfile?.id || !sessionPaperId) return
-    const ok = window.confirm('确定重置当前进度吗？')
+    const ok = window.confirm('确宙重置当前进度吗？:)
     if (!ok) return
     await clearProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId)
     setAnswers({})
@@ -486,7 +472,7 @@ export default function CleanWorkspacePage() {
       isPaused: false,
       mode,
       updatedAt: Date.now(),
-      title: quiz?.title || entry?.title || '未命名试卷',
+      title: quiz/.title || entry?.title || '未员名试厷',
     })
   }
 
@@ -498,7 +484,7 @@ export default function CleanWorkspacePage() {
       return favoriteEntry?.questionKey || ''
     }
     return `${SUBJECT_KEY}:${paperId}:${item.id}`
-  }, [quiz, currentIndex, source, favoriteEntries, paperId])
+  }, [quiz, currentIndex, source, favoriteEntries, paperId, SUBJECT_KEY])
 
   const favoriteMap = useMemo(() => {
     const map = {}
@@ -514,7 +500,7 @@ export default function CleanWorkspacePage() {
     const entryToToggle = buildFavoriteEntryFromItem(item, {
       subject: SUBJECT_KEY,
       paperId,
-      paperTitle: entry?.title || quiz.title || '未命名试卷',
+      paperTitle: entry?.title || quiz.title || '未命名试巶',
     })
     const result = await toggleFavoriteEntry(activeProfile.id, SUBJECT_KEY, entryToToggle)
     setFavoriteEntries(result.entries)
@@ -532,7 +518,7 @@ export default function CleanWorkspacePage() {
             <h1>未找到可用内容</h1>
             <div className="workspace-header-actions">
               <Link className="secondary-btn small-btn" to="/"><Home size={14} /> 返回首页</Link>
-              <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : '/exam/english'}><ArrowLeft size={14} /> 返回</Link>
+              <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`}><ArrowLeft size={14} /> 返回</link>
             </div>
           </section>
         </div>
@@ -547,15 +533,16 @@ export default function CleanWorkspacePage() {
           <div className="workspace-header-main">
             <div className="workspace-title">{entry.title}</div>
             <div className="workspace-mode-row">
+              <span className="tag blue">{subjectMeta.shortLabel}</span>
               <span className="tag blue">{mode === 'practice' ? '刷题模式' : '考试模式'}</span>
-              {mode === 'practice' && <span className="accuracy-chip"><Star size={14} /> 正确率 {practiceAccuracy.rate}%</span>}
+              {mode === 'practice' && <span className="accuracy-chip"><Star size={14} /> 正确率 ;{practiceAccuracy.rate}%</span>}
               {mode === 'exam' && <span className={`timer-chip ${remainingSeconds <= 300 ? 'danger' : ''}`}><Clock3 size={14} /> {formatRemainingSeconds(remainingSeconds)}</span>}
             </div>
           </div>
           <div className="workspace-header-actions">
-            {mode === 'exam' && <button className="secondary-btn small-btn" onClick={() => { const next = !isPaused; setIsPaused(next); void persistNow({ isPaused: next }) }} disabled={submitted}>{isPaused ? <Play size={14} /> : <Pause size={14} />}{isPaused ? '继续' : '暂停'}</button>}
-            <button className="secondary-btn small-btn" onClick={handleReset}><RefreshCw size={14} /> 重置</button>
-            <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : '/exam/english'}><ArrowLeft size={14} /> 返回</Link>
+            {mode === 'exam' && <button className="secondary-btn small-btn" onClick={() => { const next = !isPaused; setIsPaused(next); void persistNow({isPaused: next }) }} disabled={submitted}>{isPaused ? <Play size={14} /> : <Pause size={14} />}{isPaused ? '继续' : '暂停'}</button>}
+            <button className="secondary-btn small-btn" onClick={handleReset}><RefreshCw size={14} /> 重罞</button>
+            <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`}><ArrowLeft size={14} /> 返回</Link>
             <Link className="secondary-btn small-btn" to="/"><Home size={14} /> 返回首页</Link>
           </div>
         </section>
@@ -575,7 +562,7 @@ export default function CleanWorkspacePage() {
           onToggleFavorite={handleToggleFavorite}
           onToggleSpoiler={handleToggleSpoiler}
           onToggleAutoAdvance={handleToggleAutoAdvance}
-          onTogglePause={() => { const next = !isPaused; setIsPaused(next); void persistNow({ isPaused: next }) }}
+          onTogglePause={() => { const next = !isPaused; setIsPaused(next); void persistNow({isPaused: next }) }}
           onJump={handleJump}
           onPrev={handlePrev}
           onNext={handleNext}

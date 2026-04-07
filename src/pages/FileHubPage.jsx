@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, FileText, FolderOpen, Pencil, Play, Search, Tags, Timer, Trash2, UserCircle2 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import QuizImporter from '../components/QuizImporter'
 import { buildPaperId } from '../utils/storage'
 import { useAppContext } from '../context/AppContext'
 import { deleteLibraryEntry, listLibraryEntries, updateLibraryEntry, upsertLibraryEntry } from '../utils/indexedDb'
-
-const SUBJECT_KEY = 'english'
+import { getSubjectMetaByRouteParam } from '../config/subjects'
 
 export default function FileHubPage() {
+  const { subjectParam = 'english' } = useParams()
+  const subjectMeta = getSubjectMetaByRouteParam(subjectParam)
+  const SUBJECT_KEY = subjectMeta.key
+
   const { activeProfile, activeProfileId } = useAppContext()
   const navigate = useNavigate()
   const [entries, setEntries] = useState([])
@@ -28,7 +31,7 @@ export default function FileHubPage() {
 
   useEffect(() => {
     void refreshEntries()
-  }, [activeProfileId])
+  }, [activeProfileId, SUBJECT_KEY])
 
   const filteredEntries = useMemo(() => {
     const lowered = query.trim().toLowerCase()
@@ -78,7 +81,7 @@ export default function FileHubPage() {
   }
 
   const openWorkspace = (entry, mode) => {
-    navigate(`/workspace/english?paper=${encodeURIComponent(entry.paperId)}&mode=${mode}`)
+    navigate(`/workspace/${subjectMeta.routeSlug}?paper=${encodeURIComponent(entry.paperId)}&mode=${mode}`)
   }
 
   return (
@@ -86,13 +89,14 @@ export default function FileHubPage() {
       <div className="container dashboard-page">
         <section className="dashboard-hero left-hero compact-page-hero">
           <div className="section-header-row no-margin">
-            <h1 className="page-title-inline"><FileText size={28} /> 本地历史文件</h1>
+            <h1 className="page-title-inline"><FileText size={28} /> {subjectMeta.shortLabel}本地题库</h1>
             <div className="dashboard-action-row">
               <Link className="secondary-btn small-btn" to="/"><ArrowLeft size={16} /> 返回首页</Link>
             </div>
           </div>
           <div className="hub-topbar-meta">
             <div className="profile-inline-badge"><UserCircle2 size={16} /> {activeProfile?.name || '未命名档案'}</div>
+            <div className="hub-mode-pill">{subjectMeta.label}</div>
           </div>
           <QuizImporter onQuizLoaded={handleQuizLoaded} />
         </section>
@@ -105,7 +109,7 @@ export default function FileHubPage() {
           <div className="library-filters-grid single-search-grid">
             <label className="form-field grow">
               <span>关键词</span>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索文件名称、标签或 schema 版本" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`搜索${subjectMeta.shortLabel}文件名称、标签或 schema 版本`} />
             </label>
           </div>
         </section>
@@ -115,7 +119,7 @@ export default function FileHubPage() {
           {loading ? (
             <div className="local-library-empty">正在加载...</div>
           ) : filteredEntries.length === 0 ? (
-            <div className="local-library-empty">当前还没有已加载的考试/练习文件。</div>
+            <div className="local-library-empty">当前还没有已加载的{subjectMeta.shortLabel}考试/练习文件。</div>
           ) : (
             <div className="local-library-list">
               {filteredEntries.map((entry) => (

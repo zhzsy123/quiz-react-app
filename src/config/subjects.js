@@ -12,7 +12,7 @@ export const SUBJECT_REGISTRY = [
   {
     key: 'data_structure',
     routeSlug: 'data-structure',
-    label: '数据结构模考系绷 V1.0',
+    label: '数据结构模考系统 V1.0',
     shortLabel: '数据结构',
     description: '支持本地题库导入、刷题模式、考试模式与历史记录。',
     route: '/exam/data-structure',
