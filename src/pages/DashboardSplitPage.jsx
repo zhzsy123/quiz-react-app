@@ -22,23 +22,16 @@ const DOWNLOAD_OPTIONS = [
   {
     key: 'schema',
     title: 'JSON 规范',
-    description: '统一题库字段说明和导入约定，适合直接发给 AI 清洗试卷。',
+    description: '适合直接发给 AI 清洗试卷，内含字段说明和推荐提示词。',
     href: './json-schema.md',
     filename: 'json-schema.md',
   },
   {
-    key: 'trade-comprehensive',
-    title: '国际贸易综合样卷',
-    description: '覆盖选择、判断、简答、案例分析等常见国际贸易题型。',
-    href: './sample-international-trade-comprehensive.json',
-    filename: 'sample-international-trade-comprehensive.json',
-  },
-  {
-    key: 'trade-practical',
-    title: '国际贸易计算与操作样卷',
-    description: '适合验证计算题、操作题、主观题的导入和答题链路。',
-    href: './sample-international-trade-practical.json',
-    filename: 'sample-international-trade-practical.json',
+    key: 'trade-sample',
+    title: '国际贸易混合样卷',
+    description: '单个 JSON 混合多种国际贸易题型，每类题保留 3 个样例。',
+    href: './sample-international-trade.json',
+    filename: 'sample-international-trade.json',
   },
 ]
 
@@ -47,8 +40,8 @@ function WorkflowBand({ onOpenDownloads }) {
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
         <span className="dashboard-eyebrow">JSON Workflow</span>
-        <h2>使用说明，推荐使用 DeepSeek 清洗试卷</h2>
-        <p>PDF / DOCX 先交给 AI 清洗，再把 JSON 导入本站。</p>
+        <h2>使用说明，推荐用 AI 清洗试卷</h2>
+        <p>把 PDF / DOCX 和 JSON 规范一起发给 AI，让它直接输出可导入本站的合法 JSON。</p>
       </div>
 
       <div className="dashboard-band-steps">
@@ -79,7 +72,7 @@ function DownloadDialog({ open, onClose }) {
           <div className="download-dialog-copy">
             <span className="dashboard-eyebrow">Downloads</span>
             <h3>选择要下载的资料</h3>
-            <p>规范和国际贸易样卷都放在这里，首页只保留一个入口。</p>
+            <p>现在国际贸易样卷只保留一个混合示例，减少用户导入前的理解成本。</p>
           </div>
 
           <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭下载对话框">

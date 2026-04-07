@@ -1,0 +1,241 @@
+{
+  "schema_version": "2026-04",
+  "paper_id": "international_trade_mixed_sample_001",
+  "title": "国际贸易混合题型示例卷",
+  "subject": "international_trade",
+  "description": "单个 JSON 混合展示国际贸易常见题型，每类题提供 3 题样例，适合给 AI 参考输出结构。",
+  "duration_minutes": 150,
+  "questions": [
+    {
+      "id": "sc_1",
+      "type": "single_choice",
+      "prompt": "国际分工形成和发展的决定性因素是（）。",
+      "score": 2,
+      "options": [
+        { "key": "A", "text": "自然条件差异" },
+        { "key": "B", "text": "社会生产力发展" },
+        { "key": "C", "text": "人口规模差异" },
+        { "key": "D", "text": "消费习惯差异" }
+      ],
+      "answer": {
+        "type": "objective",
+        "correct": "B",
+        "rationale": "国际分工的深化本质上由社会生产力发展推动。"
+      }
+    },
+    {
+      "id": "sc_2",
+      "type": "single_choice",
+      "prompt": "比较优势理论说明国际贸易产生的直接基础是（）。",
+      "score": 2,
+      "options": [
+        { "key": "A", "text": "绝对成本差异" },
+        { "key": "B", "text": "技术完全相同" },
+        { "key": "C", "text": "相对成本差异" },
+        { "key": "D", "text": "市场规模相同" }
+      ],
+      "answer": {
+        "type": "objective",
+        "correct": "C",
+        "rationale": "比较优势强调相对成本差异，而不是绝对成本差异。"
+      }
+    },
+    {
+      "id": "sc_3",
+      "type": "single_choice",
+      "prompt": "信用证业务中承担第一性付款责任的通常是（）。",
+      "score": 2,
+      "options": [
+        { "key": "A", "text": "开证行" },
+        { "key": "B", "text": "通知行" },
+        { "key": "C", "text": "议付行" },
+        { "key": "D", "text": "保兑行" }
+      ],
+      "answer": {
+        "type": "objective",
+        "correct": "A",
+        "rationale": "在一般信用证业务中，开证行负有第一性付款责任。"
+      }
+    },
+    {
+      "id": "tf_1",
+      "type": "true_false",
+      "prompt": "贸易创造效应一定会降低成员国福利。",
+      "score": 2,
+      "answer": {
+        "type": "objective",
+        "correct": false,
+        "rationale": "贸易创造通常有利于资源配置优化，一般会提升福利。"
+      }
+    },
+    {
+      "id": "tf_2",
+      "type": "true_false",
+      "prompt": "CIF 术语下，卖方必须负责办理保险。",
+      "score": 2,
+      "answer": {
+        "type": "objective",
+        "correct": true,
+        "rationale": "CIF 的核心义务之一就是由卖方负责投保。"
+      }
+    },
+    {
+      "id": "tf_3",
+      "type": "true_false",
+      "prompt": "汇票必须由付款人签发。",
+      "score": 2,
+      "answer": {
+        "type": "objective",
+        "correct": false,
+        "rationale": "汇票由出票人签发，付款人是被要求付款的一方。"
+      }
+    },
+    {
+      "id": "short_1",
+      "type": "short_answer",
+      "prompt": "简述绝对优势理论与比较优势理论的主要区别。",
+      "score": 10,
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "可从分析基础、贸易发生条件和理论贡献三方面比较。",
+        "scoring_points": ["分析基础", "贸易发生条件", "理论贡献"]
+      }
+    },
+    {
+      "id": "short_2",
+      "type": "short_answer",
+      "prompt": "简述出口退税政策对出口企业的影响。",
+      "score": 10,
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "可从成本补偿、价格竞争力和出口激励三方面作答。",
+        "scoring_points": ["成本补偿", "竞争力", "政策激励"]
+      }
+    },
+    {
+      "id": "short_3",
+      "type": "short_answer",
+      "prompt": "简述国际贸易术语的主要作用。",
+      "score": 10,
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "可围绕责任划分、费用划分、风险转移和合同效率展开。",
+        "scoring_points": ["责任划分", "费用划分", "风险转移", "合同效率"]
+      }
+    },
+    {
+      "id": "case_1",
+      "type": "case_analysis",
+      "prompt": "分析银行拒付是否合理，并提出卖方补救措施。",
+      "score": 20,
+      "context_title": "信用证拒付案例",
+      "context": "某出口商按信用证要求装运后提交单据，但提单装运日期与发票记载不一致，开证行据此拒付。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "应围绕单证一致原则、拒付理由是否成立、改单或与买方协商等补救路径展开。",
+        "scoring_points": ["规则依据", "拒付判断", "补救路径"]
+      }
+    },
+    {
+      "id": "case_2",
+      "type": "case_analysis",
+      "prompt": "分析出口企业在汇率波动中的风险，并提出管理建议。",
+      "score": 20,
+      "context_title": "汇率风险案例",
+      "context": "某企业签订美元报价合同后，收汇前人民币持续升值，企业结汇收入明显下降。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "应从交易风险识别、损失来源、远期结售汇或报价条款调整等方面作答。",
+        "scoring_points": ["风险识别", "损失分析", "管理建议"]
+      }
+    },
+    {
+      "id": "case_3",
+      "type": "case_analysis",
+      "prompt": "分析买卖双方磋商过程中的关键法律与业务风险。",
+      "score": 20,
+      "context_title": "函电磋商案例",
+      "context": "买卖双方围绕 FOB 价格、最迟装运期和付款方式多次往返函电，但最终确认措辞含糊。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "应围绕发盘有效性、还盘影响、接受生效和条款明确性分析。",
+        "scoring_points": ["发盘判断", "还盘与接受", "合同条款风险"]
+      }
+    },
+    {
+      "id": "calc_1",
+      "type": "calculation",
+      "prompt": "计算出口商品的换汇成本。",
+      "score": 6,
+      "context": "出口商品 1000 件，每件收购成本 80 元，国内费用 20%，退税总额 6000 元，FOB 外汇净收入 18000 美元。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "先求出口总成本，再用人民币总成本除以 FOB 外汇净收入。",
+        "scoring_points": ["总成本计算", "公式使用", "结果表达"]
+      }
+    },
+    {
+      "id": "calc_2",
+      "type": "calculation",
+      "prompt": "计算 CIF 价格中的保险费。",
+      "score": 6,
+      "context": "已知发票金额 50000 美元，保险加成率 10%，保险费率 0.8%。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "保险费 = 发票金额 × (1 + 加成率) × 保险费率。",
+        "scoring_points": ["公式", "代入计算", "结果"]
+      }
+    },
+    {
+      "id": "calc_3",
+      "type": "calculation",
+      "prompt": "计算出口销售净利润率。",
+      "score": 6,
+      "context": "某商品出口销售收入 300000 元，总成本 255000 元，税费及财务费用合计 15000 元。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "应先算净利润，再除以销售收入得到净利润率。",
+        "scoring_points": ["净利润", "比率公式", "结果表达"]
+      }
+    },
+    {
+      "id": "operation_1",
+      "type": "operation",
+      "prompt": "根据函电整理合同的价格、装运期、付款方式三项核心条款。",
+      "score": 16,
+      "context_title": "函电往来",
+      "context": "卖方报 CIF 汉堡每吨 980 美元，买方要求最迟 8 月底装运，并坚持信用证付款。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "应按合同条款结构提炼价格条款、装运条款和支付条款。",
+        "scoring_points": ["价格条款", "装运条款", "付款条款"]
+      }
+    },
+    {
+      "id": "operation_2",
+      "type": "operation",
+      "prompt": "根据给定业务背景，写出开立信用证前卖方应核查的重点事项。",
+      "score": 16,
+      "context_title": "信用证操作",
+      "context": "买方同意采用不可撤销信用证付款，但尚未明确开证期限、装运期限和单据要求。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "应从信用证种类、期限安排、单据条件和软条款风险等方面整理。",
+        "scoring_points": ["信用证类型", "期限安排", "单据审查", "风险点"]
+      }
+    },
+    {
+      "id": "operation_3",
+      "type": "operation",
+      "prompt": "根据案例写出出口履约流程的关键操作节点。",
+      "score": 16,
+      "context_title": "出口履约流程",
+      "context": "企业已确认订单，随后需要安排备货、报关、装运、投保、制单和交单收汇。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "应按业务流程顺序写出备货、报检报关、装运、制单、交单、收汇等节点。",
+        "scoring_points": ["流程顺序", "关键节点", "业务完整性"]
+      }
+    }
+  ]
+}

@@ -777,7 +777,8 @@ export default function SubjectWorkspacePage() {
       const nextRevealed = { ...revealedMap, [questionId]: true }
       setRevealedMap(nextRevealed)
       let nextIndex = currentIndex
-      if (autoAdvance && currentItem.type !== 'multiple_choice' && currentIndex < quiz.items.length - 1) {
+      const isCorrectNow = currentItem.type !== 'multiple_choice' && isObjectiveCorrect(currentItem, nextValue)
+      if (autoAdvance && isCorrectNow && currentIndex < quiz.items.length - 1) {
         nextIndex = currentIndex + 1
         setCurrentIndex(nextIndex)
       }
@@ -808,8 +809,11 @@ export default function SubjectWorkspacePage() {
       const nextRevealed = { ...revealedMap, [`${questionId}:${subQuestionId}`]: true }
       setRevealedMap(nextRevealed)
       const answeredCount = currentItem.questions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
+      const allCorrect =
+        answeredCount === currentItem.questions.length &&
+        currentItem.questions.every((question) => nextItemResponse[question.id] === question.answer?.correct)
       let nextIndex = currentIndex
-      if (autoAdvance && answeredCount === currentItem.questions.length && currentIndex < quiz.items.length - 1) {
+      if (autoAdvance && allCorrect && currentIndex < quiz.items.length - 1) {
         nextIndex = currentIndex + 1
         setCurrentIndex(nextIndex)
       }
@@ -841,8 +845,14 @@ export default function SubjectWorkspacePage() {
       const allFilled = currentItem.blanks.every((blank) => isNonEmptyText(nextItemResponse[blank.blank_id]))
       const nextRevealed = allFilled ? { ...revealedMap, [questionId]: true } : revealedMap
       if (allFilled) setRevealedMap(nextRevealed)
+      const allCorrect =
+        allFilled &&
+        currentItem.blanks.every((blank) => {
+          const userValue = String(nextItemResponse[blank.blank_id] || '').trim().toLowerCase()
+          return blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
+        })
       let nextIndex = currentIndex
-      if (autoAdvance && allFilled && currentIndex < quiz.items.length - 1) {
+      if (autoAdvance && allCorrect && currentIndex < quiz.items.length - 1) {
         nextIndex = currentIndex + 1
         setCurrentIndex(nextIndex)
       }
