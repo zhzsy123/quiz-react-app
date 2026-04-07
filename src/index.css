@@ -502,6 +502,52 @@ button { border: none; }
   background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2);
   color: #dbeafe; line-height: 1.7;
 }
+.ai-panel {
+  background: linear-gradient(180deg, rgba(20,30,48,0.92) 0%, rgba(15,23,42,0.76) 100%);
+  border-color: rgba(96,165,250,0.16);
+}
+.ai-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.ai-panel-toggle {
+  border: 0;
+  background: transparent;
+  color: #93c5fd;
+  font-size: 0.88rem;
+  cursor: pointer;
+  padding: 0;
+}
+.ai-panel-preview {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+.ai-panel-body {
+  margin-top: 10px;
+  color: #dbeafe;
+  line-height: 1.8;
+}
+.ai-panel-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+  color: #cbd5e1;
+}
+.ai-panel-row strong {
+  color: #bfdbfe;
+}
+.ai-panel-status {
+  color: #cbd5e1;
+}
+.ai-review-score {
+  color: #dbeafe;
+  font-weight: 600;
+}
 .analysis-subblock + .analysis-subblock {
   margin-top: 14px;
   padding-top: 14px;

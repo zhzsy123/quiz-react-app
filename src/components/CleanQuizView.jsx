@@ -111,54 +111,95 @@ function formatRemainingSeconds(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function buildPreviewText(text, maxLength = 120) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized
+}
+
 function AiExplainPanel({ entry }) {
+  const [expanded, setExpanded] = useState(false)
+
   if (!entry) return null
 
   if (entry.status === 'pending') {
-    return <div className="analysis-box">AI 正在生成解释...</div>
+    return <div className="analysis-box ai-panel"><div className="ai-panel-status">AI 正在生成解释...</div></div>
   }
 
   if (entry.status === 'failed') {
-    return <div className="analysis-box">AI 解释失败：{entry.error || '请稍后重试'}</div>
+    return <div className="analysis-box ai-panel"><div className="ai-panel-status">AI 解释失败：{entry.error || '请稍后重试'}</div></div>
   }
 
   if (entry.status !== 'completed') return null
 
+  const preview = buildPreviewText(entry.explanation)
+  const hasDetails =
+    (Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0) ||
+    (Array.isArray(entry.commonMistakes) && entry.commonMistakes.length > 0) ||
+    (Array.isArray(entry.answerStrategy) && entry.answerStrategy.length > 0)
+
   return (
-    <div className="analysis-box">
-      <div><strong>{entry.title || 'AI 解释'}</strong></div>
-      {entry.explanation && <div>{entry.explanation}</div>}
-      {Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0 && (
-        <div><strong>关键点：</strong>{entry.keyPoints.join(' / ')}</div>
+    <div className="analysis-box ai-panel">
+      <div className="ai-panel-head">
+        <strong>{entry.title || 'AI 解释'}</strong>
+        {(entry.explanation || hasDetails) && (
+          <button type="button" className="ai-panel-toggle" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? '收起' : '展开'}
+          </button>
+        )}
+      </div>
+      {preview && <div className="ai-panel-preview">{preview}</div>}
+      {expanded && entry.explanation && <div className="ai-panel-body">{entry.explanation}</div>}
+      {expanded && Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0 && (
+        <div className="ai-panel-row"><strong>关键点</strong><span>{entry.keyPoints.join(' / ')}</span></div>
       )}
-      {Array.isArray(entry.commonMistakes) && entry.commonMistakes.length > 0 && (
-        <div><strong>常见误区：</strong>{entry.commonMistakes.join(' / ')}</div>
+      {expanded && Array.isArray(entry.commonMistakes) && entry.commonMistakes.length > 0 && (
+        <div className="ai-panel-row"><strong>误区</strong><span>{entry.commonMistakes.join(' / ')}</span></div>
       )}
-      {Array.isArray(entry.answerStrategy) && entry.answerStrategy.length > 0 && (
-        <div><strong>作答建议：</strong>{entry.answerStrategy.join(' / ')}</div>
+      {expanded && Array.isArray(entry.answerStrategy) && entry.answerStrategy.length > 0 && (
+        <div className="ai-panel-row"><strong>建议</strong><span>{entry.answerStrategy.join(' / ')}</span></div>
       )}
     </div>
   )
 }
 
 function AiQuestionReviewPanel({ review }) {
+  const [expanded, setExpanded] = useState(false)
+
   if (!review) return null
 
+  const preview = buildPreviewText(review.feedback)
+  const hasDetails =
+    (Array.isArray(review.strengths) && review.strengths.length > 0) ||
+    (Array.isArray(review.weaknesses) && review.weaknesses.length > 0) ||
+    (Array.isArray(review.suggestions) && review.suggestions.length > 0)
+
   return (
-    <div className="analysis-box">
-      <div>
+    <div className="analysis-box ai-panel ai-review-panel">
+      <div className="ai-panel-head">
+        <div>
+          <strong>AI 批改</strong>
+        </div>
+        {(review.feedback || hasDetails) && (
+          <button type="button" className="ai-panel-toggle" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? '收起' : '展开'}
+          </button>
+        )}
+      </div>
+      <div className="ai-review-score">
         <strong>AI 批改：</strong>
         {review.score} / {review.maxScore}
       </div>
-      {review.feedback && <div>{review.feedback}</div>}
-      {Array.isArray(review.strengths) && review.strengths.length > 0 && (
-        <div><strong>做得好的点：</strong>{review.strengths.join(' / ')}</div>
+      {preview && <div className="ai-panel-preview">{preview}</div>}
+      {expanded && review.feedback && <div className="ai-panel-body">{review.feedback}</div>}
+      {expanded && Array.isArray(review.strengths) && review.strengths.length > 0 && (
+        <div className="ai-panel-row"><strong>优点</strong><span>{review.strengths.join(' / ')}</span></div>
       )}
-      {Array.isArray(review.weaknesses) && review.weaknesses.length > 0 && (
-        <div><strong>扣分点：</strong>{review.weaknesses.join(' / ')}</div>
+      {expanded && Array.isArray(review.weaknesses) && review.weaknesses.length > 0 && (
+        <div className="ai-panel-row"><strong>扣分点</strong><span>{review.weaknesses.join(' / ')}</span></div>
       )}
-      {Array.isArray(review.suggestions) && review.suggestions.length > 0 && (
-        <div><strong>改进建议：</strong>{review.suggestions.join(' / ')}</div>
+      {expanded && Array.isArray(review.suggestions) && review.suggestions.length > 0 && (
+        <div className="ai-panel-row"><strong>改进</strong><span>{review.suggestions.join(' / ')}</span></div>
       )}
     </div>
   )
@@ -276,7 +317,7 @@ function ReadingBlock({
                 )}
                 <button
                   type="button"
-                  className="secondary-btn small-btn"
+                  className="secondary-btn small-btn ai-inline-btn"
                   onClick={() => onExplainQuestion({ item, subQuestion })}
                   disabled={isPaused || explainEntry?.status === 'pending'}
                 >
@@ -699,7 +740,7 @@ export default function CleanQuizView({
               {onExplainQuestion && !isReading && (
                 <button
                   type="button"
-                  className="secondary-btn small-btn"
+                  className="secondary-btn small-btn ai-inline-btn"
                   onClick={() => onExplainQuestion({ item: currentItem })}
                   disabled={disabled || currentExplainEntry?.status === 'pending'}
                 >
