@@ -1,8 +1,10 @@
 # Architecture
 
-本文档描述的是当前仓库已经落地的真实结构，不是目标结构草案。
+以下文档描述当前代码的实际分层与职责边界。
 
-## 当前目录分层
+## 一、当前主结构
+
+当前项目已不是“`pages + boundaries` 作为唯一主结构”的设计。现有实际目录如下：
 
 ```text
 src/
@@ -14,209 +16,137 @@ src/
   shared/
 ```
 
-### 1. `app`
+### 结构定位
 
-职责：
+- `app`  
+  - 启动入口与运行时骨架：`main.jsx`
+  - 路由：`router/AppRouter.jsx`
+  - 全局上下文/Provider：`providers/AppContext.jsx`
+  - 全局样式：`styles/*`
 
-- 应用入口
-- 路由注册
-- 全局 Provider
-- 全局样式
+- `pages`  
+  - 页面容器（容纳页面布局与状态连接）
+  - 当前页面示例：`DashboardSplitPage`, `FileHubPage`, `SubjectWorkspacePage`, `HistoryPage`, `WrongBookPage`, `FavoritesPage`
 
-当前文件：
+- `widgets`  
+  - 可复用 UI 组件  
+  - 当前示例：`quiz/CleanQuizView`, `quiz-importer/QuizImporter`
 
-- `src/app/main.jsx`
-- `src/app/router/AppRouter.jsx`
-- `src/app/providers/AppContext.jsx`
-- `src/app/styles/*`
+- `features`  
+  - 页面内业务逻辑、状态与交互协调（含 `model`）
+  - 当前示例：`dashboard`, `workspace`, `history`, `wrong-book`, `favorites`, `file-hub`, `ai`
 
-### 2. `pages`
+- `entities`  
+  - 领域能力与基础模块
+  - `quiz`：题目处理流水线与评分/解析/校验/文本标准化能力
+  - `subject`：学科模型
+  - 业务仓储：`attempt`, `history`, `favorite`, `wrong-book`, `wrongbook`, `library`, `profile`, `session`, `workspace`
 
-职责：
+- `shared`  
+  - 通用能力与基础设施
+  - `api`：`httpClient`, `aiGateway`, `deepseekClient`
+  - `lib/preferences`: 偏好管理
+  - `storage`: `adapters`, `indexedDb`, `compat`
 
-- 路由页面
-- 页面布局与页面级组合
+## 二、entities / features / widgets 关系
 
-当前页面：
-
-- `DashboardSplitPage.jsx`
-- `FileHubPage.jsx`
-- `SubjectWorkspacePage.jsx`
-- `HistoryPage.jsx`
-- `WrongBookPage.jsx`
-- `FavoritesPage.jsx`
-
-当前状态：
-
-- 页面层已经在 Phase 2 变薄
-- 主要业务状态已经下沉到 `features/*/model`
-
-### 3. `widgets`
-
-职责：
-
-- 页面内复用的视图组件
-- 不直接持有复杂持久化职责
-
-当前组件：
-
-- `src/widgets/quiz/CleanQuizView.jsx`
-- `src/widgets/quiz-importer/QuizImporter.jsx`
-
-### 4. `features`
-
-职责：
-
-- 页面场景逻辑
-- 页面状态管理
-- AI 调用编排
-
-当前已落地 feature：
-
-- `features/dashboard`
-- `features/file-hub`
-- `features/workspace`
-- `features/history`
-- `features/wrong-book`
-- `features/favorites`
-- `features/ai`
-
-当前状态：
-
-- `features/*/model` 中承载页面级逻辑
-- `features/ai/reviewService.js` 负责 AI 批改、解释、核题、同类题生成
-
-### 5. `entities`
-
-职责：
-
-- 领域对象
-- 题库处理
-- repository 抽象
-- 科目配置
-
-当前已落地：
-
-- `entities/quiz/lib`
-  - `quizSchema.js`
-  - `quizPipeline.js`
-  - `paperId.js`
-- `entities/subject/model/subjects.js`
-- `entities/profile/api/profileRepository.js`
-- `entities/library/api/libraryRepository.js`
-- `entities/attempt/api/attemptRepository.js`
-- `entities/favorite/api/favoriteRepository.js`
-- `entities/wrong-book/api/wrongBookRepository.js`
-- `entities/workspace/api/workspaceSessionRepository.js`
-
-### 6. `shared`
-
-职责：
-
-- 技术基础设施
-- API client
-- 偏好项访问
-- 存储 adapter
-- IndexedDB 基础实现
-
-当前已落地：
-
-- `shared/api/httpClient.js`
-- `shared/api/aiGateway.js`
-- `shared/api/deepseekClient.js`
-- `shared/lib/preferences/preferenceRepository.js`
-- `shared/storage/adapters/*`
-- `shared/storage/indexedDb/*`
-
-兼容层：
-
-- `shared/lib/storage/storageFacade.js`
-
-它仍然存在，但现在主要用于兼容旧测试和旧调用，不是新代码的一线入口。
-
-## 当前依赖方向
-
-当前推荐依赖方向：
+### 1. `entities`（领域核心）
 
 ```text
-app
-  -> pages
-    -> widgets
-    -> features
-      -> entities
-        -> shared
+entities/
+  quiz/
+    lib/
+      text/
+      validation/
+      normalize/
+      scoring/
+      quizPipeline.js
+      quizSchema.js
+      paperId.js
+  */api/*Repository.js
 ```
 
-当前真实代码里还存在一个保留耦合点：
+`entities/quiz/lib/` 提供了题库导入链路的基础处理函数，包括：
 
-- `features/*` 会通过 `useAppContext()` 读取当前激活档案
+- `text/*`：文本到结构化数据解析与归一化预处理
+- `validation/*`：payload 与 schema 校验
+- `normalize/*`：通用题目结构标准化
+- `scoring/*`：题目得分规则与统计
+- `quizPipeline.js`：统一编排上述能力
 
-这意味着 `features -> app/providers` 仍然存在轻度依赖。它没有破坏运行，但说明依赖方向还没有完全收敛成纯单向结构。
+### 2. `features`（业务编排）
 
-## 当前导入与标准化链路
+每个 feature 负责页面内状态与交互（主要是 hook/状态模型）：
 
-题库导入的实际流程已经固定为：
+- `features/dashboard/model`, `features/workspace/model`, `features/history/model`, ...
+- 与 `pages` 协作形成“页面状态 + 业务模型 + 组件”链条
+- `features/ai/reviewService` 负责 AI 能力调用封装
 
-1. `parseQuizJsonText`
-2. `validateQuizPayload`
-3. `normalizeQuizDocument`
-4. `buildQuizDocumentFromText`
-5. 进入题库仓储或工作区
+### 3. `widgets`（展示组件）
 
-代码位置：
+- `widgets` 承担可复用展示与交互组件职责
+- 当前核心入口示例 `quiz-importer`（导入入口）与 `quiz`（题目展示）
+- 与 `features` 协同，避免直接跨层直接操作持久化细节
 
-- `src/entities/quiz/lib/quizPipeline.js`
+## 三、数据依赖流
 
-说明：
-
-- `quizPipeline.js` 负责流程编排
-- `quizSchema.js` 仍然负责题型级归一化和兼容转换
-
-## 当前存储边界
-
-当前存储访问链路：
+### 页面与实体
 
 ```text
-features / app
-  -> entities/*/api repository
-    -> shared/storage/adapters
-      -> shared/storage/indexedDb
+pages
+  -> features/*/model
+  -> entities/*/api/*Repository
+  -> shared/storage/adapters/*
+  -> shared/storage/indexedDb/* 或 browserStorageAdapter
 ```
 
-偏好项链路：
-
-```text
-features / shared/api
-  -> shared/lib/preferences/preferenceRepository
-    -> shared/storage/adapters/browserStorageAdapter
-      -> localStorage
-```
-
-这意味着页面和 feature 已经不直接碰 IndexedDB store 文件和 `localStorage` API。
-
-## 当前 API 边界
-
-当前 API 调用链路：
+### AI 调用链
 
 ```text
 features/ai/reviewService
   -> shared/api/aiGateway
-    -> shared/api/deepseekClient
-      -> shared/api/httpClient
-        -> fetch
+  -> shared/api/deepseekClient
+  -> shared/api/httpClient
 ```
 
-说明：
+### 偏好配置流
 
-- `shared/api` 已经具备统一入口和 provider 分发能力
-- 当前唯一真实 provider 是 DeepSeek
-- 还没有接真实后端服务
+```text
+features/*
+  -> shared/lib/preferences/preferenceRepository
+  -> shared/storage/adapters/browserStorageAdapter
+  -> localStorage
+```
 
-## 当前仍然未完成的部分
+### 兼容层
 
-以下内容已经明确是“还没完成”，不是当前架构已经解决的事情：
+```text
+features/*
+  -> shared/storage/compat/legacyStorageFacade
+  -> shared/lib/storage/storageFacade
+  -> shared/storage/indexedDb/*
+```
 
-- `quizSchema.js` 仍然偏重，题型归一化尚未继续拆小
-- `storageFacade.js` 仍然保留为兼容层
-- `features` 对 `AppContext` 仍有轻度依赖
-- `shared/api` 只完成了前端内的 provider gateway，还没有后端 API
+## 四、当前架构状态（已落地）
+
+- 已完成：`app`, `pages`, `widgets`, `features`, `entities`, `shared` 分层落地
+- 已完成：实体层将题库核心流水线集中到 `entities/quiz/lib/quizPipeline` 周边
+- 进行中：文档与链接逐步从历史旧结构中清理（如旧绝对路径引用）
+- 风险点：部分命名历史遗留（如 `wrong-book` 与 `wrongbook` 并存）需持续关注一致性
+- 进行中：`features -> AppContext` 与业务层数据链的进一步收敛优化
+
+## 五、仓储能力覆盖
+
+已见仓储实现示例（含别名/re-export）：
+
+- `profileRepository`
+- `libraryRepository`
+- `historyRepository`
+- `favoriteRepository`
+- `wrongbookRepository`
+- `sessionRepository`
+- `attemptRepository`、`workspaceSessionRepository`、`wrongBookRepository`（兼容入口）
+
+## 六、迁移说明
+
+`docs/migration.md` 记录旧结构（含 `boundaries`）到现结构的迁移状态与待办，作为本文件的配套文档。

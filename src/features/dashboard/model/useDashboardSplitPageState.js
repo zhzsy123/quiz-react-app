@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
-import { listAttemptsByProfile } from '../../../entities/attempt/api/attemptRepository'
 import { listAllFavoriteEntries } from '../../../entities/favorite/api/favoriteRepository'
+import { listHistoryEntries } from '../../../entities/history/api/historyRepository'
 import { SUBJECT_REGISTRY } from '../../../entities/subject/model/subjects'
 import { getDeepSeekConfig, updateDeepSeekConfig } from '../../../shared/api/deepseekClient'
 
@@ -51,7 +51,7 @@ export function useDashboardSplitPageState() {
 
       const [favorites, attempts] = await Promise.all([
         listAllFavoriteEntries(activeProfileId),
-        listAttemptsByProfile(activeProfileId),
+        listHistoryEntries(activeProfileId),
       ])
 
       if (!cancelled) {

@@ -1,176 +1,88 @@
 # Migration Status
 
-本文档记录的是从旧结构迁移到当前分层结构的实际完成情况。
+用于记录“旧结构（`pages + boundaries`）”到当前分层结构的迁移状态。  
+当前仓库已经实际运行在 `app / pages / widgets / features / entities / shared` 体系下，本文件反映的是 **到当前结构** 的落地情况。
 
-## 旧结构
+## 迁移范围与目标
 
-历史结构核心特征：
+- 取消 `boundaries` 作为主目录承载。
+- 明确建立 `entities / features / widgets / shared` 的职责边界。
+- 将题库处理链（parse/validate/normalize/score）集中到 `entities/quiz/lib/quizPipeline` 周边，作为可复用领域能力。
+- 保持页面可运行的同时逐步收口存储与 AI 调用层。
 
-- 入口集中在 `src/main.jsx`
-- 路由集中在 `src/router/AppRouter.jsx`
-- 页面逻辑主要堆在 `src/pages/*`
-- 题库与存储边界集中在 `src/boundaries/*`
-- UI 通过过程式存储函数直接拿 IndexedDB / localStorage 能力
+## 总体状态
 
-这个结构可以跑，但随着功能增加，页面职责和技术边界都开始变重。
+### 已完成（Done）
 
-## 当前结构
+1. **目录结构重心切换**
+   - 实际目录已为：`app / pages / widgets / features / entities / shared`。
+   - 不再以 `pages + boundaries` 为项目唯一主结构。
 
-当前已经迁到：
+2. **`app` 层收敛**
+   - `src/app/main.jsx`、`src/app/router/AppRouter.jsx`、`src/app/providers/AppContext.jsx` 与 `styles` 已在运行链路中。
 
-```text
-src/
-  app/
-  pages/
-  widgets/
-  features/
-  entities/
-  shared/
-```
+3. **`features` 层与 `pages` 的状态分工**
+   - `features/*` 已建立如 `dashboard`, `workspace`, `history`, `wrong-book`, `favorites`, `file-hub`, `ai` 等域模型目录。
+   - 页面与状态模型关联关系清晰，仓库中的实际结构与文档已同步。
 
-## 迁移阶段状态
+4. **`entities` 层题库能力集中化**
+   - `entities/quiz/lib` 已包含：
+     - `quizPipeline.js`
+     - `text/*`, `validation/*`, `normalize/*`, `scoring/*`, `quizSchema.js`, `paperId.js`
+   - 核心能力链路已可支持“导入解析 -> 校验 -> 标准化 -> 评分”闭环。
 
-### Phase 1
+5. **数据与持久化链路**
+   - `entities/*/api/*Repository.js` 已落在实体层。
+   - 实体仓储对 `shared/storage` 的依赖已建立（`adapters / indexedDb / compat`）。
 
-状态：已完成
+6. **AI 调用统一入口**
+   - `features/ai/reviewService` 到 `shared/api/aiGateway -> deepseekClient -> httpClient` 的链路可工作。
 
-已经完成的内容：
+### 进行中（In Progress）
 
-- 目录迁移到 `app / pages / widgets / features / entities / shared`
-- 修复入口和 import
-- 保持行为不变
+1. **文档统一清理**
+   - 部分文档仍保留旧路径样式或历史性语言，正在替换为与当前结构一致的说明。
+2. **仓储与偏好层次收口**
+   - `shared/lib/storage/storageFacade`、`shared/storage/compat/legacyStorageFacade` 与现有仓储调用的关系仍在持续整理与补充说明。
+3. **边界语义固化**
+   - 继续补齐 `features -> AppContext` 与 `pages/widgets` 之间的数据流文档。
 
-结果：
+### 待办（To Do）
 
-- 旧目录 `src/router`、`src/boundaries` 不再是主入口
-- 当前入口已经是 `src/app/main.jsx`
+1. `entities` 名称一致性与历史遗留并存项（如 `wrong-book`/`wrongbook`）的文档与使用约定统一。
+2. 对 `storageFacade` 的长期兼容策略出具最终实施清单（是否保留与替换节奏、弃用路径和验收规则）。
+3. 继续清理 README/architecture/migration 之外文档里的绝对路径引用，统一为项目内相对路径。
 
-### Phase 2
+## 关键迁移映射（旧 -> 新）
 
-状态：已完成
+| 旧定位 | 当前定位 | 状态 | 说明 |
+|---|---|---|---|
+| `src/main.jsx` | `src/app/main.jsx` | 已完成 | 入口已迁移到 app 层 |
+| `src/router/AppRouter.jsx` | `src/app/router/AppRouter.jsx` | 已完成 | 路由在 app 层 |
+| 页面逻辑分散在旧边界层 | `src/pages/*` + `features/*/model` | 进行中 | 页面与 feature 分工已建立 |
+| 题库处理散落于使用处 | `src/entities/quiz/lib` | 已完成 | pipeline + text/validate/normalize/scoring 模块集中 |
+| `src/repositories` 化 | `src/entities/*/api/*Repository.js` | 已完成 | 仓储能力集中到实体层 |
+| `boundaries` 为主目录 | `boundaries` 已移除主路径 | 已完成 | 当前无 `src/boundaries` 目录作为主层 |
+| 平台存储 | `shared/storage/*` | 已完成 | 统一在 shared 层完成存储适配与兼容 |
+| AI 相关 API | `features/ai` + `shared/api` | 已完成 | 保持业务层调用共享 API |
 
-已经完成的内容：
+## 风险点
 
-- 页面变薄
-- 页面级业务逻辑下沉到 `features/*/model`
+1. **命名与兼容双轨风险**  
+   `wrong-book` 与 `wrongbook` 并存，需确保导入路径与重导出关系在演进过程中不引入重复或冲突。
 
-结果：
+2. **迁移痕迹残留风险**  
+   文档历史内容与旧调用描述若未清理，会误导新成员理解当前边界。
 
-- `DashboardSplitPage`
-- `FileHubPage`
-- `SubjectWorkspacePage`
-- `HistoryPage`
-- `WrongBookPage`
-- `FavoritesPage`
+3. **兼容层退役节奏风险**  
+   `legacyStorageFacade` 与 `storageFacade` 的协作关系短期可用，但长期目标是否继续保留需确认。
 
-都改成“页面负责组装，业务逻辑在 feature hook”。
+4. **状态传播边界风险**  
+   `AppContext` 与 `features` 的状态共享仍需稳定接口约束，避免页面与特性层直接穿透实现细节。
 
-### Phase 3
+## 下一步建议（执行顺序）
 
-状态：已完成
-
-已经完成的内容：
-
-- 新增 `shared/storage/adapters`
-- 新增 `entities/*/api repository`
-- feature / app 不再直接碰 IndexedDB store 文件和 `localStorage`
-
-结果：
-
-- 存储访问统一经过 repository
-- 偏好项统一经过 `preferenceRepository`
-- `storageFacade` 退化为兼容层
-
-### Phase 4
-
-状态：已完成
-
-已经完成的内容：
-
-- 新增 `entities/quiz/lib/quizPipeline.js`
-- 建立 `parse -> validate -> normalize -> summary` 导入流程
-- 导入器和工作区加载都先走 pipeline
-
-结果：
-
-- 所有导入数据都会先标准化，再进入业务层
-- 旧 `items` 兼容仍然保留
-
-### Phase 5
-
-状态：已完成
-
-已经完成的内容：
-
-- 扩展 `shared/api`
-- 新增 `httpClient`
-- 新增 `aiGateway`
-- 将 DeepSeek 调用纳入 `shared/api` 统一入口
-
-结果：
-
-- `features/ai/reviewService` 不再直接依赖具体 fetch 细节
-- 当前 provider 只有 DeepSeek，但已经具备 provider gateway 结构
-
-## 仍然保留的兼容与遗留点
-
-以下内容当前仍然存在，属于“已知保留项”，不是遗漏：
-
-### 1. `storageFacade` 仍在
-
-原因：
-
-- 兼容已有测试
-- 兼容少量历史调用
-
-状态：
-
-- 不是新代码主入口
-- 后续可逐步下线
-
-### 2. `quizSchema.js` 仍然偏重
-
-当前情况：
-
-- `quizPipeline.js` 已经把流程收口
-- 但题型级归一化仍集中在 `quizSchema.js`
-
-状态：
-
-- 目前可维护
-- 但如果继续扩题型，后面仍值得进一步拆分
-
-### 3. `features` 仍依赖 `AppContext`
-
-当前情况：
-
-- feature hooks 会通过 `useAppContext()` 读取当前档案
-
-影响：
-
-- 依赖方向还没有完全纯化
-- 但当前行为稳定
-
-### 4. `shared/api` 还没有真实后端
-
-当前情况：
-
-- 已有 `httpClient + aiGateway + deepseekClient`
-- 但所有 API 仍然是前端直连 provider
-
-影响：
-
-- 适合个人自用
-- 不适合多人公开生产场景
-
-## 目前还没做的事
-
-以下内容不属于“本轮迁移已完成”的部分：
-
-- 服务端 API 接入
-- 统一后端 repository
-- 多 provider 配置 UI
-- `quizSchema.js` 进一步按题型拆模块
-- `features` 与 `AppContext` 彻底解耦
-
-这些是后续演进项，不是当前代码已经落地的能力。
+1. 先完成文档全量一致性（README、architecture、migration 和其他入口文档）。  
+2. 完成 `wrong-book` 与 `wrongbook` 的命名/导出策略说明并固定约定。  
+3. 明确 `storageFacade` 与 `legacyStorageFacade` 的迁移到位条件：什么时候允许逐步去掉兼容分支。  
+4. 保持上述进度在 `docs/migration.md` 更新（每次仓库结构变化都同步）。

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
 import {
-  listAllWrongBookEntries,
-  removeWrongBookEntries,
-  removeWrongBookEntry,
-} from '../../../entities/wrong-book/api/wrongBookRepository'
+  listAllWrongbookEntries,
+  removeWrongbookEntries,
+  removeWrongbookEntry,
+} from '../../../entities/wrongbook/api/wrongbookRepository'
 
 export function getWrongItemCategory(item) {
   if (item.parentType === 'reading' || item.sourceType === 'reading') return 'reading'
@@ -45,7 +45,7 @@ export function useWrongBookPageState() {
 
   const refreshEntries = async () => {
     if (!activeProfileId) return
-    const rows = await listAllWrongBookEntries(activeProfileId)
+    const rows = await listAllWrongbookEntries(activeProfileId)
     setEntries(rows.map((row) => ({ ...row, category: getWrongItemCategory(row) })))
   }
 
@@ -85,7 +85,7 @@ export function useWrongBookPageState() {
 
   const handleRemove = async (item) => {
     if (!activeProfileId) return
-    await removeWrongBookEntry(activeProfileId, item.subject, item.questionKey)
+    await removeWrongbookEntry(activeProfileId, item.subject, item.questionKey)
     await refreshEntries()
   }
 
@@ -112,7 +112,7 @@ export function useWrongBookPageState() {
     }, {})
 
     for (const [subject, questionKeys] of Object.entries(grouped)) {
-      await removeWrongBookEntries(activeProfileId, subject, questionKeys)
+      await removeWrongbookEntries(activeProfileId, subject, questionKeys)
     }
 
     await refreshEntries()

@@ -1,74 +1,9 @@
-import {
-  createProfile,
-  ensureDefaultProfile,
-  getActiveProfileId,
-  listProfiles,
-  renameProfile,
-  setActiveProfileId,
-} from '../../../entities/profile/api/profileRepository'
-import {
-  deleteLibraryEntry,
-  listLibraryEntries,
-  updateLibraryEntry,
-  upsertLibraryEntry,
-} from '../../../entities/library/api/libraryRepository'
-import {
-  clearProgressRecord,
-  loadLastOpenedPaper,
-  loadProgressRecord,
-  saveLastOpenedPaper,
-  saveProgressRecord,
-} from '../../../entities/workspace/api/workspaceSessionRepository'
-import {
-  deleteAttemptRecord,
-  listAttempts,
-  saveAttemptRecord,
-  updateAttemptRecord,
-} from '../../../entities/attempt/api/attemptRepository'
-import {
-  loadMasteredWrongMap,
-  loadWrongBookEntries,
-  markWrongQuestionMastered,
-  removeWrongBookEntries,
-  removeWrongBookEntry,
-  upsertWrongBookEntries,
-} from '../../../entities/wrong-book/api/wrongBookRepository'
-import {
-  loadFavoriteEntries,
-  removeFavoriteEntry,
-  toggleFavoriteEntry,
-} from '../../../entities/favorite/api/favoriteRepository'
-import { loadPreference, savePreference } from '../preferences/preferenceRepository'
-
-export {
-  getActiveProfileId,
-  setActiveProfileId,
-  loadPreference,
-  savePreference,
-  listProfiles,
-  createProfile,
-  renameProfile,
-  ensureDefaultProfile,
-  upsertLibraryEntry,
-  listLibraryEntries,
-  updateLibraryEntry,
-  deleteLibraryEntry,
-  saveProgressRecord,
-  loadProgressRecord,
-  clearProgressRecord,
-  saveLastOpenedPaper,
-  loadLastOpenedPaper,
-  saveAttemptRecord,
-  listAttempts,
-  updateAttemptRecord,
-  deleteAttemptRecord,
-  loadMasteredWrongMap,
-  markWrongQuestionMastered,
-  loadWrongBookEntries,
-  upsertWrongBookEntries,
-  removeWrongBookEntry,
-  removeWrongBookEntries,
-  loadFavoriteEntries,
-  toggleFavoriteEntry,
-  removeFavoriteEntry,
-}
+/**
+ * @deprecated 兼容桥接文件。新代码禁止从该路径导入。
+ *
+ * 请改用：
+ * - repository：`src/entities/<domain>/api/*Repository.js`
+ * - 偏好项：`src/shared/lib/preferences/preferenceRepository.js`
+ * - 兼容层：`src/shared/storage/compat/legacyStorageFacade.js`
+ */
+export * from '../../storage/compat/legacyStorageFacade'

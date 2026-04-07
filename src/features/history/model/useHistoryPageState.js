@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
-import { deleteAttemptRecord, listAttempts, updateAttemptRecord } from '../../../entities/attempt/api/attemptRepository'
+import { listHistoryEntries, removeHistoryEntry, updateHistoryEntry } from '../../../entities/history/api/historyRepository'
 
 function attemptDisplayTitle(attempt) {
   return attempt.customTitle?.trim() || attempt.title || '未命名答卷'
@@ -124,7 +124,7 @@ export function useHistoryPageState() {
 
   const refreshAttempts = async () => {
     if (!activeProfileId) return
-    const rows = await listAttempts(activeProfileId)
+    const rows = await listHistoryEntries(activeProfileId)
     setAttempts(rows.filter((item) => item.includeInHistory !== false))
   }
 
@@ -164,14 +164,14 @@ export function useHistoryPageState() {
     if (nextTitle === null) return
     const nextNotes = window.prompt('请输入备注：', attempt.notes || '')
     if (nextNotes === null) return
-    await updateAttemptRecord(attempt.id, { customTitle: nextTitle, notes: nextNotes })
+    await updateHistoryEntry(attempt.id, { customTitle: nextTitle, notes: nextNotes })
     await refreshAttempts()
   }
 
   const handleDeleteAttempt = async (attempt) => {
     const ok = window.confirm(`确定删除这条历史记录吗？\n\n${attemptDisplayTitle(attempt)}`)
     if (!ok) return
-    await deleteAttemptRecord(attempt.id)
+    await removeHistoryEntry(attempt.id)
     if (expandedAttemptId === attempt.id) setExpandedAttemptId(null)
     await refreshAttempts()
   }

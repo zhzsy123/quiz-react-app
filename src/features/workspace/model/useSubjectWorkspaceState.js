@@ -2,23 +2,23 @@
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../../app/providers/AppContext'
 import { buildQuizDocumentFromText } from '../../../entities/quiz/lib/quizPipeline'
-import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/quizSchema'
+import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/scoring/getQuizScoreBreakdown'
 import {
   auditQuizQuestionCompliance,
   explainQuizQuestionWithMode,
   generateSimilarQuestions,
   gradeSubjectiveAttempt,
 } from '../../ai/reviewService'
-import { createAttempt, updateAttempt } from '../../../entities/attempt/api/attemptRepository'
+import { createHistoryEntry, updateHistoryEntry } from '../../../entities/history/api/historyRepository'
 import { listFavoriteEntriesBySubject, toggleFavoriteEntry } from '../../../entities/favorite/api/favoriteRepository'
 import { listLibraryEntries } from '../../../entities/library/api/libraryRepository'
 import { getSubjectMetaByRouteParam } from '../../../entities/subject/model/subjects'
 import {
-  clearProgressRecord,
-  loadProgressRecord,
-  saveProgressRecord,
-} from '../../../entities/workspace/api/workspaceSessionRepository'
-import { upsertWrongBookEntries } from '../../../entities/wrong-book/api/wrongBookRepository'
+  clearSessionProgress,
+  loadSessionProgress,
+  saveSessionProgress,
+} from '../../../entities/session/api/sessionRepository'
+import { upsertWrongbookEntries } from '../../../entities/wrongbook/api/wrongbookRepository'
 import { loadPreference, savePreference } from '../../../shared/lib/preferences/preferenceRepository'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
@@ -393,7 +393,7 @@ export function useSubjectWorkspaceState() {
         resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
       }
 
-      const progress = await loadProgressRecord(activeProfile.id, subjectKey, sessionPaperId)
+      const progress = await loadSessionProgress(activeProfile.id, subjectKey, sessionPaperId)
       if (cancelled) return
 
       setEntry(resolvedEntry)
@@ -453,13 +453,13 @@ export function useSubjectWorkspaceState() {
 
   const persistNow = async (overrides = {}) => {
     if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
-    await saveProgressRecord(activeProfile.id, subjectKey, sessionPaperId, buildProgressPayload(overrides))
+    await saveSessionProgress(activeProfile.id, subjectKey, sessionPaperId, buildProgressPayload(overrides))
   }
 
   const persistAttemptPatch = async (targetAttemptId, patch) => {
     if (!targetAttemptId) return
     try {
-      await updateAttempt(targetAttemptId, patch)
+      await updateHistoryEntry(targetAttemptId, patch)
     } catch (error) {
       console.error('AI 评阅记录更新失败', error)
     }
@@ -671,7 +671,7 @@ export function useSubjectWorkspaceState() {
 
     let savedAttempt = null
     if (source !== 'favorites' && (mode === 'exam' || practiceWritesWrongBook)) {
-      savedAttempt = await createAttempt({
+      savedAttempt = await createHistoryEntry({
         profileId: activeProfile.id,
         subject: subjectKey,
         paperId,
@@ -699,7 +699,7 @@ export function useSubjectWorkspaceState() {
     }
 
     if (shouldWriteWrongBook && wrongItems.length > 0) {
-      await upsertWrongBookEntries(activeProfile.id, subjectKey, wrongItems)
+      await upsertWrongbookEntries(activeProfile.id, subjectKey, wrongItems)
     }
 
     const nextAttemptId = savedAttempt?.id || ''
@@ -920,7 +920,7 @@ export function useSubjectWorkspaceState() {
     const ok = window.confirm('确定重置当前进度吗？')
     if (!ok) return
 
-    await clearProgressRecord(activeProfile.id, subjectKey, sessionPaperId)
+    await clearSessionProgress(activeProfile.id, subjectKey, sessionPaperId)
     setAnswers({})
     setRevealedMap({})
     setSubmitted(false)
@@ -932,7 +932,7 @@ export function useSubjectWorkspaceState() {
     setRemainingSeconds(examDurationSeconds)
     setIsPaused(false)
 
-    await saveProgressRecord(activeProfile.id, subjectKey, sessionPaperId, {
+    await saveSessionProgress(activeProfile.id, subjectKey, sessionPaperId, {
       answers: {},
       revealedMap: {},
       submitted: false,

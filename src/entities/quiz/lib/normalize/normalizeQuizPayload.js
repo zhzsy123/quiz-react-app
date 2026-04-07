@@ -1,0 +1,112 @@
+import { normalizeLegacyPayload } from './legacyNormalizer'
+import {
+  normalizeClozeQuestion,
+  normalizeFillBlankQuestion,
+  normalizeMultipleChoiceQuestion,
+  normalizeReadingQuestion,
+  normalizeSingleChoiceQuestion,
+  normalizeTrueFalseQuestion,
+} from './objectiveNormalizers'
+import {
+  normalizeEssayQuestion,
+  normalizeGenericSubjectiveQuestion,
+  normalizeTranslationQuestion,
+} from './subjectiveNormalizers'
+
+const QUESTION_NORMALIZERS = {
+  single_choice: (question) => {
+    const converted = normalizeSingleChoiceQuestion(question)
+    return converted ? [converted] : []
+  },
+  multiple_choice: (question) => {
+    const converted = normalizeMultipleChoiceQuestion(question)
+    return converted ? [converted] : []
+  },
+  true_false: (question) => {
+    const converted = normalizeTrueFalseQuestion(question)
+    return converted ? [converted] : []
+  },
+  fill_blank: (question) => {
+    const converted = normalizeFillBlankQuestion(question)
+    return converted ? [converted] : []
+  },
+  reading: (question) => {
+    const converted = normalizeReadingQuestion(question)
+    return converted ? [converted] : []
+  },
+  cloze: (question) => normalizeClozeQuestion(question),
+  translation: (question) => {
+    const converted = normalizeTranslationQuestion(question)
+    return converted ? [converted] : []
+  },
+  essay: (question) => [normalizeEssayQuestion(question)],
+  short_answer: (question) => {
+    const converted = normalizeGenericSubjectiveQuestion(question, 'short_answer')
+    return converted ? [converted] : []
+  },
+  case_analysis: (question) => {
+    const converted = normalizeGenericSubjectiveQuestion(question, 'case_analysis')
+    return converted ? [converted] : []
+  },
+  calculation: (question) => {
+    const converted = normalizeGenericSubjectiveQuestion(question, 'calculation')
+    return converted ? [converted] : []
+  },
+  operation: (question) => {
+    const converted = normalizeGenericSubjectiveQuestion(question, 'operation')
+    return converted ? [converted] : []
+  },
+}
+
+export function normalizeQuizPayload(data) {
+  if (Array.isArray(data?.items)) {
+    return normalizeLegacyPayload(data)
+  }
+
+  if (!Array.isArray(data?.questions)) {
+    throw new Error('题库必须包含 questions 或 items 数组。')
+  }
+
+  const items = []
+  let skippedCount = 0
+  const skippedTypes = []
+
+  data.questions.forEach((question) => {
+    const normalizeQuestion = QUESTION_NORMALIZERS[question?.type]
+    if (!normalizeQuestion) {
+      skippedCount += 1
+      skippedTypes.push(question?.type || 'unknown')
+      return
+    }
+
+    const converted = normalizeQuestion(question)
+    if (converted.length) {
+      items.push(...converted)
+      return
+    }
+
+    skippedCount += 1
+    skippedTypes.push(question?.type || 'unknown')
+  })
+
+  if (!items.length) {
+    throw new Error(
+      '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation。'
+    )
+  }
+
+  return {
+    title: data.title || '未命名试卷',
+    paper_id: data.paper_id,
+    subject: data.subject || '',
+    description: data.description || '',
+    duration_minutes: Number(data.duration_minutes) || 0,
+    items,
+    compatibility: {
+      sourceSchema: data.schema_version || 'json-schema',
+      supportedCount: items.length,
+      skippedCount,
+      skippedTypes: [...new Set(skippedTypes)],
+    },
+  }
+}

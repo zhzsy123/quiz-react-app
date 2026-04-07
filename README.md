@@ -1,180 +1,87 @@
 # Quiz React App
 
-一个基于 `Vite + React` 的个人题库 / 模考项目，当前定位是：
+基于 `Vite + React` 的题库客户端，支持本地导入与 AI 相关增强能力。
 
-- 先用 AI 把 `PDF / DOCX` 试卷整理成 JSON
-- 再把 JSON 导入站点
-- 在本地完成刷题、模考、历史回看、错题复习和收藏
+- 支持 `PDF / DOCX / JSON` 导入
+- 支持 `JSON` 题库内容转化、规范化、评分与校验
+- 支持本地持久化（IndexedDB / localStorage）
+- 包含题目练习、收藏、历史记录、错题、文件工作区等主流程
+- 集成 AI 审核与改写能力（`features/ai`）
 
-项目当前可直接静态托管到 GitHub Pages，业务数据主要保存在浏览器本地。
+## 运行方式
 
-## 当前功能
+```bash
+npm install
+npm run dev
+npm run build
+npm run preview
+```
 
-- 本地题库导入
-- 刷题模式
-- 考试模式
-- 自动保存与恢复进度
-- 历史记录
-- 错题本
-- 收藏夹
-- 多本地档案切换
-- AI 解释 / AI 批改 / AI 核题
+## 当前代码结构（实际）
 
-## 当前实际架构
-
-项目已经从旧的“页面 + boundary”结构迁移到分层结构，当前生效目录如下：
+项目当前主结构不再是“`pages + boundaries` 组合”：
 
 ```text
 src/
   app/
-    main.jsx
-    router/
-    providers/
-    styles/
   pages/
-    DashboardSplitPage.jsx
-    FileHubPage.jsx
-    SubjectWorkspacePage.jsx
-    HistoryPage.jsx
-    WrongBookPage.jsx
-    FavoritesPage.jsx
   widgets/
-    quiz/
-    quiz-importer/
   features/
-    ai/
-    dashboard/
-    file-hub/
-    workspace/
-    history/
-    wrong-book/
-    favorites/
   entities/
-    quiz/
-    subject/
-    profile/
-    library/
-    attempt/
-    favorite/
-    wrong-book/
-    workspace/
   shared/
-    api/
-    lib/
-    storage/
 ```
 
-当前入口和关键边界：
+### 结构说明
 
-- 运行入口：`src/app/main.jsx`
-- 路由入口：`src/app/router/AppRouter.jsx`
-- 页面层：`src/pages/*`
-- 题库导入 pipeline：`src/entities/quiz/lib/quizPipeline.js`
-- 题型归一化：`src/entities/quiz/lib/quizSchema.js`
-- repository 层：`src/entities/*/api/*.js`
-- 存储适配层：`src/shared/storage/adapters/*`
-- API 适配层：`src/shared/api/*`
+- `app`：应用启动与运行时骨架（`main.jsx`, `router`, `providers`, 样式）
+- `pages`：页面容器（如 `DashboardSplitPage`, `SubjectWorkspacePage`, `HistoryPage`）
+- `widgets`：可复用 UI 组件（如 `quiz/CleanQuizView`, `quiz-importer/QuizImporter`）
+- `features`：页面内业务域与状态逻辑（`dashboard`, `workspace`, `history`, `wrong-book`, `favorites`, `file-hub`, `ai`）
+- `entities`：领域实体与基础能力
+  - 业务对象模型/主题：`subject`, `attempt`, `history`, `favorite`, `wrong-book`, `wrongbook`, `profile`, `session`, `workspace`
+  - 核心题库流水线：`entities/quiz/lib/quizPipeline.js` 与 `quiz/lib/*`
+  - 仓储层：`entities/*/api/*Repository.js`
+- `shared`：横切能力（网络、存储、偏好设置、兼容层）
+  - `shared/api`、`shared/lib/preferences`、`shared/storage/adapters`
+  - `shared/storage/indexedDb`、`shared/storage/compat`
 
-`src/shared/lib/storage/storageFacade.js` 仍然保留，但现在是兼容层，不再是推荐的一线调用入口。
+## 关键链路
 
-## 分层说明
+### 题库导入与处理链
 
-- `app`
-  - 应用级入口、路由、Provider、全局样式
-- `pages`
-  - 路由页面，只负责页面组装
-- `widgets`
-  - 页面级可复用 UI 组件，例如做题视图、导入器
-- `features`
-  - 业务场景逻辑与页面状态，例如首页状态、题库页状态、做题流程、AI 调用编排
-- `entities`
-  - 领域对象、题库处理、repository 抽象、科目配置
-- `shared`
-  - 通用 API、偏好项、存储 adapter、IndexedDB 基础设施
-
-## 题库导入链路
-
-当前导入流程已经固定为：
-
-1. 读取文件文本
-2. `parseQuizJsonText`
-3. `validateQuizPayload`
-4. `normalizeQuizDocument`
-5. 进入业务层和题库仓储
-
-对应代码：
-
-- `src/entities/quiz/lib/quizPipeline.js`
-- `src/entities/quiz/lib/quizSchema.js`
-
-兼容情况：
-
-- 继续兼容旧版 `items` 结构
-- 继续兼容当前 JSON 规范
-
-## 本地数据
-
-当前数据存储方式：
-
-- 业务数据：IndexedDB
-- 少量偏好项与 API 配置：localStorage
-
-当前边界：
-
-- adapter：`src/shared/storage/adapters/*`
-- repository：`src/entities/*/api/*.js`
-
-页面和 feature 不再直接依赖 IndexedDB store 文件。
-
-## AI 调用
-
-当前 `shared/api` 已经落地为可扩展层：
-
-- 通用请求：`src/shared/api/httpClient.js`
-- AI 网关：`src/shared/api/aiGateway.js`
-- DeepSeek provider：`src/shared/api/deepseekClient.js`
-
-目前真实接入的 provider 只有 DeepSeek，但 feature 侧已经不直接依赖具体 fetch 细节。
-
-## 开发命令
-
-安装依赖：
-
-```bash
-npm install
+```text
+widgets/quiz-importer -> entities/quiz/lib/quizPipeline -> entities/quiz/lib/quizSchema
+                                        -> text/*, validation/*, normalize/*, scoring/*
 ```
 
-启动开发环境：
+`quizPipeline` 在当前实现中负责：
 
-```bash
-npm run dev
+1. 解析题目文本/JSON（`parseQuizJsonText`）
+2. 校验 payload（`validateQuizPayload`）
+3. 标准化题目结构（`normalize*`）
+4. 评分计算（`scoring*`）
+5. 转交显示/存储逻辑
+
+### 数据流
+
+```text
+pages/widgets/features
+  -> entities/*/api/*Repository
+  -> shared/storage/{adapters, indexedDb, compat}
+
+features/ai/reviewService
+  -> shared/api/* -> shared/api/httpClient
+
+features/* -> shared/lib/preferences -> shared/storage/adapters/browserStorageAdapter -> localStorage
 ```
 
-运行测试：
+## 迁移说明（简版）
 
-```bash
-npm test -- --run
-```
+详细状态见 `docs/migration.md`。简要说明：
 
-生产构建：
+- 旧有 `boundaries` 已不再作为主目录保留
+- 页面/业务/实体/共享层边界已落地
+- `quiz` 领域核心处理逻辑统一在 `entities/quiz/lib` 下维护
+- 仍存在文档中的历史内容与链接（如绝对路径）需要定期统一清理
 
-```bash
-npm run build
-```
-
-预览构建结果：
-
-```bash
-npm run preview
-```
-
-## 部署
-
-项目当前仍以静态托管为前提，`vite.config.js` 已配置相对 `base`，可用于 GitHub Pages。
-
-## 文档
-
-- 架构说明：`docs/architecture.md`
-- 迁移状态：`docs/migration.md`
-- JSON 规范：`docs/json-schema.md`
-- 对外下载版 JSON 规范：`public/json-schema.md`
+更多架构说明见：`docs/architecture.md`
