@@ -9,6 +9,7 @@ import {
   loadProgressRecord,
   loadWrongBookEntries,
   removeWrongBookEntry,
+  removeWrongBookEntries,
   savePreference,
   saveProgressRecord,
   setActiveProfileId,
@@ -80,5 +81,17 @@ describe('storageFacade boundary', () => {
 
     wrongBookEntries = await removeWrongBookEntry(profile.id, 'english', 'english:paper:q1')
     expect(wrongBookEntries).toHaveLength(0)
+  })
+
+  it('supports batch deletion for wrong-book entries', async () => {
+    const profile = await ensureDefaultProfile()
+
+    await upsertWrongBookEntries(profile.id, 'english', [
+      { questionKey: 'english:paper:q1', subject: 'english', prompt: 'Question 1' },
+      { questionKey: 'english:paper:q2', subject: 'english', prompt: 'Question 2' },
+    ])
+
+    const nextEntries = await removeWrongBookEntries(profile.id, 'english', ['english:paper:q1', 'english:paper:q2'])
+    expect(nextEntries).toHaveLength(0)
   })
 })

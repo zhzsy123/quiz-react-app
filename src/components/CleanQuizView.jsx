@@ -98,6 +98,10 @@ function getSpoilerTags(item) {
 function getNavGroupMeta(item) {
   if (item.type === 'reading') return { key: 'reading', label: '阅读理解' }
   if (item.type === 'translation') return { key: 'translation', label: '翻译题' }
+  if (item.type === 'short_answer') return { key: 'short_answer', label: '简答题' }
+  if (item.type === 'case_analysis') return { key: 'case_analysis', label: '案例分析' }
+  if (item.type === 'calculation') return { key: 'calculation', label: '计算题' }
+  if (item.type === 'operation') return { key: 'operation', label: '操作题' }
   if (item.type === 'essay') return { key: 'essay', label: '作文题' }
   if (item.type === 'multiple_choice') return { key: 'multiple_choice', label: '多项选择' }
   if (item.type === 'true_false') return { key: 'true_false', label: '判断题' }
@@ -647,7 +651,7 @@ export default function CleanQuizView({
   const [focusedReadingQuestion, setFocusedReadingQuestion] = useState(null)
 
   const groupedNavSections = useMemo(() => {
-    const order = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'reading', 'translation', 'essay']
+    const order = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'reading', 'short_answer', 'case_analysis', 'calculation', 'operation', 'translation', 'essay']
     const map = new Map()
 
     quiz.items.forEach((item, index) => {
@@ -693,6 +697,7 @@ export default function CleanQuizView({
   const isReading = currentItem.type === 'reading'
   const isEssay = currentItem.type === 'essay'
   const isTranslation = currentItem.type === 'translation'
+  const isGenericSubjective = ['short_answer', 'case_analysis', 'calculation', 'operation'].includes(currentItem.type)
   const isFillBlank = currentItem.type === 'fill_blank'
   const spoilerTags = getSpoilerTags(currentItem)
   const disabled = isPaused && mode === 'exam'
@@ -870,6 +875,10 @@ export default function CleanQuizView({
               <span className="tag">第 {currentIndex + 1} 题</span>
               {isTranslation && <span className="tag purple">{currentItem.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span>}
               {isEssay && <span className="tag purple">作文</span>}
+              {currentItem.type === 'short_answer' && <span className="tag purple">简答题</span>}
+              {currentItem.type === 'case_analysis' && <span className="tag purple">案例分析</span>}
+              {currentItem.type === 'calculation' && <span className="tag purple">计算题</span>}
+              {currentItem.type === 'operation' && <span className="tag purple">操作题</span>}
               {isReading && <span className="tag purple">阅读理解</span>}
               {currentItem.type === 'multiple_choice' && <span className="tag purple">多选</span>}
               {currentItem.type === 'true_false' && <span className="tag purple">判断</span>}
@@ -998,6 +1007,14 @@ export default function CleanQuizView({
               submitted={submitted}
               onTextChange={onTextChange}
             />
+          ) : isGenericSubjective ? (
+            <GenericSubjectiveBlock
+              item={currentItem}
+              userResponse={userResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onTextChange={onTextChange}
+            />
           ) : (
             <EssayBlock
               item={currentItem}
@@ -1068,5 +1085,50 @@ export default function CleanQuizView({
       </div>
       <AiPracticeModal modal={aiPracticeModal} onClose={onCloseAiPracticeModal} />
     </section>
+  )
+}
+
+function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTextChange }) {
+  const text = getSubjectiveText(userResponse)
+  const scoreLabel = item.score ? `${item.score} 分` : ''
+  const typeLabelMap = {
+    short_answer: '简答题',
+    case_analysis: '案例分析',
+    calculation: '计算题',
+    operation: '操作题',
+  }
+
+  return (
+    <div className="subjective-block essay-card">
+      <div className="essay-head">
+        <div className="essay-type-chip">{typeLabelMap[item.type] || item.type}</div>
+        <div className="essay-word-count">{scoreLabel}</div>
+      </div>
+      {item.context_title && <div className="essay-topic">{item.context_title}</div>}
+      {item.context && <div className="analysis-box"><div>{item.context}</div></div>}
+      {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 && (
+        <div className="analysis-box">
+          <div className="analysis-section-title">作答要点</div>
+          <ul className="analysis-list">
+            {item.requirements.points.map((point, index) => <li key={index}>{point}</li>)}
+          </ul>
+        </div>
+      )}
+      <textarea
+        className="subjective-textarea essay-textarea"
+        value={text}
+        onChange={(event) => onTextChange(item.id, event.target.value)}
+        disabled={disabled}
+        rows={10}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
+      />
+      {submitted && item.answer?.reference_answer && (
+        <div className="analysis-box">
+          <div>{item.answer.reference_answer}</div>
+        </div>
+      )}
+    </div>
   )
 }

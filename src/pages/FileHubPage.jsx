@@ -46,10 +46,11 @@ export default function FileHubPage() {
   const handleQuizLoaded = async ({ parsed, rawText }) => {
     if (!activeProfile?.id) return
     const scoreBreakdown = getQuizScoreBreakdown(parsed.items || [])
+    const expectedPaperTotal = Number(subjectMeta.expectedPaperTotal) || 0
 
-    if (SUBJECT_KEY === 'english' && scoreBreakdown.paperTotal !== 150) {
+    if (expectedPaperTotal > 0 && scoreBreakdown.paperTotal !== expectedPaperTotal) {
       const shouldContinue = window.confirm(
-        `当前英语试卷总分为 ${scoreBreakdown.paperTotal} 分，不是 150 分。可能是 JSON 缺少 score 或题型分值异常，是否继续导入？`
+        `当前${subjectMeta.shortLabel}试卷总分为 ${scoreBreakdown.paperTotal} 分，不是 ${expectedPaperTotal} 分。可能是 JSON 缺少 score 或题型分值异常，是否继续导入？`
       )
       if (!shouldContinue) return false
     }

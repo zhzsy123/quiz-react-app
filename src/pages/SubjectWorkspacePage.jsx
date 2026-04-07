@@ -23,9 +23,13 @@ import { getSubjectMetaByRouteParam } from '../config/subjects'
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
 const AI_EXPLAIN_MODE_KEY = 'quiz:pref:aiExplainMode'
-const EXAM_DURATION_SECONDS = 90 * 60
 const DEFAULT_PRACTICE_WRONG_BOOK = true
 const DEFAULT_EXAM_WRONG_BOOK = true
+
+function getExamDurationSeconds(quiz, subjectMeta) {
+  const minutes = Number(quiz?.duration_minutes) || Number(subjectMeta?.defaultDurationMinutes) || 90
+  return Math.max(1, minutes) * 60
+}
 
 function createPendingAiReview(subjectivePendingScore) {
   return {
@@ -315,7 +319,7 @@ export default function SubjectWorkspacePage() {
   const [practiceWritesWrongBook, setPracticeWritesWrongBook] = useState(DEFAULT_PRACTICE_WRONG_BOOK)
   const [examWritesWrongBook, setExamWritesWrongBook] = useState(DEFAULT_EXAM_WRONG_BOOK)
   const [spoilerExpanded, setSpoilerExpanded] = useState(false)
-  const [remainingSeconds, setRemainingSeconds] = useState(EXAM_DURATION_SECONDS)
+  const [remainingSeconds, setRemainingSeconds] = useState(() => (subjectMeta.defaultDurationMinutes || 90) * 60)
   const [isPaused, setIsPaused] = useState(false)
   const [loading, setLoading] = useState(true)
   const [readyToPersist, setReadyToPersist] = useState(false)
@@ -347,11 +351,18 @@ export default function SubjectWorkspacePage() {
 
       let resolvedEntry = null
       let resolvedQuiz = null
+      let resolvedDurationSeconds = (subjectMeta.defaultDurationMinutes || 90) * 60
 
       if (source === 'favorites') {
         const items = favoriteRows.map((favoriteEntry, index) => cloneFavoriteItem(favoriteEntry, index))
         resolvedEntry = { title: `${subjectMeta.shortLabel}的收藏题`, paperId: 'favorites' }
-        resolvedQuiz = { title: `${subjectMeta.shortLabel}的收藏题`, items }
+        resolvedQuiz = {
+          title: `${subjectMeta.shortLabel}的收藏题`,
+          subject: subjectKey,
+          duration_minutes: subjectMeta.defaultDurationMinutes || 90,
+          items,
+        }
+        resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
       } else {
         if (!paperId) {
           setLoading(false)
@@ -367,6 +378,7 @@ export default function SubjectWorkspacePage() {
 
         resolvedEntry = matched
         resolvedQuiz = parseQuizText(matched.rawText).parsed
+        resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
       }
 
       const progress = await loadProgressRecord(activeProfile.id, subjectKey, sessionPaperId)
@@ -382,7 +394,11 @@ export default function SubjectWorkspacePage() {
       setAiReview(progress?.aiReview || null)
       setAiExplainMap(progress?.aiExplainMap || {})
       setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, (resolvedQuiz.items?.length || 1) - 1)))
-      setRemainingSeconds(typeof progress?.timerSecondsRemaining === 'number' ? progress.timerSecondsRemaining : EXAM_DURATION_SECONDS)
+      setRemainingSeconds(
+        typeof progress?.timerSecondsRemaining === 'number'
+          ? progress.timerSecondsRemaining
+          : resolvedDurationSeconds
+      )
       setIsPaused(Boolean(progress?.isPaused))
       setPracticeWritesWrongBook(
         typeof progress?.practiceWritesWrongBook === 'boolean'
@@ -457,6 +473,7 @@ export default function SubjectWorkspacePage() {
     return getQuizScoreBreakdown(quiz?.items || [])
   }, [quiz])
 
+  const examDurationSeconds = useMemo(() => getExamDurationSeconds(quiz, subjectMeta), [quiz, subjectMeta])
   const objectiveTotalScore = scoreSummary.objectiveTotal
   const paperTotalScore = scoreSummary.paperTotal
   const subjectivePendingScore = scoreSummary.subjectiveTotal
@@ -654,7 +671,7 @@ export default function SubjectWorkspacePage() {
         includeInHistory: mode === 'exam',
         practiceWritesWrongBook,
         examWritesWrongBook,
-        durationSeconds: EXAM_DURATION_SECONDS,
+        durationSeconds: examDurationSeconds,
         timerSecondsRemaining: remainingSeconds,
         aiReview: initialAiReview,
         aiExplainMap,
@@ -857,7 +874,7 @@ export default function SubjectWorkspacePage() {
     setAiReview(null)
     setAiExplainMap({})
     setCurrentIndex(0)
-    setRemainingSeconds(EXAM_DURATION_SECONDS)
+    setRemainingSeconds(examDurationSeconds)
     setIsPaused(false)
 
     await saveProgressRecord(activeProfile.id, subjectKey, sessionPaperId, {
@@ -869,7 +886,7 @@ export default function SubjectWorkspacePage() {
       aiReview: null,
       aiExplainMap: {},
       currentIndex: 0,
-      timerSecondsRemaining: EXAM_DURATION_SECONDS,
+      timerSecondsRemaining: examDurationSeconds,
       isPaused: false,
       practiceWritesWrongBook,
       examWritesWrongBook,

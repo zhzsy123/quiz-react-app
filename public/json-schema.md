@@ -38,6 +38,10 @@
 - 完形填空：整篇文章用一个 `cloze`
 - 阅读理解：每篇文章用一个 `reading`
 - 英译中 / 中译英：每题一个 `translation`
+- 简答题：每题一个 `short_answer`
+- 案例分析题：每题一个 `case_analysis`
+- 计算题：每题一个 `calculation`
+- 操作题：每题一个 `operation`
 - 作文：每题一个 `essay`
 
 不要这样做：
@@ -55,6 +59,10 @@
 - `reading`
 - `cloze`
 - `translation`
+- `short_answer`
+- `case_analysis`
+- `calculation`
+- `operation`
 - `essay`
 
 ## 关键字段约定
@@ -142,6 +150,73 @@
 }
 ```
 
+### 简答题
+
+```json
+{
+  "id": "q_short_001",
+  "type": "short_answer",
+  "prompt": "简述国际资本流动与国际贸易的相互关系。",
+  "score": 10,
+  "answer": {
+    "type": "subjective",
+    "reference_answer": "可从替代关系和互补关系两个角度作答。",
+    "scoring_points": ["替代关系", "互补关系"]
+  }
+}
+```
+
+### 案例分析题
+
+```json
+{
+  "id": "q_case_001",
+  "type": "case_analysis",
+  "prompt": "分析银行拒付是否合理，并提出解决方案。",
+  "score": 20,
+  "context_title": "案例材料",
+  "context": "某出口企业在信用证项下提交单据后遭银行拒付。",
+  "answer": {
+    "type": "subjective",
+    "reference_answer": "应围绕单证一致原则、拒付理由与补救路径展开。",
+    "scoring_points": ["审核标准", "拒付是否合理", "补救措施"]
+  }
+}
+```
+
+### 计算题
+
+```json
+{
+  "id": "q_calc_001",
+  "type": "calculation",
+  "prompt": "试计算该商品的换汇成本。",
+  "score": 6,
+  "context": "出口商品 1000 箱，每箱收购价 100 元，国内费用 15%，每箱退税 7 元，FOB 净收入 16.8 美元。",
+  "answer": {
+    "type": "subjective",
+    "reference_answer": "换汇成本 = 108000 / 16800 = 6.43 元/美元。"
+  }
+}
+```
+
+### 操作题
+
+```json
+{
+  "id": "q_operation_001",
+  "type": "operation",
+  "prompt": "根据磋商函电分析各自属于哪个环节，并完成合同要点。",
+  "score": 16,
+  "context_title": "磋商函电",
+  "context": "甲乙双方围绕 CIF 纽约价格、装运期和信用证支付条件多次往来。",
+  "answer": {
+    "type": "subjective",
+    "reference_answer": "可从发盘、还盘、接受以及最终合同要点四个方面整理。"
+  }
+}
+```
+
 ## 推荐给 AI 的提示词
 
 ```text
@@ -155,8 +230,9 @@
 4. 完形填空整篇写成 cloze，不要拆成多个顶层题。
 5. 阅读理解每篇文章写成一个 reading，子题放到 questions 数组里。
 6. 翻译题分别写成独立 translation。
-7. 作文题写成独立 essay。
-8. 选择题 options 必须使用 { key, text }。
-9. 如果原卷信息缺失，不要随意编造；如必须推断，请在 description 或 rationale 中明确说明。
-10. 只返回合法 JSON。
+7. 简答题、案例分析题、计算题、操作题分别写成 short_answer、case_analysis、calculation、operation。
+8. 作文题写成独立 essay。
+9. 选择题 options 必须使用 { key, text }。
+10. 如果原卷信息缺失，不要随意编造；如必须推断，请在 description 或 rationale 中明确说明。
+11. 只返回合法 JSON。
 ```

@@ -80,6 +80,13 @@
 
 英译中和中译英各写成一个独立 `translation`。
 
+### 国际贸易主观题
+
+- 简答题写成 `short_answer`
+- 案例分析题写成 `case_analysis`
+- 计算题写成 `calculation`
+- 操作题写成 `operation`
+
 ### 写作
 
 作文写成一个独立 `essay`。
@@ -93,6 +100,10 @@
 - `reading`
 - `cloze`
 - `translation`
+- `short_answer`
+- `case_analysis`
+- `calculation`
+- `operation`
 - `essay`
 
 ## 关键字段约定

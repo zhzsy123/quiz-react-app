@@ -7,6 +7,8 @@ function subjectiveQuestionPayload(item, response) {
     prompt: item.prompt,
     score: item.score || 0,
     source_text: item.source_text || '',
+    context_title: item.context_title || '',
+    context: item.context || '',
     requirements: item.requirements || {},
     reference_answer: item.answer?.reference_answer || '',
     scoring_points: item.answer?.scoring_points || [],
@@ -95,7 +97,7 @@ export async function gradeSubjectiveAttempt({
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      'You are a strict but professional English exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete and actionable.',
+      'You are a strict but professional exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete and actionable.',
     userPrompt: JSON.stringify(
       {
         task: 'grade_subjective_questions',
@@ -167,7 +169,7 @@ export async function explainQuizQuestionWithMode({
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      'You are a clear English exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
+      'You are a clear exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
     userPrompt: JSON.stringify(
       {
         task: 'explain_quiz_question',
@@ -206,7 +208,7 @@ export async function generateSimilarQuestions({ paperTitle, item, response, cou
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      'You are an English exam question generator. Return JSON only. Based on the source question, generate 5 similar questions with progressively increasing difficulty.',
+      'You are an exam question generator. Return JSON only. Based on the source question, generate 5 similar questions with progressively increasing difficulty.',
     userPrompt: JSON.stringify(
       {
         task: 'generate_similar_questions',

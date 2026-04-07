@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, BookOpen, BookX, CheckCircle2, Filter, Play, RotateCcw, Search, Trash2, XCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { loadWrongBookEntries, removeWrongBookEntry } from '../boundaries/storageFacade'
+import { loadWrongBookEntries, removeWrongBookEntries, removeWrongBookEntry } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
 
 function getWrongItemCategory(item) {
@@ -34,6 +34,7 @@ export default function WrongBookPage() {
   const [selectedAnswer, setSelectedAnswer] = useState('')
   const [feedback, setFeedback] = useState('')
   const [holdSolvedItem, setHoldSolvedItem] = useState(null)
+  const [selectedKeys, setSelectedKeys] = useState([])
 
   const refreshEntries = async () => {
     if (!activeProfileId) return
@@ -72,10 +73,60 @@ export default function WrongBookPage() {
     setFeedback('')
   }, [practiceIndex, practiceMode])
 
+  useEffect(() => {
+    setSelectedKeys((prev) => prev.filter((questionKey) => entries.some((item) => item.questionKey === questionKey)))
+  }, [entries])
+
   const handleRemove = async (item) => {
     if (!activeProfileId) return
     await removeWrongBookEntry(activeProfileId, item.subject, item.questionKey)
     await refreshEntries()
+  }
+
+  const handleToggleSelected = (questionKey) => {
+    setSelectedKeys((prev) =>
+      prev.includes(questionKey) ? prev.filter((item) => item !== questionKey) : [...prev, questionKey]
+    )
+  }
+
+  const handleSelectAllFiltered = () => {
+    setSelectedKeys(filteredWrongItems.map((item) => item.questionKey))
+  }
+
+  const handleClearSelected = () => {
+    setSelectedKeys([])
+  }
+
+  const removeItemsBulk = async (items) => {
+    if (!activeProfileId || !items.length) return
+    const grouped = items.reduce((map, item) => {
+      if (!map[item.subject]) map[item.subject] = []
+      map[item.subject].push(item.questionKey)
+      return map
+    }, {})
+
+    for (const [subject, questionKeys] of Object.entries(grouped)) {
+      await removeWrongBookEntries(activeProfileId, subject, questionKeys)
+    }
+
+    await refreshEntries()
+  }
+
+  const handleRemoveSelected = async () => {
+    const targets = filteredWrongItems.filter((item) => selectedKeys.includes(item.questionKey))
+    if (!targets.length) return
+    const ok = window.confirm(`确定删除已选中的 ${targets.length} 道错题吗？`)
+    if (!ok) return
+    await removeItemsBulk(targets)
+    setSelectedKeys([])
+  }
+
+  const handleRemoveAllFiltered = async () => {
+    if (!filteredWrongItems.length) return
+    const ok = window.confirm(`确定删除当前筛选结果中的全部 ${filteredWrongItems.length} 道错题吗？`)
+    if (!ok) return
+    await removeItemsBulk(filteredWrongItems)
+    setSelectedKeys([])
   }
 
   const handlePracticeAnswer = async (optionKey) => {
@@ -148,6 +199,24 @@ export default function WrongBookPage() {
                   <Play size={14} />
                   开始刷错题
                 </button>
+              )}
+              {!practiceMode && (
+                <>
+                  <button className="secondary-btn small-btn" onClick={handleSelectAllFiltered} disabled={filteredWrongItems.length === 0}>
+                    全选当前筛选
+                  </button>
+                  <button className="secondary-btn small-btn" onClick={handleClearSelected} disabled={selectedKeys.length === 0}>
+                    清空选择
+                  </button>
+                  <button className="danger-btn small-btn" onClick={handleRemoveSelected} disabled={selectedKeys.length === 0}>
+                    <Trash2 size={14} />
+                    批量删除
+                  </button>
+                  <button className="danger-btn small-btn" onClick={handleRemoveAllFiltered} disabled={filteredWrongItems.length === 0}>
+                    <Trash2 size={14} />
+                    全部删除
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -252,6 +321,14 @@ export default function WrongBookPage() {
                     <article key={item.questionKey} className="wrongbook-card">
                       <div className="wrongbook-card-head">
                         <div>
+                          <label className="wrongbook-select-row">
+                            <input
+                              type="checkbox"
+                              checked={selectedKeys.includes(item.questionKey)}
+                              onChange={() => handleToggleSelected(item.questionKey)}
+                            />
+                            <span>选中此题</span>
+                          </label>
                           <div className="wrongbook-card-title">{item.prompt}</div>
                           <div className="wrongbook-meta">
                             <span>{subjectMeta.shortLabel}</span>

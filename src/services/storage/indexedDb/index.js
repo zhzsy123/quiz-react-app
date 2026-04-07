@@ -35,6 +35,7 @@ export {
   loadWrongBookEntries,
   upsertWrongBookEntries,
   removeWrongBookEntry,
+  removeWrongBookEntries,
   loadFavoriteEntries,
   toggleFavoriteEntry,
   removeFavoriteEntry,

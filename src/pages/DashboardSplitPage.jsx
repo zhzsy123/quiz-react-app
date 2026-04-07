@@ -69,10 +69,9 @@ export default function DashboardSplitPage() {
     async function loadDashboard() {
       if (!activeProfileId) return
 
-      const [attempts, favorites] = await Promise.all([
-        listAttempts(activeProfileId),
-        loadFavoriteEntries(activeProfileId, 'english'),
-      ])
+      const favoriteGroups = await Promise.all(SUBJECT_REGISTRY.map((subject) => loadFavoriteEntries(activeProfileId, subject.key)))
+      const attempts = await listAttempts(activeProfileId)
+      const favorites = favoriteGroups.flat()
 
       if (!cancelled) {
         setDashboardState({

@@ -126,6 +126,16 @@ export async function removeWrongBookEntry(profileId, subject, questionKey) {
   return Object.values(saved).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
 }
 
+export async function removeWrongBookEntries(profileId, subject, questionKeys = []) {
+  const current = await loadWrongBookEntryMap(profileId, subject)
+  const next = { ...current }
+  questionKeys.forEach((questionKey) => {
+    delete next[questionKey]
+  })
+  const saved = await saveWrongBookEntryMap(profileId, subject, next)
+  return Object.values(saved).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+}
+
 export async function toggleFavoriteEntry(profileId, subject, entry) {
   const map = await loadFavoriteMap(profileId, subject)
   const key = entry.questionKey

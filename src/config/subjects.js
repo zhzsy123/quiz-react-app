@@ -7,6 +7,8 @@ export const SUBJECT_REGISTRY = [
     description: '支持本地题库导入、刷题模式、考试模式、历史记录与错题本闭环。',
     route: '/exam/english',
     workspaceRoute: '/workspace/english',
+    expectedPaperTotal: 150,
+    defaultDurationMinutes: 90,
     isAvailable: true,
   },
   {
@@ -17,6 +19,8 @@ export const SUBJECT_REGISTRY = [
     description: '支持本地题库导入、刷题模式、考试模式与历史记录。',
     route: '/exam/data-structure',
     workspaceRoute: '/workspace/data-structure',
+    expectedPaperTotal: null,
+    defaultDurationMinutes: 90,
     isAvailable: true,
   },
   {
@@ -27,6 +31,20 @@ export const SUBJECT_REGISTRY = [
     description: '支持本地题库导入、刷题模式、考试模式与历史记录。',
     route: '/exam/database-principles',
     workspaceRoute: '/workspace/database-principles',
+    expectedPaperTotal: null,
+    defaultDurationMinutes: 90,
+    isAvailable: true,
+  },
+  {
+    key: 'international_trade',
+    routeSlug: 'international-trade',
+    label: '国际贸易模考系统 V1.0',
+    shortLabel: '国际贸易',
+    description: '支持国际贸易综合题库导入、刷题模式、考试模式与主观题 AI 评阅。',
+    route: '/exam/international-trade',
+    workspaceRoute: '/workspace/international-trade',
+    expectedPaperTotal: 200,
+    defaultDurationMinutes: 150,
     isAvailable: true,
   },
 ]

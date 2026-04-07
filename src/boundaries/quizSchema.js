@@ -58,6 +58,10 @@ export const DEFAULT_QUESTION_SCORES = {
   fill_blank: 2,
   cloze: 2,
   reading: 2.5,
+  short_answer: 10,
+  case_analysis: 20,
+  calculation: 6,
+  operation: 16,
   translation: 15,
   essay: 30,
 }
@@ -413,6 +417,18 @@ export function normalizeQuizPayload(data) {
         items.push(convertEssay(question))
         break
       }
+      case 'short_answer':
+      case 'case_analysis':
+      case 'calculation':
+      case 'operation': {
+        const converted = convertGenericSubjective(question, question.type)
+        if (converted) items.push(converted)
+        else {
+          skippedCount += 1
+          skippedTypes.push(question.type)
+        }
+        break
+      }
       default: {
         skippedCount += 1
         skippedTypes.push(question?.type || 'unknown')
@@ -421,18 +437,49 @@ export function normalizeQuizPayload(data) {
   })
 
   if (!items.length) {
-    throw new Error('当前 JSON 规范只支持 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation、essay。')
+    throw new Error('当前 JSON 规范只支持 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation。')
   }
 
   return {
     title: data.title || '未命名试卷',
     paper_id: data.paper_id,
+    subject: data.subject || '',
+    description: data.description || '',
+    duration_minutes: Number(data.duration_minutes) || 0,
     items,
     compatibility: {
       sourceSchema: data.schema_version || 'json-schema',
       supportedCount: items.length,
       skippedCount,
       skippedTypes: [...new Set(skippedTypes)],
+    },
+  }
+}
+
+function convertGenericSubjective(question, fallbackType) {
+  const prompt = question.prompt || question.title || '请完成作答'
+  if (!prompt) return null
+
+  return {
+    ...ensureQuestionBase(question, fallbackType, getDefaultScoreByType(fallbackType)),
+    prompt,
+    context_title: question.context_title || question.case_title || question.material_title || '',
+    context:
+      question.context ||
+      question.case_material ||
+      question.material ||
+      question.background ||
+      question.body ||
+      '',
+    requirements: question.requirements || {},
+    answer: {
+      type: 'subjective',
+      reference_answer: question.answer?.reference_answer || question.answer?.correct || '',
+      outline: question.answer?.outline || [],
+      scoring_points: question.answer?.scoring_points || [],
+      scoring_rubric: question.answer?.scoring_rubric || null,
+      common_errors: question.answer?.common_errors || [],
+      ai_scoring: question.answer?.ai_scoring || { enabled: false },
     },
   }
 }

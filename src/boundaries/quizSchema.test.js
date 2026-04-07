@@ -236,6 +236,64 @@ describe('quizSchema boundary', () => {
     })
   })
 
+  it('supports international trade subjective families and preserves duration metadata', () => {
+    const result = normalizeQuizPayload({
+      schema_version: '2026-04',
+      title: '国际贸易综合',
+      subject: 'international_trade',
+      duration_minutes: 150,
+      questions: [
+        {
+          id: 'q_short_1',
+          type: 'short_answer',
+          prompt: '简述贸易政策含义。',
+          answer: {
+            reference_answer: '围绕政府干预国际贸易的政策安排作答。',
+          },
+        },
+        {
+          id: 'q_case_1',
+          type: 'case_analysis',
+          prompt: '分析信用证纠纷。',
+          context: '案例材料',
+          answer: {
+            reference_answer: '围绕单证一致原则作答。',
+          },
+        },
+        {
+          id: 'q_calc_1',
+          type: 'calculation',
+          prompt: '计算换汇成本。',
+          answer: {
+            reference_answer: '6.43 元/美元',
+          },
+        },
+        {
+          id: 'q_op_1',
+          type: 'operation',
+          prompt: '整理合同要点。',
+          answer: {
+            reference_answer: '根据磋商结果整理合同核心字段。',
+          },
+        },
+      ],
+    })
+
+    expect(result.subject).toBe('international_trade')
+    expect(result.duration_minutes).toBe(150)
+    expect(result.items.map((item) => item.type)).toEqual([
+      'short_answer',
+      'case_analysis',
+      'calculation',
+      'operation',
+    ])
+    expect(getQuizScoreBreakdown(result.items)).toEqual({
+      objectiveTotal: 0,
+      subjectiveTotal: 52,
+      paperTotal: 52,
+    })
+  })
+
   it('reports invalid payloads at the boundary', () => {
     expect(() => normalizeQuizPayload({ title: 'broken' })).toThrow(/questions/)
   })

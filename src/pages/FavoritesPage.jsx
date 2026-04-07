@@ -3,12 +3,15 @@ import { ArrowLeft, Play, Search, Star, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { loadFavoriteEntries, removeFavoriteEntry } from '../boundaries/storageFacade'
-
-const SUBJECT_KEY = 'english'
+import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
 
 function formatType(entry) {
   if (entry.itemType === 'reading') return '阅读理解'
   if (entry.itemType === 'translation') return '翻译题'
+  if (entry.itemType === 'short_answer') return '简答题'
+  if (entry.itemType === 'case_analysis') return '案例分析'
+  if (entry.itemType === 'calculation') return '计算题'
+  if (entry.itemType === 'operation') return '操作题'
   if (entry.itemType === 'essay') return '作文题'
   if (entry.sourceType === 'cloze') return '完形填空'
   return '单项选择'
@@ -19,11 +22,12 @@ export default function FavoritesPage() {
   const navigate = useNavigate()
   const [entries, setEntries] = useState([])
   const [query, setQuery] = useState('')
+  const [subjectFilter, setSubjectFilter] = useState('all')
 
   const refreshEntries = async () => {
     if (!activeProfileId) return
-    const rows = await loadFavoriteEntries(activeProfileId, SUBJECT_KEY)
-    setEntries(rows)
+    const groups = await Promise.all(SUBJECT_REGISTRY.map((subject) => loadFavoriteEntries(activeProfileId, subject.key)))
+    setEntries(groups.flat().sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0)))
   }
 
   useEffect(() => {
@@ -33,20 +37,25 @@ export default function FavoritesPage() {
   const filteredEntries = useMemo(() => {
     const lowered = query.trim().toLowerCase()
     return entries.filter((entry) => {
+      const subjectMatched = subjectFilter === 'all' || entry.subject === subjectFilter
+      if (!subjectMatched) return false
       if (!lowered) return true
       const bucket = [entry.prompt, entry.paperTitle, entry.contextTitle, ...(entry.tags || [])].join(' ').toLowerCase()
       return bucket.includes(lowered)
     })
-  }, [entries, query])
+  }, [entries, query, subjectFilter])
 
   const handleRemove = async (entry) => {
     if (!activeProfileId) return
-    await removeFavoriteEntry(activeProfileId, SUBJECT_KEY, entry.questionKey)
+    await removeFavoriteEntry(activeProfileId, entry.subject, entry.questionKey)
     await refreshEntries()
   }
 
   const handleStartPractice = () => {
-    navigate('/workspace/english?source=favorites&mode=practice')
+    const targetSubjectKey = subjectFilter !== 'all' ? subjectFilter : filteredEntries[0]?.subject
+    if (!targetSubjectKey) return
+    const subjectMeta = getSubjectMeta(targetSubjectKey)
+    navigate(`/workspace/${subjectMeta.routeSlug}?source=favorites&mode=practice`)
   }
 
   return (
@@ -67,7 +76,14 @@ export default function FavoritesPage() {
             <h2><Search size={18} /> 检索</h2>
             <span className="section-header-tip">{filteredEntries.length} 题</span>
           </div>
-          <div className="library-filters-grid single-search-grid">
+          <div className="library-filters-grid">
+            <label className="form-field">
+              <span>科目</span>
+              <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                <option value="all">全部科目</option>
+                {SUBJECT_REGISTRY.map((subject) => <option key={subject.key} value={subject.key}>{subject.label}</option>)}
+              </select>
+            </label>
             <label className="form-field grow">
               <span>关键词</span>
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索题干、来源或标签" />
@@ -89,6 +105,7 @@ export default function FavoritesPage() {
                     <div>
                       <div className="wrongbook-card-title">{entry.prompt}</div>
                       <div className="wrongbook-meta">
+                        <span>{getSubjectMeta(entry.subject).shortLabel}</span>
                         <span>{formatType(entry)}</span>
                         <span>{entry.paperTitle || '未命名来源'}</span>
                       </div>
