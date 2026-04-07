@@ -1,12 +1,14 @@
 # Quiz React App
 
-基于 `Vite + React` 的题库客户端，支持本地导入与 AI 相关增强能力。
+基于 `Vite + React` 的题库学习客户端，当前以“可用功能 + 在建能力”并存的迁移收口状态运行。
 
-- 支持 `PDF / DOCX / JSON` 导入
-- 支持 `JSON` 题库内容转化、规范化、评分与校验
-- 支持本地持久化（IndexedDB / localStorage）
-- 包含题目练习、收藏、历史记录、错题、文件工作区等主流程
-- 集成 AI 审核与改写能力（`features/ai`）
+## 功能状态（当前）
+
+- 已稳定支持：JSON 导入与题库基础流程（解析/标准化/校验/评分）基础闭环
+- 预埋/在建：`PDF / DOCX` 导入能力（当前以适配与能力链路为主）
+- 预埋/在建：AI 相关能力（当前为相关能力预留 + 部分落地 + 在建增强）
+- 已稳定支持：练习、收藏、历史记录、错题、工作区、答题进度等核心业务流程
+- 已稳定支持：本地存储（IndexedDB / localStorage）基础持久化
 
 ## 运行方式
 
@@ -19,7 +21,7 @@ npm run preview
 
 ## 当前代码结构（实际）
 
-项目当前主结构不再是“`pages + boundaries` 组合”：
+项目当前不再使用“`pages + boundaries`”作为唯一主结构；应用运行在迁移收口阶段，部分细节仍在整理中：
 
 ```text
 src/
@@ -31,57 +33,41 @@ src/
   shared/
 ```
 
+> 说明：除核心结构稳定外，`pages` 与若干领域命名仍有迁移中的历史兼容关系，详见 `docs/migration.md`。
+
 ### 结构说明
 
-- `app`：应用启动与运行时骨架（`main.jsx`, `router`, `providers`, 样式）
-- `pages`：页面容器（如 `DashboardSplitPage`, `SubjectWorkspacePage`, `HistoryPage`）
-- `widgets`：可复用 UI 组件（如 `quiz/CleanQuizView`, `quiz-importer/QuizImporter`）
-- `features`：页面内业务域与状态逻辑（`dashboard`, `workspace`, `history`, `wrong-book`, `favorites`, `file-hub`, `ai`）
-- `entities`：领域实体与基础能力
-  - 业务对象模型/主题：`subject`, `attempt`, `history`, `favorite`, `wrong-book`, `wrongbook`, `profile`, `session`, `workspace`
-  - 核心题库流水线：`entities/quiz/lib/quizPipeline.js` 与 `quiz/lib/*`
-  - 仓储层：`entities/*/api/*Repository.js`
-- `shared`：横切能力（网络、存储、偏好设置、兼容层）
-  - `shared/api`、`shared/lib/preferences`、`shared/storage/adapters`
-  - `shared/storage/indexedDb`、`shared/storage/compat`
+- `app`：应用启动与运行时骨架（`main.jsx`, `router`, `providers`, `styles`）
+- `pages`：页面容器层（迁移中页面容器），主要承载布局和路由切换
+- `widgets`：页面可复用组件（如题库展示与导入组件）
+- `features`：页面内业务状态与交互逻辑（工作流、历史、错题、收藏等）
+- `entities`：领域能力与基础能力（题库处理 pipeline、仓储能力、领域模型）
+- `shared`：横切基础设施（存储适配、网络调用、偏好管理）
 
-## 关键链路
+## 代表性业务域（对外）
 
-### 题库导入与处理链
+- 题库与题目处理：`entities/quiz/lib`（`quizPipeline`、文本与校验处理、评分）
+- 题目会话与历史：`entities/session`, `entities/history`
+- 收藏与错题：`entities/favorite`, `entities/wrong-book`
+- 学科与资源：`entities/subject`, `entities/library`
+- 文件与工作区：`features/workspace`, `features/file-hub`
+
+更详细的兼容与迁移约定放在 `docs/migration.md`，避免将迁移中的中间状态暴露为最终结构。
+
+## 题库处理链（当前状态）
 
 ```text
 widgets/quiz-importer -> entities/quiz/lib/quizPipeline -> entities/quiz/lib/quizSchema
-                                        -> text/*, validation/*, normalize/*, scoring/*
+                                        -> text/*
+                                        -> validation/*
+                                        -> normalize/*
+                                        -> scoring/*
 ```
 
-`quizPipeline` 在当前实现中负责：
+> 当前状态说明：该链路为“核心能力逐步收口”结果，稳定基础功能已可运行，但仍在配套接口与历史兼容收敛过程中（详见迁移文档）。
 
-1. 解析题目文本/JSON（`parseQuizJsonText`）
-2. 校验 payload（`validateQuizPayload`）
-3. 标准化题目结构（`normalize*`）
-4. 评分计算（`scoring*`）
-5. 转交显示/存储逻辑
+## 迁移收口提醒
 
-### 数据流
-
-```text
-pages/widgets/features
-  -> entities/*/api/*Repository
-  -> shared/storage/{adapters, indexedDb, compat}
-
-features/ai/reviewService
-  -> shared/api/* -> shared/api/httpClient
-
-features/* -> shared/lib/preferences -> shared/storage/adapters/browserStorageAdapter -> localStorage
-```
-
-## 迁移说明（简版）
-
-详细状态见 `docs/migration.md`。简要说明：
-
-- 旧有 `boundaries` 已不再作为主目录保留
-- 页面/业务/实体/共享层边界已落地
-- `quiz` 领域核心处理逻辑统一在 `entities/quiz/lib` 下维护
-- 仍存在文档中的历史内容与链接（如绝对路径）需要定期统一清理
-
-更多架构说明见：`docs/architecture.md`
+- `quizPipeline`：已作为核心链路使用，但其上游/下游边界与兼容场景仍在统一命名与导出整理。
+- `legacyStorageFacade`：仍在迁移收口期，作为兼容路径保留。
+- `pages` 命名与历史页面引用：逐步收束中，当前先保证可用性与兼容性，部分历史命名尚未完成清理。

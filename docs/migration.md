@@ -1,88 +1,71 @@
 # Migration Status
 
-用于记录“旧结构（`pages + boundaries`）”到当前分层结构的迁移状态。  
-当前仓库已经实际运行在 `app / pages / widgets / features / entities / shared` 体系下，本文件反映的是 **到当前结构** 的落地情况。
+本文用于同步“旧结构（含 `pages + boundaries`）向当前结构”的收口状态。  
+当前仓库已进入迁移收口阶段：核心分层可运行，但仍存在兼容边界和命名收敛任务。
 
-## 迁移范围与目标
+## 一、能力成熟度矩阵（建议阅读）
 
-- 取消 `boundaries` 作为主目录承载。
-- 明确建立 `entities / features / widgets / shared` 的职责边界。
-- 将题库处理链（parse/validate/normalize/score）集中到 `entities/quiz/lib/quizPipeline` 周边，作为可复用领域能力。
-- 保持页面可运行的同时逐步收口存储与 AI 调用层。
+### 已稳定支持
 
-## 总体状态
+- `app / main / router / providers`：启动与路由能力稳定可用
+- `entities/quiz/lib`：
+  - `quizPipeline.js` 可作为题库处理主入口
+  - `text / validation / normalize / scoring` 的核心路径可运行
+- `shared/storage`：IndexedDB 与 browserStorageAdapter 的主链路可用
+- 基础页面容器与特性交互（`dashboard`, `workspace`, `history`, `wrong-book`, `favorites`, `file-hub`）
 
-### 已完成（Done）
+### 预埋 / 在建
 
-1. **目录结构重心切换**
-   - 实际目录已为：`app / pages / widgets / features / entities / shared`。
-   - 不再以 `pages + boundaries` 为项目唯一主结构。
+- `PDF / DOCX` 导入：能力链路仍在整合，尚未表述为全闭环稳定支持
+- `features/ai`：AI 能力为“预留 + 部分落地 + 在建增强”，与业务链路的成熟度不同步
+- `entities` 中 `wrong-book` 与兼容导出相关命名的收敛
+- `shared/storage/compat/legacyStorageFacade` 与 `storageFacade` 的长期替换策略
+- `pages` 命名与边界清理（历史命名兼容仍在整理）
 
-2. **`app` 层收敛**
-   - `src/app/main.jsx`、`src/app/router/AppRouter.jsx`、`src/app/providers/AppContext.jsx` 与 `styles` 已在运行链路中。
+## 二、迁移目标（已确认）
 
-3. **`features` 层与 `pages` 的状态分工**
-   - `features/*` 已建立如 `dashboard`, `workspace`, `history`, `wrong-book`, `favorites`, `file-hub`, `ai` 等域模型目录。
-   - 页面与状态模型关联关系清晰，仓库中的实际结构与文档已同步。
+1. 保持当前可运行状态不回退
+2. 不再将 `boundaries` 作为主结构目录
+3. 保持 `entities / features / widgets / shared` 的职责边界
+4. 将 `quizPipeline` 作为题库处理的核心入口进行边界统一
+5. 形成稳定但可扩展的持久化与 AI 调用策略
 
-4. **`entities` 层题库能力集中化**
-   - `entities/quiz/lib` 已包含：
-     - `quizPipeline.js`
-     - `text/*`, `validation/*`, `normalize/*`, `scoring/*`, `quizSchema.js`, `paperId.js`
-   - 核心能力链路已可支持“导入解析 -> 校验 -> 标准化 -> 评分”闭环。
-
-5. **数据与持久化链路**
-   - `entities/*/api/*Repository.js` 已落在实体层。
-   - 实体仓储对 `shared/storage` 的依赖已建立（`adapters / indexedDb / compat`）。
-
-6. **AI 调用统一入口**
-   - `features/ai/reviewService` 到 `shared/api/aiGateway -> deepseekClient -> httpClient` 的链路可工作。
-
-### 进行中（In Progress）
-
-1. **文档统一清理**
-   - 部分文档仍保留旧路径样式或历史性语言，正在替换为与当前结构一致的说明。
-2. **仓储与偏好层次收口**
-   - `shared/lib/storage/storageFacade`、`shared/storage/compat/legacyStorageFacade` 与现有仓储调用的关系仍在持续整理与补充说明。
-3. **边界语义固化**
-   - 继续补齐 `features -> AppContext` 与 `pages/widgets` 之间的数据流文档。
-
-### 待办（To Do）
-
-1. `entities` 名称一致性与历史遗留并存项（如 `wrong-book`/`wrongbook`）的文档与使用约定统一。
-2. 对 `storageFacade` 的长期兼容策略出具最终实施清单（是否保留与替换节奏、弃用路径和验收规则）。
-3. 继续清理 README/architecture/migration 之外文档里的绝对路径引用，统一为项目内相对路径。
-
-## 关键迁移映射（旧 -> 新）
+## 三、旧结构到新结构映射与状态
 
 | 旧定位 | 当前定位 | 状态 | 说明 |
 |---|---|---|---|
-| `src/main.jsx` | `src/app/main.jsx` | 已完成 | 入口已迁移到 app 层 |
-| `src/router/AppRouter.jsx` | `src/app/router/AppRouter.jsx` | 已完成 | 路由在 app 层 |
-| 页面逻辑分散在旧边界层 | `src/pages/*` + `features/*/model` | 进行中 | 页面与 feature 分工已建立 |
-| 题库处理散落于使用处 | `src/entities/quiz/lib` | 已完成 | pipeline + text/validate/normalize/scoring 模块集中 |
-| `src/repositories` 化 | `src/entities/*/api/*Repository.js` | 已完成 | 仓储能力集中到实体层 |
-| `boundaries` 为主目录 | `boundaries` 已移除主路径 | 已完成 | 当前无 `src/boundaries` 目录作为主层 |
-| 平台存储 | `shared/storage/*` | 已完成 | 统一在 shared 层完成存储适配与兼容 |
-| AI 相关 API | `features/ai` + `shared/api` | 已完成 | 保持业务层调用共享 API |
+| `src/main.jsx` | `src/app/main.jsx` | 已完成 | 入口已迁移到 `app` 层 |
+| `src/router/AppRouter.jsx` | `src/app/router/AppRouter.jsx` | 已完成 | 路由归位到 `app` |
+| 页面逻辑在旧 `boundaries` | `src/pages/*` + `features/*/model` | 进行中 | 页面仍为迁移容器，命名与边界逐步收敛 |
+| 题库能力分散调用 | `src/entities/quiz/lib/quizPipeline` | 已完成（核心） | 仍在补齐历史兼容与接口一致性 |
+| `src/repositories` | `src/entities/*/api/*Repository.js` | 已完成 | 仓储职责已集中到实体层 |
+| `shared/storage/*`（散点） | `src/shared/storage/*` | 已完成 | 兼容层（legacy）仍保留 |
+| AI 调用混散 | `features/ai` + `shared/api` | 进行中 | 具备可用入口，能力仍在增强 |
+| `boundaries` 为主目录 | 无 `src/boundaries` 主承载 | 已完成 | `boundaries` 已不再作为主目录 |
 
-## 风险点
+## 四、当前迁移中的关键状态说明
 
-1. **命名与兼容双轨风险**  
-   `wrong-book` 与 `wrongbook` 并存，需确保导入路径与重导出关系在演进过程中不引入重复或冲突。
+- `quizPipeline`：核心已稳定，但上游/下游的兼容入口与历史别名收敛仍在进行。
+- `legacyStorageFacade`：作为兼容阶段组件保留，后续收口策略尚未完全收敛。
+- 页面命名：`pages` 为迁移期间的承载层，部分历史引用可能仍保留，需按迁移里程碑持续清理。
 
-2. **迁移痕迹残留风险**  
-   文档历史内容与旧调用描述若未清理，会误导新成员理解当前边界。
+## 五、风险点（高优先）
 
-3. **兼容层退役节奏风险**  
-   `legacyStorageFacade` 与 `storageFacade` 的协作关系短期可用，但长期目标是否继续保留需确认。
+1. **能力成熟度误读风险**  
+   如果文档将 PDF/DOCX、AI 能力描述为完整成熟，可能误导测试与验收边界。
+2. **兼容层长期存在风险**  
+   `legacyStorageFacade` 与 `storageFacade` 的并行存在必须保留明确退出条件，否则会增加维护成本。
+3. **命名迁移残留风险**  
+   仍存历史兼容路径时，导入与复用行为需避免重复定义/重复入口。
 
-4. **状态传播边界风险**  
-   `AppContext` 与 `features` 的状态共享仍需稳定接口约束，避免页面与特性层直接穿透实现细节。
+## 六、未完成项
 
-## 下一步建议（执行顺序）
+1. 全量清理旧路径描述与历史名词，统一迁移态表达
+2. 给 `quizPipeline` 补充稳定边界协议（输入/输出与错误处理标准）
+3. 固化 `pages` 与 `features` 命名约束清单（谁负责最终命名归属）
+4. `AI` 能力按场景写出可验收标准（哪些端点和交互可算“可用”）
 
-1. 先完成文档全量一致性（README、architecture、migration 和其他入口文档）。  
-2. 完成 `wrong-book` 与 `wrongbook` 的命名/导出策略说明并固定约定。  
-3. 明确 `storageFacade` 与 `legacyStorageFacade` 的迁移到位条件：什么时候允许逐步去掉兼容分支。  
-4. 保持上述进度在 `docs/migration.md` 更新（每次仓库结构变化都同步）。
+## 七、可用表达建议（对外文档）
+
+- “预埋/在建”替代“已完成”：`PDF/DOCX` 导入、AI 相关能力、部分历史命名收敛项
+- “迁移收口中”：`quizPipeline` 兼容边界、`legacyStorageFacade` 去留策略、`pages` 命名统一
