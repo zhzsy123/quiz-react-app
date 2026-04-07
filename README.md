@@ -1,12 +1,12 @@
 # Quiz React App
 
-一个基于 `Vite + React` 的个人模考与刷题项目，适合托管到 GitHub Pages。
+一个基于 `Vite + React` 的个人题库 / 模考项目，当前定位是：
 
-当前项目定位很明确：
+- 先用 AI 把 `PDF / DOCX` 试卷整理成 JSON
+- 再把 JSON 导入站点
+- 在本地完成刷题、模考、历史回看、错题复习和收藏
 
-- 用 AI 把 PDF / DOCX 试卷清洗成 JSON
-- 在网页中导入 JSON
-- 继续完成刷题、模考、错题复习、收藏和历史回看
+项目当前可直接静态托管到 GitHub Pages，业务数据主要保存在浏览器本地。
 
 ## 当前功能
 
@@ -18,61 +18,123 @@
 - 错题本
 - 收藏夹
 - 多本地档案切换
+- AI 解释 / AI 批改 / AI 核题
 
-## 当前生效架构
+## 当前实际架构
 
-- 入口：[src/main.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\main.jsx)
-- 路由：[src/router/AppRouter.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\router\AppRouter.jsx)
-- 首页：[src/pages/DashboardSplitPage.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\pages\DashboardSplitPage.jsx)
-- 题库页：[src/pages/FileHubPage.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\pages\FileHubPage.jsx)
-- 刷题 / 模考页：[src/pages/SubjectWorkspacePage.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\pages\SubjectWorkspacePage.jsx)
-- 历史页：[src/pages/HistoryPage.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\pages\HistoryPage.jsx)
-- 错题页：[src/pages/WrongBookPage.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\pages\WrongBookPage.jsx)
-- 收藏页：[src/pages/FavoritesPage.jsx](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\pages\FavoritesPage.jsx)
+项目已经从旧的“页面 + boundary”结构迁移到分层结构，当前生效目录如下：
 
-## 数据边界
+```text
+src/
+  app/
+    main.jsx
+    router/
+    providers/
+    styles/
+  pages/
+    DashboardSplitPage.jsx
+    FileHubPage.jsx
+    SubjectWorkspacePage.jsx
+    HistoryPage.jsx
+    WrongBookPage.jsx
+    FavoritesPage.jsx
+  widgets/
+    quiz/
+    quiz-importer/
+  features/
+    ai/
+    dashboard/
+    file-hub/
+    workspace/
+    history/
+    wrong-book/
+    favorites/
+  entities/
+    quiz/
+    subject/
+    profile/
+    library/
+    attempt/
+    favorite/
+    wrong-book/
+    workspace/
+  shared/
+    api/
+    lib/
+    storage/
+```
 
-- 题库规范边界：[src/boundaries/quizSchema.js](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\boundaries\quizSchema.js)
-- 存储边界：[src/boundaries/storageFacade.js](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\boundaries\storageFacade.js)
+当前入口和关键边界：
 
-## JSON 规范
+- 运行入口：`src/app/main.jsx`
+- 路由入口：`src/app/router/AppRouter.jsx`
+- 页面层：`src/pages/*`
+- 题库导入 pipeline：`src/entities/quiz/lib/quizPipeline.js`
+- 题型归一化：`src/entities/quiz/lib/quizSchema.js`
+- repository 层：`src/entities/*/api/*.js`
+- 存储适配层：`src/shared/storage/adapters/*`
+- API 适配层：`src/shared/api/*`
 
-公开下载入口只保留一个：
+`src/shared/lib/storage/storageFacade.js` 仍然保留，但现在是兼容层，不再是推荐的一线调用入口。
 
-- [public/json-schema.md](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\public\json-schema.md)
+## 分层说明
 
-完整说明文档：
+- `app`
+  - 应用级入口、路由、Provider、全局样式
+- `pages`
+  - 路由页面，只负责页面组装
+- `widgets`
+  - 页面级可复用 UI 组件，例如做题视图、导入器
+- `features`
+  - 业务场景逻辑与页面状态，例如首页状态、题库页状态、做题流程、AI 调用编排
+- `entities`
+  - 领域对象、题库处理、repository 抽象、科目配置
+- `shared`
+  - 通用 API、偏好项、存储 adapter、IndexedDB 基础设施
 
-- [docs/json-schema.md](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\docs\json-schema.md)
+## 题库导入链路
 
-当前公开规范支持：
+当前导入流程已经固定为：
 
-- `single_choice`
-- `multiple_choice`
-- `true_false`
-- `fill_blank`
-- `reading`
-- `cloze`
-- `translation`
-- `essay`
+1. 读取文件文本
+2. `parseQuizJsonText`
+3. `validateQuizPayload`
+4. `normalizeQuizDocument`
+5. 进入业务层和题库仓储
 
-解析层仍兼容旧版 `items` 结构，避免已经导入过的本地题库失效。
+对应代码：
+
+- `src/entities/quiz/lib/quizPipeline.js`
+- `src/entities/quiz/lib/quizSchema.js`
+
+兼容情况：
+
+- 继续兼容旧版 `items` 结构
+- 继续兼容当前 JSON 规范
 
 ## 本地数据
 
-项目数据主要保存在浏览器本地：
+当前数据存储方式：
 
-- 题库
-- 进度
-- 历史记录
-- 错题状态
-- 收藏
-- 偏好设置
+- 业务数据：IndexedDB
+- 少量偏好项与 API 配置：localStorage
 
-其中：
+当前边界：
 
-- 业务数据主要使用 IndexedDB
-- 少量偏好项使用 localStorage
+- adapter：`src/shared/storage/adapters/*`
+- repository：`src/entities/*/api/*.js`
+
+页面和 feature 不再直接依赖 IndexedDB store 文件。
+
+## AI 调用
+
+当前 `shared/api` 已经落地为可扩展层：
+
+- 通用请求：`src/shared/api/httpClient.js`
+- AI 网关：`src/shared/api/aiGateway.js`
+- DeepSeek provider：`src/shared/api/deepseekClient.js`
+
+目前真实接入的 provider 只有 DeepSeek，但 feature 侧已经不直接依赖具体 fetch 细节。
 
 ## 开发命令
 
@@ -91,10 +153,10 @@ npm run dev
 运行测试：
 
 ```bash
-npm test
+npm test -- --run
 ```
 
-构建：
+生产构建：
 
 ```bash
 npm run build
@@ -108,11 +170,11 @@ npm run preview
 
 ## 部署
 
-当前 [vite.config.js](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\vite.config.js) 已配置相对 `base`，适合 GitHub Pages 这类静态托管环境。
+项目当前仍以静态托管为前提，`vite.config.js` 已配置相对 `base`，可用于 GitHub Pages。
 
-## 测试
+## 文档
 
-当前自动化测试主要覆盖边界层：
-
-- [src/boundaries/quizSchema.test.js](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\boundaries\quizSchema.test.js)
-- [src/boundaries/storageFacade.test.js](E:\VorinsFile\BaiduSyncdisk\Github项目\quiz-react-app\src\boundaries\storageFacade.test.js)
+- 架构说明：`docs/architecture.md`
+- 迁移状态：`docs/migration.md`
+- JSON 规范：`docs/json-schema.md`
+- 对外下载版 JSON 规范：`public/json-schema.md`

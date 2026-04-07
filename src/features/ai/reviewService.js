@@ -1,4 +1,4 @@
-import { callDeepSeekJson } from '../../shared/api/deepseekClient'
+import { requestAiJson } from '../../shared/api/aiGateway'
 
 function subjectiveQuestionPayload(item, response) {
   return {
@@ -95,7 +95,7 @@ export async function gradeSubjectiveAttempt({
     }
   }
 
-  const { content, model } = await callDeepSeekJson({
+  const { content, model } = await requestAiJson({
     systemPrompt:
       'You are a strict but professional exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete and actionable.',
     userPrompt: JSON.stringify(
@@ -167,7 +167,7 @@ export async function explainQuizQuestionWithMode({
 }) {
   const target = buildQuestionTarget(item, response, subQuestion)
 
-  const { content, model } = await callDeepSeekJson({
+  const { content, model } = await requestAiJson({
     systemPrompt:
       'You are a clear exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
     userPrompt: JSON.stringify(
@@ -206,7 +206,7 @@ export async function explainQuizQuestionWithMode({
 export async function auditQuizQuestionCompliance({ paperTitle, item, response, subQuestion = null }) {
   const target = buildQuestionTarget(item, response, subQuestion)
 
-  const { content, model } = await callDeepSeekJson({
+  const { content, model } = await requestAiJson({
     systemPrompt:
       'You are an exam quality auditor. Return JSON only. Check whether the question, answer, rationale, and options are compliant, unambiguous, and internally consistent.',
     userPrompt: JSON.stringify(
@@ -247,7 +247,7 @@ export async function auditQuizQuestionCompliance({ paperTitle, item, response, 
 export async function generateSimilarQuestions({ paperTitle, item, response, count = 5 }) {
   const target = buildQuestionTarget(item, response)
 
-  const { content, model } = await callDeepSeekJson({
+  const { content, model } = await requestAiJson({
     systemPrompt:
       'You are an exam question generator. Return JSON only. Based on the source question, generate 5 similar questions with progressively increasing difficulty.',
     userPrompt: JSON.stringify(

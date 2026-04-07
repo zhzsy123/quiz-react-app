@@ -1,4 +1,5 @@
 import { getPreference, setPreference } from '../lib/preferences/preferenceRepository'
+import { postJson } from './httpClient'
 
 const API_KEY_PREF = 'ai:deepseekApiKey'
 const BASE_URL_PREF = 'ai:deepseekBaseUrl'
@@ -79,32 +80,28 @@ export async function callDeepSeekJson({ systemPrompt, userPrompt, temperature =
     throw new Error('未配置 DeepSeek API Key')
   }
 
-  const response = await fetch(`${cleanBaseUrl(config.baseUrl)}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.model || DEFAULT_MODEL,
-      temperature,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    }),
-  })
+  try {
+    const payload = await postJson(`${cleanBaseUrl(config.baseUrl)}/chat/completions`, {
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: {
+        model: config.model || DEFAULT_MODEL,
+        temperature,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      },
+    })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`DeepSeek 请求失败：${response.status} ${errorText}`)
-  }
-
-  const payload = await response.json()
-  const content = payload?.choices?.[0]?.message?.content
-  return {
-    content: parseJsonContent(content),
-    model: payload?.model || config.model || DEFAULT_MODEL,
+    const content = payload?.choices?.[0]?.message?.content
+    return {
+      content: parseJsonContent(content),
+      model: payload?.model || config.model || DEFAULT_MODEL,
+    }
+  } catch (error) {
+    throw new Error(`DeepSeek 请求失败：${error.message}`)
   }
 }
