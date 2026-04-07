@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Bot,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -110,6 +111,59 @@ function formatRemainingSeconds(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function AiExplainPanel({ entry }) {
+  if (!entry) return null
+
+  if (entry.status === 'pending') {
+    return <div className="analysis-box">AI 正在生成解释...</div>
+  }
+
+  if (entry.status === 'failed') {
+    return <div className="analysis-box">AI 解释失败：{entry.error || '请稍后重试'}</div>
+  }
+
+  if (entry.status !== 'completed') return null
+
+  return (
+    <div className="analysis-box">
+      <div><strong>{entry.title || 'AI 解释'}</strong></div>
+      {entry.explanation && <div>{entry.explanation}</div>}
+      {Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0 && (
+        <div><strong>关键点：</strong>{entry.keyPoints.join(' / ')}</div>
+      )}
+      {Array.isArray(entry.commonMistakes) && entry.commonMistakes.length > 0 && (
+        <div><strong>常见误区：</strong>{entry.commonMistakes.join(' / ')}</div>
+      )}
+      {Array.isArray(entry.answerStrategy) && entry.answerStrategy.length > 0 && (
+        <div><strong>作答建议：</strong>{entry.answerStrategy.join(' / ')}</div>
+      )}
+    </div>
+  )
+}
+
+function AiQuestionReviewPanel({ review }) {
+  if (!review) return null
+
+  return (
+    <div className="analysis-box">
+      <div>
+        <strong>AI 批改：</strong>
+        {review.score} / {review.maxScore}
+      </div>
+      {review.feedback && <div>{review.feedback}</div>}
+      {Array.isArray(review.strengths) && review.strengths.length > 0 && (
+        <div><strong>做得好的点：</strong>{review.strengths.join(' / ')}</div>
+      )}
+      {Array.isArray(review.weaknesses) && review.weaknesses.length > 0 && (
+        <div><strong>扣分点：</strong>{review.weaknesses.join(' / ')}</div>
+      )}
+      {Array.isArray(review.suggestions) && review.suggestions.length > 0 && (
+        <div><strong>改进建议：</strong>{review.suggestions.join(' / ')}</div>
+      )}
+    </div>
+  )
+}
+
 function ReadingBlock({
   item,
   response,
@@ -120,6 +174,8 @@ function ReadingBlock({
   focusSubQuestionId,
   onFocusSubQuestion,
   onSelectReadingOption,
+  aiExplainMap,
+  onExplainQuestion,
 }) {
   const [immersiveReading, setImmersiveReading] = useState(false)
   const readingResponse = response || {}
@@ -160,6 +216,7 @@ function ReadingBlock({
             const revealKey = `${item.id}:${subQuestion.id}`
             const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
             const isFocused = focusSubQuestionId === subQuestion.id
+            const explainEntry = aiExplainMap?.[`${item.id}:${subQuestion.id}`]
 
             return (
               <div
@@ -217,6 +274,16 @@ function ReadingBlock({
                     <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
                   </div>
                 )}
+                <button
+                  type="button"
+                  className="secondary-btn small-btn"
+                  onClick={() => onExplainQuestion({ item, subQuestion })}
+                  disabled={isPaused || explainEntry?.status === 'pending'}
+                >
+                  <Bot size={14} />
+                  {explainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
+                </button>
+                <AiExplainPanel entry={explainEntry} />
               </div>
             )
           })}
@@ -404,6 +471,10 @@ export default function CleanQuizView({
   onSelectReadingOption,
   onFillBlankChange,
   onTextChange,
+  aiReview,
+  aiQuestionReviewMap = {},
+  aiExplainMap = {},
+  onExplainQuestion,
   onSubmit,
 }) {
   const total = quiz.items.length
@@ -462,6 +533,8 @@ export default function CleanQuizView({
   const spoilerTags = getSpoilerTags(currentItem)
   const disabled = isPaused && mode === 'exam'
   const objectiveReveal = submitted || (mode === 'practice' && revealedMap[currentItem.id])
+  const currentExplainEntry = aiExplainMap[currentItem.id]
+  const currentQuestionReview = aiQuestionReviewMap[currentItem.id]
 
   return (
     <section className="quiz-layout clean-workspace-layout">
@@ -623,6 +696,17 @@ export default function CleanQuizView({
             </div>
 
             <div className="question-top-actions">
+              {onExplainQuestion && !isReading && (
+                <button
+                  type="button"
+                  className="secondary-btn small-btn"
+                  onClick={() => onExplainQuestion({ item: currentItem })}
+                  disabled={disabled || currentExplainEntry?.status === 'pending'}
+                >
+                  <Bot size={14} />
+                  {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
+                </button>
+              )}
               {onToggleFavorite && (
                 <button type="button" className={`favorite-toggle ${isFavorite ? 'active' : ''}`} onClick={onToggleFavorite}>
                   <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -654,6 +738,8 @@ export default function CleanQuizView({
               focusSubQuestionId={focusedReadingQuestion?.itemId === currentItem.id ? focusedReadingQuestion?.subQuestionId : null}
               onFocusSubQuestion={(subQuestionId) => setFocusedReadingQuestion({ itemId: currentItem.id, subQuestionId })}
               onSelectReadingOption={onSelectReadingOption}
+              aiExplainMap={aiExplainMap}
+              onExplainQuestion={onExplainQuestion}
             />
           ) : isFillBlank ? (
             <FillBlankBlock
@@ -706,6 +792,11 @@ export default function CleanQuizView({
               <div>解析：{currentItem.answer?.rationale || '暂无解析'}</div>
             </div>
           )}
+          {isSubjective && submitted && <AiQuestionReviewPanel review={currentQuestionReview} />}
+          {isSubjective && submitted && aiReview?.status === 'pending' && (
+            <div className="analysis-box">AI 正在批改当前主观题...</div>
+          )}
+          {!isReading && <AiExplainPanel entry={currentExplainEntry} />}
 
           <div className="question-actions">
             <button className="secondary-btn" onClick={onPrev} disabled={isFirst || disabled}>

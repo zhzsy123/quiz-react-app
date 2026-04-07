@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
 import { getQuizScoreBreakdown, parseQuizText } from '../boundaries/quizSchema'
+import { explainQuizQuestion, gradeSubjectiveAttempt } from '../services/ai/reviewService'
 import {
   clearProgressRecord,
   listLibraryEntries,
@@ -14,6 +15,7 @@ import {
   saveAttemptRecord,
   saveProgressRecord,
   toggleFavoriteEntry,
+  updateAttemptRecord,
 } from '../boundaries/storageFacade'
 import { getSubjectMetaByRouteParam } from '../config/subjects'
 
@@ -21,6 +23,25 @@ const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
 const EXAM_DURATION_SECONDS = 90 * 60
 const DEFAULT_PRACTICE_WRONG_BOOK = true
+
+function createPendingAiReview(subjectivePendingScore) {
+  return {
+    status: 'pending',
+    provider: 'deepseek',
+    reviewedAt: null,
+    totalSubjectiveScore: 0,
+    totalScore: null,
+    subjectivePendingTotal: subjectivePendingScore,
+    overallComment: '',
+    weaknessSummary: [],
+    questionReviews: {},
+    error: '',
+  }
+}
+
+function getExplainEntryKey(itemId, subQuestionId = '') {
+  return subQuestionId ? `${itemId}:${subQuestionId}` : itemId
+}
 
 function isNonEmptyText(value) {
   return typeof value === 'string' && value.trim().length > 0
@@ -276,6 +297,9 @@ export default function SubjectWorkspacePage() {
   const [revealedMap, setRevealedMap] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
+  const [attemptId, setAttemptId] = useState('')
+  const [aiReview, setAiReview] = useState(null)
+  const [aiExplainMap, setAiExplainMap] = useState({})
   const [currentIndex, setCurrentIndex] = useState(0)
   const [autoAdvance, setAutoAdvance] = useState(false)
   const [practiceWritesWrongBook, setPracticeWritesWrongBook] = useState(DEFAULT_PRACTICE_WRONG_BOOK)
@@ -339,6 +363,9 @@ export default function SubjectWorkspacePage() {
       setRevealedMap(progress?.revealedMap || {})
       setSubmitted(Boolean(progress?.submitted))
       setScore(progress?.score || 0)
+      setAttemptId(progress?.attemptId || '')
+      setAiReview(progress?.aiReview || null)
+      setAiExplainMap(progress?.aiExplainMap || {})
       setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, (resolvedQuiz.items?.length || 1) - 1)))
       setRemainingSeconds(typeof progress?.timerSecondsRemaining === 'number' ? progress.timerSecondsRemaining : EXAM_DURATION_SECONDS)
       setIsPaused(Boolean(progress?.isPaused))
@@ -362,6 +389,9 @@ export default function SubjectWorkspacePage() {
     revealedMap,
     submitted,
     score,
+    attemptId,
+    aiReview,
+    aiExplainMap,
     currentIndex,
     timerSecondsRemaining: remainingSeconds,
     isPaused,
@@ -375,6 +405,31 @@ export default function SubjectWorkspacePage() {
   const persistNow = async (overrides = {}) => {
     if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
     await saveProgressRecord(activeProfile.id, subjectKey, sessionPaperId, buildProgressPayload(overrides))
+  }
+
+  const persistAttemptPatch = async (targetAttemptId, patch) => {
+    if (!targetAttemptId) return
+    try {
+      await updateAttemptRecord(targetAttemptId, patch)
+    } catch (error) {
+      console.error('AI 评阅记录更新失败', error)
+    }
+  }
+
+  const syncAiReview = async (nextReview, nextAttemptId = attemptId) => {
+    setAiReview(nextReview)
+    await persistNow({ aiReview: nextReview, attemptId: nextAttemptId })
+    await persistAttemptPatch(nextAttemptId, { aiReview: nextReview })
+  }
+
+  const syncAiExplainEntry = async (entryKey, nextEntry, nextAttemptId = attemptId) => {
+    const nextMap = {
+      ...aiExplainMap,
+      [entryKey]: nextEntry,
+    }
+    setAiExplainMap(nextMap)
+    await persistNow({ aiExplainMap: nextMap, attemptId: nextAttemptId })
+    await persistAttemptPatch(nextAttemptId, { aiExplainMap: nextMap })
   }
 
   const scoreSummary = useMemo(() => {
@@ -412,6 +467,78 @@ export default function SubjectWorkspacePage() {
     return { correct, answered, rate: answered ? Math.round((correct / answered) * 100) : 0 }
   }, [quiz, mode, answers])
 
+  const handleRunAiReview = async ({
+    targetAttemptId = attemptId,
+    objectiveScore,
+    objectiveTotal,
+    paperTotal,
+    subjectiveTotal,
+  }) => {
+    if (!quiz || subjectiveTotal <= 0) return
+
+    const pendingReview = createPendingAiReview(subjectiveTotal)
+    await syncAiReview(pendingReview, targetAttemptId)
+
+    try {
+      const completedReview = await gradeSubjectiveAttempt({
+        quiz,
+        answers,
+        objectiveScore,
+        objectiveTotal,
+        paperTotal,
+        subjectivePendingTotal: subjectiveTotal,
+      })
+      await syncAiReview(completedReview, targetAttemptId)
+    } catch (error) {
+      await syncAiReview(
+        {
+          ...pendingReview,
+          status: 'failed',
+          error: error?.message || 'AI 批改失败',
+        },
+        targetAttemptId
+      )
+    }
+  }
+
+  const handleExplainQuestion = async ({ item, subQuestion = null }) => {
+    if (!quiz || !item) return
+
+    const entryKey = getExplainEntryKey(item.id, subQuestion?.id)
+    await syncAiExplainEntry(
+      entryKey,
+      {
+        status: 'pending',
+        title: '',
+        explanation: '',
+        keyPoints: [],
+        commonMistakes: [],
+        answerStrategy: [],
+        error: '',
+      }
+    )
+
+    try {
+      const completedExplain = await explainQuizQuestion({
+        paperTitle: quiz.title,
+        item,
+        response: answers[item.id],
+        subQuestion,
+      })
+      await syncAiExplainEntry(entryKey, completedExplain)
+    } catch (error) {
+      await syncAiExplainEntry(entryKey, {
+        status: 'failed',
+        title: 'AI 解释失败',
+        explanation: '',
+        keyPoints: [],
+        commonMistakes: [],
+        answerStrategy: [],
+        error: error?.message || 'AI 解释失败',
+      })
+    }
+  }
+
   useEffect(() => {
     if (mode !== 'exam' || !quiz || submitted || isPaused || remainingSeconds <= 0) return
     const timer = window.setInterval(() => {
@@ -440,15 +567,18 @@ export default function SubjectWorkspacePage() {
 
     const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
     const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
+    const initialAiReview = subjectivePendingScore > 0 ? createPendingAiReview(subjectivePendingScore) : null
 
     setScore(nextScore)
     setSubmitted(true)
     setIsPaused(false)
+    setAiReview(initialAiReview)
 
-    await persistNow({ submitted: true, score: nextScore, isPaused: false })
+    await persistNow({ submitted: true, score: nextScore, isPaused: false, aiReview: initialAiReview })
 
+    let savedAttempt = null
     if (source !== 'favorites' && (mode === 'exam' || practiceWritesWrongBook)) {
-      await saveAttemptRecord({
+      savedAttempt = await saveAttemptRecord({
         profileId: activeProfile.id,
         subject: subjectKey,
         paperId,
@@ -473,6 +603,24 @@ export default function SubjectWorkspacePage() {
         practiceWritesWrongBook,
         durationSeconds: EXAM_DURATION_SECONDS,
         timerSecondsRemaining: remainingSeconds,
+        aiReview: initialAiReview,
+        aiExplainMap,
+      })
+    }
+
+    const nextAttemptId = savedAttempt?.id || ''
+    if (nextAttemptId) {
+      setAttemptId(nextAttemptId)
+      await persistNow({ attemptId: nextAttemptId, aiReview: initialAiReview })
+    }
+
+    if (subjectivePendingScore > 0) {
+      void handleRunAiReview({
+        targetAttemptId: nextAttemptId,
+        objectiveScore: nextScore,
+        objectiveTotal: objectiveTotalScore,
+        paperTotal: paperTotalScore,
+        subjectiveTotal: subjectivePendingScore,
       })
     }
   }
@@ -620,6 +768,9 @@ export default function SubjectWorkspacePage() {
     setRevealedMap({})
     setSubmitted(false)
     setScore(0)
+    setAttemptId('')
+    setAiReview(null)
+    setAiExplainMap({})
     setCurrentIndex(0)
     setRemainingSeconds(EXAM_DURATION_SECONDS)
     setIsPaused(false)
@@ -629,6 +780,9 @@ export default function SubjectWorkspacePage() {
       revealedMap: {},
       submitted: false,
       score: 0,
+      attemptId: '',
+      aiReview: null,
+      aiExplainMap: {},
       currentIndex: 0,
       timerSecondsRemaining: EXAM_DURATION_SECONDS,
       isPaused: false,
@@ -656,6 +810,8 @@ export default function SubjectWorkspacePage() {
     })
     return map
   }, [favoriteEntries])
+
+  const aiQuestionReviewMap = aiReview?.questionReviews || {}
 
   const handleToggleFavorite = async () => {
     if (!activeProfile?.id || !quiz?.items?.[currentIndex] || source === 'favorites') return
@@ -774,6 +930,44 @@ export default function SubjectWorkspacePage() {
               <strong>主观题待评分分值</strong>
               <span>{subjectivePendingScore}</span>
             </div>
+            {subjectivePendingScore > 0 && (
+              <div className="analysis-box">
+                <div>
+                  <strong>AI 批改状态：</strong>
+                  {aiReview?.status === 'pending' ? '批改中' : aiReview?.status === 'completed' ? '已完成' : aiReview?.status === 'failed' ? '失败' : '未开始'}
+                </div>
+                {aiReview?.status === 'completed' && (
+                  <>
+                    <div>
+                      <strong>AI 主观题估分：</strong>
+                      {aiReview.totalSubjectiveScore} / {subjectivePendingScore}
+                    </div>
+                    <div>
+                      <strong>AI 估算总分：</strong>
+                      {aiReview.totalScore} / {paperTotalScore}
+                    </div>
+                    {aiReview.overallComment && (
+                      <div>
+                        <strong>总体点评：</strong>
+                        {aiReview.overallComment}
+                      </div>
+                    )}
+                    {Array.isArray(aiReview.weaknessSummary) && aiReview.weaknessSummary.length > 0 && (
+                      <div>
+                        <strong>薄弱项：</strong>
+                        {aiReview.weaknessSummary.join(' / ')}
+                      </div>
+                    )}
+                  </>
+                )}
+                {aiReview?.status === 'failed' && (
+                  <div>
+                    <strong>失败原因：</strong>
+                    {aiReview.error || 'AI 批改失败'}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
 
@@ -806,6 +1000,10 @@ export default function SubjectWorkspacePage() {
           onSelectReadingOption={handleSelectReadingOption}
           onFillBlankChange={handleFillBlankChange}
           onTextChange={handleTextChange}
+          aiReview={aiReview}
+          aiQuestionReviewMap={aiQuestionReviewMap}
+          aiExplainMap={aiExplainMap}
+          onExplainQuestion={handleExplainQuestion}
           onSubmit={handleFinish}
         />
       </div>
