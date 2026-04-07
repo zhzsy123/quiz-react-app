@@ -7,9 +7,12 @@ import {
   listProfiles,
   loadPreference,
   loadProgressRecord,
+  loadWrongBookEntries,
+  removeWrongBookEntry,
   savePreference,
   saveProgressRecord,
   setActiveProfileId,
+  upsertWrongBookEntries,
 } from './storageFacade'
 
 describe('storageFacade boundary', () => {
@@ -57,5 +60,25 @@ describe('storageFacade boundary', () => {
     expect(profiles).toHaveLength(2)
     expect(progress.answers).toEqual({ q1: 'A' })
     expect(progress.submitted).toBe(false)
+  })
+
+  it('stores wrong-book entries independently from attempts', async () => {
+    const profile = await ensureDefaultProfile()
+
+    await upsertWrongBookEntries(profile.id, 'english', [
+      {
+        questionKey: 'english:paper:q1',
+        subject: 'english',
+        prompt: 'Question 1',
+        correctAnswer: 'A',
+      },
+    ])
+
+    let wrongBookEntries = await loadWrongBookEntries(profile.id, 'english')
+    expect(wrongBookEntries).toHaveLength(1)
+    expect(wrongBookEntries[0].prompt).toBe('Question 1')
+
+    wrongBookEntries = await removeWrongBookEntry(profile.id, 'english', 'english:paper:q1')
+    expect(wrongBookEntries).toHaveLength(0)
   })
 })

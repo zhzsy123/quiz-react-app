@@ -737,6 +737,10 @@ button { border: none; }
   margin-bottom: 12px;
   color: #cbd5e1;
 }
+.ai-practice-hint {
+  color: #94a3b8;
+  font-size: 0.92rem;
+}
 .question-actions button:disabled {
   opacity: 0.45;
   cursor: not-allowed;

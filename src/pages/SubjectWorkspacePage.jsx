@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
 import { getQuizScoreBreakdown, parseQuizText } from '../boundaries/quizSchema'
-import { explainQuizQuestion, explainQuizQuestionWithMode, generateSimilarQuestions, gradeSubjectiveAttempt } from '../services/ai/reviewService'
+import { explainQuizQuestionWithMode, generateSimilarQuestions, gradeSubjectiveAttempt } from '../services/ai/reviewService'
 import {
   clearProgressRecord,
   listLibraryEntries,
@@ -15,6 +15,7 @@ import {
   saveAttemptRecord,
   saveProgressRecord,
   toggleFavoriteEntry,
+  upsertWrongBookEntries,
   updateAttemptRecord,
 } from '../boundaries/storageFacade'
 import { getSubjectMetaByRouteParam } from '../config/subjects'
@@ -24,6 +25,7 @@ const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
 const AI_EXPLAIN_MODE_KEY = 'quiz:pref:aiExplainMode'
 const EXAM_DURATION_SECONDS = 90 * 60
 const DEFAULT_PRACTICE_WRONG_BOOK = true
+const DEFAULT_EXAM_WRONG_BOOK = true
 
 function createPendingAiReview(subjectivePendingScore) {
   return {
@@ -178,6 +180,7 @@ function getObjectiveWrongCount(item, response) {
 
 function buildWrongItems(items, answers, meta) {
   const wrongItems = []
+  const lastWrongAt = Date.now()
 
   items.forEach((item) => {
     if (item.type === 'reading') {
@@ -206,6 +209,8 @@ function buildWrongItems(items, answers, meta) {
           rationale: question.answer?.rationale || '暂无解析',
           tags: [...(item.tags || []), ...(question.tags || [])],
           difficulty: question.difficulty || item.difficulty,
+          lastWrongAt,
+          wrongTimes: 1,
         })
       })
       return
@@ -238,6 +243,8 @@ function buildWrongItems(items, answers, meta) {
       rationale: item.answer?.rationale || '暂无解析',
       tags: item.tags || [],
       difficulty: item.difficulty,
+      lastWrongAt,
+      wrongTimes: 1,
     })
   })
 
@@ -306,6 +313,7 @@ export default function SubjectWorkspacePage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [autoAdvance, setAutoAdvance] = useState(false)
   const [practiceWritesWrongBook, setPracticeWritesWrongBook] = useState(DEFAULT_PRACTICE_WRONG_BOOK)
+  const [examWritesWrongBook, setExamWritesWrongBook] = useState(DEFAULT_EXAM_WRONG_BOOK)
   const [spoilerExpanded, setSpoilerExpanded] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(EXAM_DURATION_SECONDS)
   const [isPaused, setIsPaused] = useState(false)
@@ -381,6 +389,11 @@ export default function SubjectWorkspacePage() {
           ? progress.practiceWritesWrongBook
           : DEFAULT_PRACTICE_WRONG_BOOK
       )
+      setExamWritesWrongBook(
+        typeof progress?.examWritesWrongBook === 'boolean'
+          ? progress.examWritesWrongBook
+          : DEFAULT_EXAM_WRONG_BOOK
+      )
       setReadyToPersist(true)
       setLoading(false)
     }
@@ -403,6 +416,7 @@ export default function SubjectWorkspacePage() {
     timerSecondsRemaining: remainingSeconds,
     isPaused,
     practiceWritesWrongBook,
+    examWritesWrongBook,
     mode,
     updatedAt: Date.now(),
     title: quiz?.title || entry?.title || '未命名试卷',
@@ -508,44 +522,6 @@ export default function SubjectWorkspacePage() {
     }
   }
 
-  const handleExplainQuestion = async ({ item, subQuestion = null, focus = 'general' }) => {
-    if (!quiz || !item) return
-
-    const entryKey = getExplainEntryKey(item.id, subQuestion?.id)
-    await syncAiExplainEntry(
-      entryKey,
-      {
-        status: 'pending',
-        title: '',
-        explanation: '',
-        keyPoints: [],
-        commonMistakes: [],
-        answerStrategy: [],
-        error: '',
-      }
-    )
-
-    try {
-      const completedExplain = await explainQuizQuestion({
-        paperTitle: quiz.title,
-        item,
-        response: answers[item.id],
-        subQuestion,
-      })
-      await syncAiExplainEntry(entryKey, completedExplain)
-    } catch (error) {
-      await syncAiExplainEntry(entryKey, {
-        status: 'failed',
-        title: 'AI 解释失败',
-        explanation: '',
-        keyPoints: [],
-        commonMistakes: [],
-        answerStrategy: [],
-        error: error?.message || 'AI 解释失败',
-      })
-    }
-  }
-
   const handleExplainQuestionWithMode = async ({ item, subQuestion = null, focus = 'general' }) => {
     if (!quiz || !item) return
 
@@ -642,6 +618,12 @@ export default function SubjectWorkspacePage() {
     const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
     const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
     const initialAiReview = subjectivePendingScore > 0 ? createPendingAiReview(subjectivePendingScore) : null
+    const wrongItems = buildWrongItems(quiz.items, answers, {
+      subject: subjectKey,
+      paperId,
+      paperTitle: entry?.title || quiz.title || '未命名试卷',
+    })
+    const shouldWriteWrongBook = source !== 'favorites' && (mode === 'exam' ? examWritesWrongBook : practiceWritesWrongBook)
 
     setScore(nextScore)
     setSubmitted(true)
@@ -667,19 +649,20 @@ export default function SubjectWorkspacePage() {
         submittedAt: Date.now(),
         answersSnapshot: answers,
         itemsSnapshot: quiz.items,
-        wrongItems: buildWrongItems(quiz.items, answers, {
-          subject: subjectKey,
-          paperId,
-          paperTitle: entry?.title || quiz.title || '未命名试卷',
-        }),
+        wrongItems,
         mode,
         includeInHistory: mode === 'exam',
         practiceWritesWrongBook,
+        examWritesWrongBook,
         durationSeconds: EXAM_DURATION_SECONDS,
         timerSecondsRemaining: remainingSeconds,
         aiReview: initialAiReview,
         aiExplainMap,
       })
+    }
+
+    if (shouldWriteWrongBook && wrongItems.length > 0) {
+      await upsertWrongBookEntries(activeProfile.id, subjectKey, wrongItems)
     }
 
     const nextAttemptId = savedAttempt?.id || ''
@@ -733,6 +716,12 @@ export default function SubjectWorkspacePage() {
     void persistNow({ practiceWritesWrongBook: next })
   }
 
+  const handleToggleExamWrongBook = () => {
+    const next = !examWritesWrongBook
+    setExamWritesWrongBook(next)
+    void persistNow({ examWritesWrongBook: next })
+  }
+
   const handleJump = (nextIndex) => {
     setCurrentIndex(nextIndex)
     void persistNow({ currentIndex: nextIndex })
@@ -770,7 +759,12 @@ export default function SubjectWorkspacePage() {
     if (mode === 'practice') {
       const nextRevealed = { ...revealedMap, [questionId]: true }
       setRevealedMap(nextRevealed)
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+      let nextIndex = currentIndex
+      if (autoAdvance && currentItem.type !== 'multiple_choice' && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed, currentIndex: nextIndex })
       return
     }
 
@@ -796,7 +790,13 @@ export default function SubjectWorkspacePage() {
     if (mode === 'practice') {
       const nextRevealed = { ...revealedMap, [`${questionId}:${subQuestionId}`]: true }
       setRevealedMap(nextRevealed)
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+      const answeredCount = currentItem.questions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
+      let nextIndex = currentIndex
+      if (autoAdvance && answeredCount === currentItem.questions.length && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed, currentIndex: nextIndex })
       return
     }
 
@@ -824,7 +824,12 @@ export default function SubjectWorkspacePage() {
       const allFilled = currentItem.blanks.every((blank) => isNonEmptyText(nextItemResponse[blank.blank_id]))
       const nextRevealed = allFilled ? { ...revealedMap, [questionId]: true } : revealedMap
       if (allFilled) setRevealedMap(nextRevealed)
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+      let nextIndex = currentIndex
+      if (autoAdvance && allFilled && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed, currentIndex: nextIndex })
       return
     }
 
@@ -867,6 +872,7 @@ export default function SubjectWorkspacePage() {
       timerSecondsRemaining: EXAM_DURATION_SECONDS,
       isPaused: false,
       practiceWritesWrongBook,
+      examWritesWrongBook,
       mode,
       updatedAt: Date.now(),
       title: quiz?.title || entry?.title || '未命名试卷',
@@ -1069,12 +1075,14 @@ export default function SubjectWorkspacePage() {
           onToggleSpoiler={handleToggleSpoiler}
           onToggleAutoAdvance={handleToggleAutoAdvance}
           onTogglePracticeWrongBook={handleTogglePracticeWrongBook}
+          onToggleExamWrongBook={handleToggleExamWrongBook}
           onTogglePause={() => {
             const next = !isPaused
             setIsPaused(next)
             void persistNow({ isPaused: next })
           }}
           practiceWritesWrongBook={practiceWritesWrongBook}
+          examWritesWrongBook={examWritesWrongBook}
           onJump={handleJump}
           onPrev={handlePrev}
           onNext={handleNext}

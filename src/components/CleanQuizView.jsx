@@ -214,7 +214,21 @@ function AiQuestionReviewPanel({ review }) {
 }
 
 function AiPracticeModal({ modal, onClose }) {
+  const [selectedMap, setSelectedMap] = useState({})
+  const [revealedMap, setRevealedMap] = useState({})
+
+  useEffect(() => {
+    setSelectedMap({})
+    setRevealedMap({})
+  }, [modal?.requestedAt, modal?.title])
+
   if (!modal) return null
+
+  const optionKey = (option = '', index = 0) => {
+    const text = String(option || '')
+    const matched = text.match(/^\s*([A-Z])[\.\)]/)
+    return matched ? matched[1] : String.fromCharCode(65 + index)
+  }
 
   return (
     <div className="ai-modal-backdrop" onClick={onClose}>
@@ -246,13 +260,57 @@ function AiPracticeModal({ modal, onClose }) {
                 <div className="ai-similar-prompt">{question.prompt}</div>
                 {Array.isArray(question.options) && question.options.length > 0 && (
                   <div className="ai-similar-options">
-                    {question.options.map((option, optionIndex) => (
-                      <div key={`${index}-${optionIndex}`}>{option}</div>
-                    ))}
+                    {question.options.map((option, optionIndex) => {
+                      const currentKey = optionKey(option, optionIndex)
+                      const selected = selectedMap[index] === currentKey
+                      const revealed = Boolean(revealedMap[index])
+                      const correct = String(question.answer || '').trim().toUpperCase()
+                      const isCorrect = currentKey === correct
+                      let className = 'option compact-option'
+                      let icon = null
+
+                      if (!revealed) {
+                        if (selected) className += ' selected'
+                      } else if (isCorrect) {
+                        className += ' correct'
+                        icon = <CheckCircle2 size={16} />
+                      } else if (selected) {
+                        className += ' wrong'
+                        icon = <XCircle size={16} />
+                      } else {
+                        className += ' muted'
+                      }
+
+                      return (
+                        <button
+                          key={`${index}-${optionIndex}`}
+                          type="button"
+                          className={className}
+                          onClick={() => {
+                            if (revealed) return
+                            setSelectedMap((prev) => ({ ...prev, [index]: currentKey }))
+                            setRevealedMap((prev) => ({ ...prev, [index]: true }))
+                          }}
+                        >
+                          <span>{option}</span>
+                          {icon}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
-                <div className="ai-panel-row"><strong>答案</strong><span>{question.answer || '--'}</span></div>
-                <div className="ai-panel-row"><strong>解析</strong><span>{question.explanation || '--'}</span></div>
+                {!revealedMap[index] ? (
+                  <div className="ai-practice-hint">请选择答案后再查看判定与解析。</div>
+                ) : (
+                  <>
+                    <div className="ai-panel-row">
+                      <strong>结果</strong>
+                      <span>{selectedMap[index] === String(question.answer || '').trim().toUpperCase() ? '回答正确' : '回答错误'}</span>
+                    </div>
+                    <div className="ai-panel-row"><strong>正确答案</strong><span>{question.answer || '--'}</span></div>
+                    <div className="ai-panel-row"><strong>解析</strong><span>{question.explanation || '--'}</span></div>
+                  </>
+                )}
               </article>
             ))}
           </div>
@@ -552,6 +610,7 @@ export default function CleanQuizView({
   mode = 'exam',
   autoAdvance = false,
   practiceWritesWrongBook = true,
+  examWritesWrongBook = true,
   remainingSeconds = 0,
   isPaused = false,
   spoilerExpanded = false,
@@ -561,6 +620,7 @@ export default function CleanQuizView({
   onToggleSpoiler,
   onToggleAutoAdvance,
   onTogglePracticeWrongBook,
+  onToggleExamWrongBook,
   onTogglePause,
   onJump,
   onPrev,
@@ -640,6 +700,7 @@ export default function CleanQuizView({
   const currentExplainEntry = aiExplainMap[currentItem.id]
   const currentQuestionReview = aiQuestionReviewMap[currentItem.id]
   const currentQuestionWrong = !isReading && !isSubjective && isObjectiveWrong(currentItem, userResponse)
+  const showWrongFollowups = mode === 'practice' && currentQuestionWrong
 
   return (
     <section className="quiz-layout clean-workspace-layout">
@@ -668,22 +729,23 @@ export default function CleanQuizView({
           </div>
         )}
 
-        {mode === 'exam' && (
-          <div className="sidebar-tools compact-sidebar-tools">
-            <div className="sidebar-tool-card compact-toggle-card">
+        <div className="sidebar-tools compact-sidebar-tools">
+          <div className="sidebar-tool-card compact-toggle-card">
+            <div className="sidebar-tool-copy">
               <span className="sidebar-tool-title">自动切题</span>
-              <button
-                type="button"
-                className={`toggle-switch ${autoAdvance ? 'on' : ''}`}
-                onClick={onToggleAutoAdvance}
-                aria-pressed={autoAdvance}
-                disabled={disabled}
-              >
-                <span className="toggle-knob" />
-              </button>
+              <span className="sidebar-tool-desc">完成当前题后自动跳到下一题。</span>
             </div>
+            <button
+              type="button"
+              className={`toggle-switch ${autoAdvance ? 'on' : ''}`}
+              onClick={onToggleAutoAdvance}
+              aria-pressed={autoAdvance}
+              disabled={disabled}
+            >
+              <span className="toggle-knob" />
+            </button>
           </div>
-        )}
+        </div>
 
         {mode === 'practice' && (
           <div className="sidebar-tools compact-sidebar-tools">
@@ -697,6 +759,26 @@ export default function CleanQuizView({
                 className={`toggle-switch ${practiceWritesWrongBook ? 'on' : ''}`}
                 onClick={onTogglePracticeWrongBook}
                 aria-pressed={practiceWritesWrongBook}
+              >
+                <span className="toggle-knob" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === 'exam' && (
+          <div className="sidebar-tools compact-sidebar-tools">
+            <div className="sidebar-tool-card compact-toggle-card">
+              <div className="sidebar-tool-copy">
+                <span className="sidebar-tool-title">加入错题本</span>
+                <span className="sidebar-tool-desc">关闭后，本次考试不会把错题写入错题本。</span>
+              </div>
+              <button
+                type="button"
+                className={`toggle-switch ${examWritesWrongBook ? 'on' : ''}`}
+                onClick={onToggleExamWrongBook}
+                aria-pressed={examWritesWrongBook}
+                disabled={disabled || submitted}
               >
                 <span className="toggle-knob" />
               </button>
@@ -850,22 +932,26 @@ export default function CleanQuizView({
                   {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
                   {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
                 </button>
-                <button
-                  type="button"
-                  className="secondary-btn small-btn ai-inline-btn"
-                  onClick={() => onExplainWhyWrong?.({ item: currentItem })}
-                  disabled={disabled || !currentQuestionWrong || currentExplainEntry?.status === 'pending'}
-                >
-                  为什么我错了
-                </button>
-                <button
-                  type="button"
-                  className="secondary-btn small-btn ai-inline-btn"
-                  onClick={() => onGenerateSimilarQuestions?.({ item: currentItem })}
-                  disabled={disabled}
-                >
-                  给我同类题
-                </button>
+                {showWrongFollowups && (
+                  <>
+                    <button
+                      type="button"
+                      className="secondary-btn small-btn ai-inline-btn"
+                      onClick={() => onExplainWhyWrong?.({ item: currentItem })}
+                      disabled={disabled || currentExplainEntry?.status === 'pending'}
+                    >
+                      为什么我错了
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-btn small-btn ai-inline-btn"
+                      onClick={() => onGenerateSimilarQuestions?.({ item: currentItem })}
+                      disabled={disabled}
+                    >
+                      给我同类题
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}

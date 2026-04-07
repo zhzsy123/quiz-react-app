@@ -12,6 +12,14 @@ function favoritesKey(profileId, subject) {
   return `favorites:${profileId}:${subject}`
 }
 
+function wrongBookEntriesKey(profileId, subject) {
+  return `wrongbook-entries:${profileId}:${subject}`
+}
+
+function cloneValue(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
 async function getMetaRecord(key) {
   const db = await openDb()
   const tx = db.transaction('meta', 'readonly')
@@ -63,9 +71,59 @@ async function saveFavoriteMap(profileId, subject, value) {
   return value
 }
 
+async function loadWrongBookEntryMap(profileId, subject) {
+  const result = await getMetaRecord(wrongBookEntriesKey(profileId, subject))
+  return result?.value || {}
+}
+
+async function saveWrongBookEntryMap(profileId, subject, value) {
+  await putMetaRecord(wrongBookEntriesKey(profileId, subject), { value })
+  return value
+}
+
 export async function loadFavoriteEntries(profileId, subject) {
   const map = await loadFavoriteMap(profileId, subject)
   return Object.values(map).sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0))
+}
+
+export async function loadWrongBookEntries(profileId, subject) {
+  const map = await loadWrongBookEntryMap(profileId, subject)
+  return Object.values(map).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+}
+
+export async function upsertWrongBookEntries(profileId, subject, entries) {
+  const current = await loadWrongBookEntryMap(profileId, subject)
+  const next = { ...current }
+
+  ;(entries || []).forEach((entry) => {
+    if (!entry?.questionKey) return
+
+    const cloned = cloneValue(entry)
+    const existing = next[cloned.questionKey]
+    const wrongTimes = (existing?.wrongTimes || 0) + (cloned.wrongTimes || 1)
+    const addedAt = existing?.addedAt || cloned.addedAt || Date.now()
+    const lastWrongAt = cloned.lastWrongAt || Date.now()
+
+    next[cloned.questionKey] = {
+      ...(existing || {}),
+      ...cloned,
+      subject: cloned.subject || subject,
+      wrongTimes,
+      addedAt,
+      lastWrongAt,
+    }
+  })
+
+  const saved = await saveWrongBookEntryMap(profileId, subject, next)
+  return Object.values(saved).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+}
+
+export async function removeWrongBookEntry(profileId, subject, questionKey) {
+  const current = await loadWrongBookEntryMap(profileId, subject)
+  const next = { ...current }
+  delete next[questionKey]
+  const saved = await saveWrongBookEntryMap(profileId, subject, next)
+  return Object.values(saved).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
 }
 
 export async function toggleFavoriteEntry(profileId, subject, entry) {

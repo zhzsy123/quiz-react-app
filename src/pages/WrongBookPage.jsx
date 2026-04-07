@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BookOpen, BookX, CheckCircle2, Filter, Play, RotateCcw, Search, XCircle } from 'lucide-react'
+import { ArrowLeft, BookOpen, BookX, CheckCircle2, Filter, Play, RotateCcw, Search, Trash2, XCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { listAttempts, loadMasteredWrongMap, markWrongQuestionMastered } from '../boundaries/storageFacade'
+import { loadWrongBookEntries, removeWrongBookEntry } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
-
-function attemptDisplayTitle(attempt) {
-  return attempt.customTitle?.trim() || attempt.title || '未命名试卷'
-}
 
 function getWrongItemCategory(item) {
   if (item.parentType === 'reading' || item.sourceType === 'reading') return 'reading'
-  if (item.sourceType === 'cloze' || item.source_type === 'cloze' || String(item.contextTitle || '').includes('完形') || (item.tags || []).some((tag) => String(tag).toLowerCase() === 'cloze')) {
+  if (
+    item.sourceType === 'cloze' ||
+    item.source_type === 'cloze' ||
+    String(item.contextTitle || '').includes('完形') ||
+    (item.tags || []).some((tag) => String(tag).toLowerCase() === 'cloze')
+  ) {
     return 'cloze'
   }
   return 'single_choice'
@@ -24,63 +25,37 @@ function renderOptionLabel(option) {
 
 export default function WrongBookPage() {
   const { activeProfileId } = useAppContext()
-  const [attempts, setAttempts] = useState([])
+  const [entries, setEntries] = useState([])
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const [query, setQuery] = useState('')
-  const [masteredMap, setMasteredMap] = useState({})
   const [practiceMode, setPracticeMode] = useState(false)
   const [practiceIndex, setPracticeIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState('')
   const [feedback, setFeedback] = useState('')
   const [holdSolvedItem, setHoldSolvedItem] = useState(null)
 
+  const refreshEntries = async () => {
+    if (!activeProfileId) return
+    const groups = await Promise.all(SUBJECT_REGISTRY.map((subject) => loadWrongBookEntries(activeProfileId, subject.key)))
+    const rows = groups.flat().sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+    setEntries(rows.map((row) => ({ ...row, category: getWrongItemCategory(row) })))
+  }
+
   useEffect(() => {
-    let cancelled = false
-    async function loadData() {
-      if (!activeProfileId) return
-      const [rows, mastered] = await Promise.all([listAttempts(activeProfileId), loadMasteredWrongMap(activeProfileId, 'english')])
-      if (!cancelled) {
-        setAttempts(rows)
-        setMasteredMap(mastered)
-      }
-    }
-    loadData()
-    return () => { cancelled = true }
+    void refreshEntries()
   }, [activeProfileId])
-
-  const wrongSourceItems = useMemo(() => attempts.flatMap((attempt) => {
-    const rows = Array.isArray(attempt.wrongItems) ? attempt.wrongItems : []
-    return rows.map((row) => ({ ...row, attemptId: attempt.id, attemptTitle: attemptDisplayTitle(attempt), lastWrongAt: attempt.submittedAt, category: getWrongItemCategory(row) }))
-  }), [attempts])
-
-  const aggregatedWrongItems = useMemo(() => {
-    const map = new Map()
-    wrongSourceItems.forEach((item) => {
-      const key = item.questionKey || `${item.subject}:${item.paperId}:${item.questionId || item.prompt}`
-      const existing = map.get(key)
-      if (!existing) {
-        map.set(key, { ...item, wrongTimes: 1, latestAttemptTitle: item.attemptTitle })
-        return
-      }
-      existing.wrongTimes += 1
-      if (item.lastWrongAt > existing.lastWrongAt) {
-        Object.assign(existing, { ...existing, ...item, wrongTimes: existing.wrongTimes, latestAttemptTitle: item.attemptTitle })
-      }
-    })
-    return Array.from(map.values()).filter((item) => !masteredMap[item.questionKey] || masteredMap[item.questionKey] < item.lastWrongAt).sort((a, b) => b.lastWrongAt - a.lastWrongAt)
-  }, [wrongSourceItems, masteredMap])
 
   const filteredWrongItems = useMemo(() => {
     const lowered = query.trim().toLowerCase()
-    return aggregatedWrongItems.filter((item) => {
+    return entries.filter((item) => {
       const subjectMatched = subjectFilter === 'all' || item.subject === subjectFilter
       const typeMatched = typeFilter === 'all' || item.category === typeFilter
       const bucket = [item.prompt, item.contextTitle, item.contextSnippet, ...(item.tags || [])].join(' ').toLowerCase()
       const queryMatched = !lowered || bucket.includes(lowered)
       return subjectMatched && typeMatched && queryMatched
     })
-  }, [aggregatedWrongItems, subjectFilter, typeFilter, query])
+  }, [entries, subjectFilter, typeFilter, query])
 
   const currentPracticeItem = practiceMode ? filteredWrongItems[practiceIndex] || null : null
   const displayPracticeItem = holdSolvedItem || currentPracticeItem
@@ -95,13 +70,12 @@ export default function WrongBookPage() {
   useEffect(() => {
     setSelectedAnswer('')
     setFeedback('')
-    if (!holdSolvedItem) return
   }, [practiceIndex, practiceMode])
 
-  const handleMarkMastered = async (item) => {
+  const handleRemove = async (item) => {
     if (!activeProfileId) return
-    const next = await markWrongQuestionMastered(activeProfileId, item.subject, item.questionKey)
-    setMasteredMap(next)
+    await removeWrongBookEntry(activeProfileId, item.subject, item.questionKey)
+    await refreshEntries()
   }
 
   const handlePracticeAnswer = async (optionKey) => {
@@ -110,7 +84,7 @@ export default function WrongBookPage() {
     if (optionKey === displayPracticeItem.correctAnswer) {
       setFeedback('回答正确，已从错题本移除。')
       setHoldSolvedItem(displayPracticeItem)
-      await handleMarkMastered(displayPracticeItem)
+      await handleRemove(displayPracticeItem)
       return
     }
     setFeedback('回答错误，可以继续尝试。')
@@ -133,8 +107,8 @@ export default function WrongBookPage() {
   }
 
   const wrongSummary = {
-    totalWrongRecords: wrongSourceItems.length,
-    uniqueWrongQuestions: aggregatedWrongItems.length,
+    totalWrongRecords: entries.reduce((sum, item) => sum + (item.wrongTimes || 1), 0),
+    uniqueWrongQuestions: entries.length,
     filteredCount: filteredWrongItems.length,
     latestWrongAt: filteredWrongItems[0]?.lastWrongAt || null,
   }
@@ -157,13 +131,47 @@ export default function WrongBookPage() {
           <div className="section-header-row">
             <h2><Filter size={18} /> 筛选与搜索</h2>
             <div className="dashboard-action-row">
-              {practiceMode ? <button className="secondary-btn small-btn" onClick={() => setPracticeMode(false)}><RotateCcw size={14} /> 退出练习</button> : <button className="primary-btn small-btn" onClick={() => { setPracticeMode(true); setPracticeIndex(0) }} disabled={filteredWrongItems.length === 0}><Play size={14} /> 开始刷错题</button>}
+              {practiceMode ? (
+                <button className="secondary-btn small-btn" onClick={() => setPracticeMode(false)}>
+                  <RotateCcw size={14} />
+                  退出练习
+                </button>
+              ) : (
+                <button
+                  className="primary-btn small-btn"
+                  onClick={() => {
+                    setPracticeMode(true)
+                    setPracticeIndex(0)
+                  }}
+                  disabled={filteredWrongItems.length === 0}
+                >
+                  <Play size={14} />
+                  开始刷错题
+                </button>
+              )}
             </div>
           </div>
           <div className="wrongbook-filter-grid">
-            <label className="form-field"><span>科目</span><select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}><option value="all">全部科目</option>{SUBJECT_REGISTRY.map((subject) => <option key={subject.key} value={subject.key}>{subject.label}</option>)}</select></label>
-            <label className="form-field"><span>题型</span><select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="all">全部题型</option><option value="single_choice">单项选择</option><option value="cloze">完形填空</option><option value="reading">阅读理解</option></select></label>
-            <label className="form-field grow"><span>关键词</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索题干、阅读标题、标签或上下文" /></label>
+            <label className="form-field">
+              <span>科目</span>
+              <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                <option value="all">全部科目</option>
+                {SUBJECT_REGISTRY.map((subject) => <option key={subject.key} value={subject.key}>{subject.label}</option>)}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>题型</span>
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                <option value="all">全部题型</option>
+                <option value="single_choice">单项选择</option>
+                <option value="cloze">完形填空</option>
+                <option value="reading">阅读理解</option>
+              </select>
+            </label>
+            <label className="form-field grow">
+              <span>关键词</span>
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索题干、阅读标题、标签或上下文" />
+            </label>
           </div>
         </section>
 
@@ -181,7 +189,20 @@ export default function WrongBookPage() {
               <div className="local-library-empty">当前筛选条件下已经没有待练习错题了。</div>
             ) : (
               <div className="wrongbook-practice-card">
-                <div className="wrongbook-card-head"><div><div className="wrongbook-card-title">{displayPracticeItem.prompt}</div><div className="wrongbook-meta"><span>{getSubjectMeta(displayPracticeItem.subject).shortLabel}</span><span>题型：{displayPracticeItem.category === 'reading' ? '阅读理解' : displayPracticeItem.category === 'cloze' ? '完形填空' : '单项选择'}</span><span>来源：{displayPracticeItem.latestAttemptTitle || displayPracticeItem.paperTitle}</span></div></div></div>
+                <div className="wrongbook-card-head">
+                  <div>
+                    <div className="wrongbook-card-title">{displayPracticeItem.prompt}</div>
+                    <div className="wrongbook-meta">
+                      <span>{getSubjectMeta(displayPracticeItem.subject).shortLabel}</span>
+                      <span>题型：{displayPracticeItem.category === 'reading' ? '阅读理解' : displayPracticeItem.category === 'cloze' ? '完形填空' : '单项选择'}</span>
+                      <span>来源：{displayPracticeItem.paperTitle}</span>
+                    </div>
+                  </div>
+                  <button className="danger-btn small-btn" onClick={() => handleRemove(displayPracticeItem)}>
+                    <Trash2 size={14} />
+                    删除
+                  </button>
+                </div>
                 {displayPracticeItem.contextTitle && <div className="wrongbook-context"><strong>{displayPracticeItem.contextTitle}</strong>{displayPracticeItem.contextSnippet ? `：${displayPracticeItem.contextSnippet}` : ''}</div>}
                 <div className="options">
                   {(displayPracticeItem.options || []).map((option, index) => {
@@ -229,7 +250,22 @@ export default function WrongBookPage() {
                   const subjectMeta = getSubjectMeta(item.subject)
                   return (
                     <article key={item.questionKey} className="wrongbook-card">
-                      <div className="wrongbook-card-head"><div><div className="wrongbook-card-title">{item.prompt}</div><div className="wrongbook-meta"><span>{subjectMeta.shortLabel}</span><span>题型：{item.category === 'reading' ? '阅读理解' : item.category === 'cloze' ? '完形填空' : '单项选择'}</span><span>错题次数 {item.wrongTimes}</span><span>最近出错：{new Date(item.lastWrongAt).toLocaleString()}</span><span>来源：{item.latestAttemptTitle || item.paperTitle}</span></div></div>{Array.isArray(item.tags) && item.tags.length > 0 && <div className="wrongbook-tags">{item.tags.slice(0, 4).map((tag) => <span key={tag} className="tag blue">{tag}</span>)}</div>}</div>
+                      <div className="wrongbook-card-head">
+                        <div>
+                          <div className="wrongbook-card-title">{item.prompt}</div>
+                          <div className="wrongbook-meta">
+                            <span>{subjectMeta.shortLabel}</span>
+                            <span>题型：{item.category === 'reading' ? '阅读理解' : item.category === 'cloze' ? '完形填空' : '单项选择'}</span>
+                            <span>错题次数 {item.wrongTimes || 1}</span>
+                            <span>最近出错：{item.lastWrongAt ? new Date(item.lastWrongAt).toLocaleString() : '--'}</span>
+                            <span>来源：{item.paperTitle}</span>
+                          </div>
+                        </div>
+                        <button className="danger-btn small-btn" onClick={() => handleRemove(item)}>
+                          <Trash2 size={14} />
+                          删除
+                        </button>
+                      </div>
                       {item.contextTitle && <div className="wrongbook-context"><strong>{item.contextTitle}</strong>{item.contextSnippet ? `：${item.contextSnippet}` : ''}</div>}
                       <div className="wrongbook-answer-compare"><div className="wrongbook-answer-pill wrong"><span>你的答案</span><strong>{item.userAnswerLabel || '未作答'}</strong></div><div className="wrongbook-answer-pill correct"><span>正确答案</span><strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong></div></div>
                       <div className="wrongbook-rationale">解析：{item.rationale || '暂无解析'}</div>
