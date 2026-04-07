@@ -1,7 +1,8 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../../app/providers/AppContext'
-import { getQuizScoreBreakdown, parseQuizText } from '../../../entities/quiz/lib/quizSchema'
+import { buildQuizDocumentFromText } from '../../../entities/quiz/lib/quizPipeline'
+import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/quizSchema'
 import {
   auditQuizQuestionCompliance,
   explainQuizQuestionWithMode,
@@ -388,7 +389,7 @@ export function useSubjectWorkspaceState() {
         }
 
         resolvedEntry = matched
-        resolvedQuiz = parseQuizText(matched.rawText).parsed
+        resolvedQuiz = buildQuizDocumentFromText(matched.rawText).quiz
         resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
       }
 

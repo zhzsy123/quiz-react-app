@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, Upload } from 'lucide-react'
-import { parseQuizText } from '../../entities/quiz/lib/quizSchema'
+import { buildQuizDocumentFromText } from '../../entities/quiz/lib/quizPipeline'
 
 export default function QuizImporter({ onQuizLoaded }) {
   const fileInputRef = useRef(null)
@@ -15,9 +15,16 @@ export default function QuizImporter({ onQuizLoaded }) {
 
     try {
       const rawText = await file.text()
-      const { cleanedText, parsed: normalized } = parseQuizText(rawText)
+      const quizDocument = buildQuizDocumentFromText(rawText)
+      const normalized = quizDocument.quiz
 
-      const shouldContinue = await onQuizLoaded({ parsed: normalized, rawText: cleanedText, fileName: file.name })
+      const shouldContinue = await onQuizLoaded({
+        parsed: normalized,
+        rawText: quizDocument.cleanedText,
+        fileName: file.name,
+        quizDocument,
+      })
+
       if (shouldContinue === false) {
         setInfo('已取消导入。')
         setError('')
@@ -31,10 +38,12 @@ export default function QuizImporter({ onQuizLoaded }) {
       setError('')
 
       const { compatibility } = normalized
+      const warningText = quizDocument.validation.warnings.length ? ` ${quizDocument.validation.warnings.join(' ')}` : ''
+
       if (compatibility?.skippedCount > 0) {
-        setInfo(`已导入 ${compatibility.supportedCount} 题，跳过 ${compatibility.skippedCount} 题。`)
+        setInfo(`已导入 ${compatibility.supportedCount} 题，跳过 ${compatibility.skippedCount} 题。${warningText}`.trim())
       } else {
-        setInfo(`已成功导入 ${compatibility?.supportedCount || normalized.items.length} 题。`)
+        setInfo(`已成功导入 ${compatibility?.supportedCount || normalized.items.length} 题。${warningText}`.trim())
       }
     } catch (err) {
       setError(`解析失败：${err.message}`)

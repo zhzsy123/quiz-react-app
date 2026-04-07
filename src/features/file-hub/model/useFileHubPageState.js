@@ -8,7 +8,6 @@ import {
   updateLibraryEntry,
 } from '../../../entities/library/api/libraryRepository'
 import { buildPaperId } from '../../../entities/quiz/lib/paperId'
-import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/quizSchema'
 import { getSubjectMetaByRouteParam } from '../../../entities/subject/model/subjects'
 
 export function useFileHubPageState() {
@@ -46,9 +45,9 @@ export function useFileHubPageState() {
     })
   }, [entries, query])
 
-  const handleQuizLoaded = async ({ parsed, rawText }) => {
+  const handleQuizLoaded = async ({ parsed, rawText, quizDocument }) => {
     if (!activeProfile?.id) return
-    const scoreBreakdown = getQuizScoreBreakdown(parsed.items || [])
+    const scoreBreakdown = quizDocument?.scoreBreakdown || { paperTotal: 0 }
     const expectedPaperTotal = Number(subjectMeta.expectedPaperTotal) || 0
 
     if (expectedPaperTotal > 0 && scoreBreakdown.paperTotal !== expectedPaperTotal) {
