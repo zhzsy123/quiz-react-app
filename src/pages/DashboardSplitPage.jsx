@@ -2,9 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, BarChart3, BookOpen, BookX, Database, FolderOpen, LayoutDashboard, Pencil, Plus, Star, User2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { listAttempts } from '../utils/indexedDb'
+import { listAttempts, loadFavoriteEntries } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY } from '../config/subjects'
-import { loadFavoriteEntries } from '../utils/favoriteStore'
 
 function Sparkline({ values }) {
   if (!values.length) return <div className="sparkline-empty">暂无历史成绩</div>

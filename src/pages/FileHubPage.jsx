@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import QuizImporter from '../components/QuizImporter'
 import { buildPaperId } from '../utils/storage'
 import { useAppContext } from '../context/AppContext'
-import { deleteLibraryEntry, listLibraryEntries, updateLibraryEntry, upsertLibraryEntry } from '../utils/indexedDb'
+import { deleteLibraryEntry, listLibraryEntries, updateLibraryEntry, upsertLibraryEntry } from '../boundaries/storageFacade'
 import { getSubjectMetaByRouteParam } from '../config/subjects'
 
 export default function FileHubPage() {

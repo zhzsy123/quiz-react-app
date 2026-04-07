@@ -1,14 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { CheckCircle2, AlertCircle, Upload } from 'lucide-react'
-import { normalizeQuizPayload } from '../utils/normalizeQuizSchema'
-
-function normalizeQuizText(text) {
-  let cleaned = text.trim()
-  if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
-  else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3)
-  if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3)
-  return cleaned.trim()
-}
+import { parseQuizText } from '../boundaries/quizSchema'
 
 export default function QuizImporter({ onQuizLoaded }) {
   const fileInputRef = useRef(null)
@@ -23,8 +15,7 @@ export default function QuizImporter({ onQuizLoaded }) {
 
     try {
       const rawText = await file.text()
-      const cleanedText = normalizeQuizText(rawText)
-      const normalized = normalizeQuizPayload(JSON.parse(cleanedText))
+      const { cleanedText, parsed: normalized } = parseQuizText(rawText)
 
       setFileName(file.name)
       setQuestionCount(normalized.items.length)

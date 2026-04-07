@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Play, Search, Star, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { loadFavoriteEntries, removeFavoriteEntry } from '../utils/favoriteStore'
+import { loadFavoriteEntries, removeFavoriteEntry } from '../boundaries/storageFacade'
 
 const SUBJECT_KEY = 'english'
 

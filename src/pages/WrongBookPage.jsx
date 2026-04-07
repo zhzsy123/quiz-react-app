@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, BookOpen, BookX, CheckCircle2, Filter, Play, RotateCcw, Search, XCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { listAttempts } from '../utils/indexedDb'
-import { loadMasteredWrongMap, markWrongQuestionMastered } from '../utils/wrongBookStore'
+import { listAttempts, loadMasteredWrongMap, markWrongQuestionMastered } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
 
 function attemptDisplayTitle(attempt) {

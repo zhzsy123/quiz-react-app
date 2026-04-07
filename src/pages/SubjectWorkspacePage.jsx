@@ -3,15 +3,18 @@ import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw, Star } from 'lucide-re
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
-import { normalizeQuizPayload } from '../utils/normalizeQuizSchema'
+import { parseQuizText } from '../boundaries/quizSchema'
 import {
   clearProgressRecord,
   listLibraryEntries,
+  loadFavoriteEntries,
+  loadPreference,
   loadProgressRecord,
+  savePreference,
   saveAttemptRecord,
   saveProgressRecord,
-} from '../utils/indexedDb'
-import { loadFavoriteEntries, toggleFavoriteEntry } from '../utils/favoriteStore'
+  toggleFavoriteEntry,
+} from '../boundaries/storageFacade'
 import { getSubjectMetaByRouteParam } from '../config/subjects'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
@@ -191,14 +194,10 @@ export default function SubjectWorkspacePage() {
   const [favoriteEntries, setFavoriteEntries] = useState([])
 
   useEffect(() => {
-    try {
-      const storedAdvance = localStorage.getItem(AUTO_ADVANCE_KEY)
-      if (storedAdvance !== null) setAutoAdvance(storedAdvance === 'true')
-      const storedSpoiler = localStorage.getItem(SPOILER_PREF_KEY)
-      if (storedSpoiler !== null) setSpoilerExpanded(storedSpoiler === 'true')
-    } catch {
-      // ignore storage errors
-    }
+    const storedAdvance = loadPreference(AUTO_ADVANCE_KEY, null)
+    if (storedAdvance !== null) setAutoAdvance(storedAdvance === 'true')
+    const storedSpoiler = loadPreference(SPOILER_PREF_KEY, null)
+    if (storedSpoiler !== null) setSpoilerExpanded(storedSpoiler === 'true')
   }, [])
 
   useEffect(() => {
@@ -233,7 +232,7 @@ export default function SubjectWorkspacePage() {
           return
         }
         resolvedEntry = matched
-        resolvedQuiz = normalizeQuizPayload(JSON.parse(matched.rawText))
+        resolvedQuiz = parseQuizText(matched.rawText).parsed
       }
 
       const progress = await loadProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId)
@@ -380,11 +379,7 @@ export default function SubjectWorkspacePage() {
   const handleToggleSpoiler = () => {
     setSpoilerExpanded((prev) => {
       const next = !prev
-      try {
-        localStorage.setItem(SPOILER_PREF_KEY, String(next))
-      } catch {
-        // ignore storage errors
-      }
+      savePreference(SPOILER_PREF_KEY, next)
       return next
     })
   }
@@ -392,11 +387,7 @@ export default function SubjectWorkspacePage() {
   const handleToggleAutoAdvance = () => {
     setAutoAdvance((prev) => {
       const next = !prev
-      try {
-        localStorage.setItem(AUTO_ADVANCE_KEY, String(next))
-      } catch {
-        // ignore storage errors
-      }
+      savePreference(AUTO_ADVANCE_KEY, next)
       return next
     })
   }

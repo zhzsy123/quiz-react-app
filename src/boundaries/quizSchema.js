@@ -30,6 +30,22 @@ function normalizeOption(option, index) {
   }
 }
 
+export function normalizeQuizText(text) {
+  let cleaned = String(text || '').trim()
+  if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
+  else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3)
+  if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3)
+  return cleaned.trim()
+}
+
+export function parseQuizText(text) {
+  const cleanedText = normalizeQuizText(text)
+  return {
+    cleanedText,
+    parsed: normalizeQuizPayload(JSON.parse(cleanedText)),
+  }
+}
+
 function normalizeLegacySchema(data) {
   if (!data || !Array.isArray(data.items)) {
     throw new Error('旧版题库需要包含 items 数组。')
@@ -302,8 +318,7 @@ export function normalizeQuizPayload(data) {
     }
 
     if (question.type === 'essay') {
-      const converted = convertEssay(question)
-      items.push(converted)
+      items.push(convertEssay(question))
       return
     }
 

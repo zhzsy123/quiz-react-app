@@ -6,7 +6,7 @@ import {
   listProfiles,
   renameProfile,
   setActiveProfileId,
-} from '../utils/indexedDb'
+} from '../boundaries/storageFacade'
 
 const AppContext = createContext(null)
 
