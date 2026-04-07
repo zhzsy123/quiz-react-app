@@ -863,6 +863,27 @@ export default function SubjectWorkspacePage() {
     void persistNow({ answers: nextAnswers })
   }
 
+  const handleRevealCurrentObjective = () => {
+    if (!quiz || submitted || mode !== 'practice') return
+    const currentItem = quiz.items[currentIndex]
+    if (!currentItem || currentItem.answer?.type !== 'objective') return
+    if (currentItem.type !== 'multiple_choice') return
+
+    const currentResponse = answers[currentItem.id]
+    if (!isObjectiveAnswered(currentItem, currentResponse)) return
+
+    const nextRevealed = { ...revealedMap, [currentItem.id]: true }
+    setRevealedMap(nextRevealed)
+
+    let nextIndex = currentIndex
+    if (autoAdvance && isObjectiveCorrect(currentItem, currentResponse) && currentIndex < quiz.items.length - 1) {
+      nextIndex = currentIndex + 1
+      setCurrentIndex(nextIndex)
+    }
+
+    void persistNow({ revealedMap: nextRevealed, currentIndex: nextIndex })
+  }
+
   const handleTextChange = (questionId, text) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
     const nextAnswers = { ...answers, [questionId]: { text } }
@@ -1114,6 +1135,7 @@ export default function SubjectWorkspacePage() {
           onPrev={handlePrev}
           onNext={handleNext}
           onSelectOption={handleSelectOption}
+          onRevealCurrentObjective={handleRevealCurrentObjective}
           onSelectReadingOption={handleSelectReadingOption}
           onFillBlankChange={handleFillBlankChange}
           onTextChange={handleTextChange}

@@ -682,6 +682,11 @@ button { border: none; }
 .question-actions .submit-btn {
   min-width: 132px;
 }
+.question-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
 .ai-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -775,8 +780,10 @@ button { border: none; }
   .nav-group-grid { grid-template-columns: repeat(5, 1fr); }
   .ai-toolbar { align-items: flex-start; }
   .question-actions { flex-direction: column; }
+  .question-inline-actions { justify-content: stretch; }
   .question-actions .secondary-btn,
-  .question-actions .submit-btn { width: 100%; }
+  .question-actions .submit-btn,
+  .question-inline-actions .secondary-btn { width: 100%; }
   .translation-card,
   .essay-card,
   .reading-passage-card,

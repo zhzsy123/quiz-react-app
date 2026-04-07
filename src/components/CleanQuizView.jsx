@@ -630,6 +630,7 @@ export default function CleanQuizView({
   onPrev,
   onNext,
   onSelectOption,
+  onRevealCurrentObjective,
   onSelectReadingOption,
   onFillBlankChange,
   onTextChange,
@@ -702,10 +703,16 @@ export default function CleanQuizView({
   const spoilerTags = getSpoilerTags(currentItem)
   const disabled = isPaused && mode === 'exam'
   const objectiveReveal = submitted || (mode === 'practice' && revealedMap[currentItem.id])
+  const canRevealCurrentMultiChoice =
+    mode === 'practice' &&
+    currentItem.type === 'multiple_choice' &&
+    !submitted &&
+    !objectiveReveal &&
+    normalizeChoiceArray(userResponse).length > 0
   const currentExplainEntry = aiExplainMap[currentItem.id]
   const currentQuestionReview = aiQuestionReviewMap[currentItem.id]
   const currentQuestionWrong = !isReading && !isSubjective && isObjectiveWrong(currentItem, userResponse)
-  const showWrongFollowups = mode === 'practice' && currentQuestionWrong
+  const showWrongFollowups = mode === 'practice' && objectiveReveal && currentQuestionWrong
 
   return (
     <section className="quiz-layout clean-workspace-layout">
@@ -1023,6 +1030,14 @@ export default function CleanQuizView({
               submitted={submitted}
               onTextChange={onTextChange}
             />
+          )}
+
+          {canRevealCurrentMultiChoice && (
+            <div className="question-inline-actions">
+              <button type="button" className="secondary-btn small-btn" onClick={onRevealCurrentObjective}>
+                检查答案
+              </button>
+            </div>
           )}
 
           {objectiveReveal && !isSubjective && !isReading && !isFillBlank && (
