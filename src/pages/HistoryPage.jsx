@@ -16,6 +16,13 @@ import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { deleteAttemptRecord, listAttempts, updateAttemptRecord } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
+import {
+  formatStructuredResponse,
+  getObjectiveAnswerLabel as runtimeGetObjectiveAnswerLabel,
+  getObjectiveCorrectLabel as runtimeGetObjectiveCorrectLabel,
+  isObjectiveCorrect as runtimeIsObjectiveCorrect,
+  normalizeChoiceArray as runtimeNormalizeChoiceArray,
+} from '../utils/questionRuntime'
 
 function Sparkline({ values }) {
   if (!values.length) return <div className="sparkline-empty">暂无历史成绩</div>
@@ -45,8 +52,7 @@ function attemptDisplayTitle(attempt) {
 }
 
 function normalizeChoiceArray(value) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
+  return runtimeNormalizeChoiceArray(value)
 }
 
 function optionLabel(options = [], key = '') {
@@ -57,6 +63,7 @@ function optionLabel(options = [], key = '') {
 }
 
 function objectiveLabel(item, response) {
+  return runtimeGetObjectiveAnswerLabel(item, response)
   if (item.type === 'multiple_choice') {
     const values = normalizeChoiceArray(response)
     return values.length ? values.map((value) => optionLabel(item.options || [], value)).join(' / ') : '未作答'
@@ -74,6 +81,7 @@ function objectiveLabel(item, response) {
 }
 
 function objectiveCorrectLabel(item) {
+  return runtimeGetObjectiveCorrectLabel(item)
   if (item.type === 'multiple_choice') {
     return normalizeChoiceArray(item.answer?.correct)
       .map((value) => optionLabel(item.options || [], value))
@@ -86,6 +94,7 @@ function objectiveCorrectLabel(item) {
 }
 
 function isObjectiveCorrect(item, response) {
+  return runtimeIsObjectiveCorrect(item, response)
   if (item.type === 'multiple_choice') {
     const actual = normalizeChoiceArray(response)
     const expected = normalizeChoiceArray(item.answer?.correct)
@@ -141,13 +150,17 @@ function buildAnswerRows(attempt) {
       return
     }
 
-    const userText = answers[item.id]?.text || ''
+    const userText = item.type === 'structured_form'
+      ? formatStructuredResponse(answers[item.id] || {}, item.fields || [])
+      : answers[item.id]?.text || ''
     rows.push({
       key: item.id,
       prompt: item.prompt,
       type: 'subjective',
       userText,
-      referenceText: item.answer?.reference_answer || '',
+      referenceText: item.type === 'structured_form'
+        ? formatStructuredResponse(item.answer?.reference_fields || {}, item.fields || [])
+        : item.answer?.reference_answer || '',
     })
   })
 

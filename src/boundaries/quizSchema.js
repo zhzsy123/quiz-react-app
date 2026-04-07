@@ -1,3 +1,5 @@
+import { isExamImportPackage, normalizeExamImportPackage } from './examImportSchema'
+
 function fallbackOptionKey(index) {
   return String.fromCharCode(65 + index)
 }
@@ -60,6 +62,9 @@ export const DEFAULT_QUESTION_SCORES = {
   reading: 2.5,
   translation: 15,
   essay: 30,
+  sql: 12,
+  structured_form: 10,
+  subjective: 8,
 }
 
 function parseScore(value, fallback) {
@@ -332,6 +337,10 @@ function convertEssay(question) {
 }
 
 export function normalizeQuizPayload(data) {
+  if (isExamImportPackage(data)) {
+    return normalizeExamImportPackage(data)
+  }
+
   if (Array.isArray(data?.items)) {
     return normalizeLegacySchema(data)
   }

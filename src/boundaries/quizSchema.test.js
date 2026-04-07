@@ -239,4 +239,90 @@ describe('quizSchema boundary', () => {
   it('reports invalid payloads at the boundary', () => {
     expect(() => normalizeQuizPayload({ title: 'broken' })).toThrow(/questions/)
   })
+
+  it('accepts the new exam import package for structured subjects', () => {
+    const result = normalizeQuizPayload({
+      version: '1.0',
+      meta: {
+        title: '数据结构与数据库专题',
+        sourceType: 'ai_generated',
+        subjectScope: ['data_structure'],
+      },
+      questions: [
+        {
+          id: 'graph_1',
+          subject: 'data_structure',
+          module: 'graph',
+          questionType: 'application',
+          answerMode: 'sequence_input',
+          content: [
+            { type: 'text', value: '写出 DFS 访问序列。' },
+            {
+              type: 'graph',
+              graphType: 'undirected',
+              vertices: ['A', 'B', 'C'],
+              edges: [
+                { from: 'A', to: 'B' },
+                { from: 'B', to: 'C' },
+              ],
+            },
+          ],
+          answerSpec: {
+            fields: [
+              { key: 'dfs_order', label: 'DFS 序列', separatorHint: '空格分隔' },
+            ],
+          },
+          standardAnswer: {
+            type: 'sequence_input',
+            fields: {
+              dfs_order: ['A', 'B', 'C'],
+            },
+          },
+        },
+        {
+          id: 'design_1',
+          subject: 'database',
+          module: 'database_design',
+          questionType: 'application',
+          answerMode: 'structured_form',
+          content: [{ type: 'text', value: '写出实体、联系和关系模式。' }],
+          answerSpec: {
+            fields: [
+              { key: 'entities', label: '实体', fieldType: 'textarea' },
+              { key: 'relations', label: '关系模式', fieldType: 'textarea' },
+            ],
+          },
+          standardAnswer: {
+            type: 'structured_form',
+            fields: {
+              entities: 'Student(sno,sname)',
+              relations: 'Student(sno PK,sname)',
+            },
+          },
+        },
+        {
+          id: 'sql_1',
+          subject: 'database',
+          module: 'sql',
+          questionType: 'sql',
+          answerMode: 'sql_editor',
+          content: [{ type: 'text', value: '写出查询 SQL。' }],
+          standardAnswer: {
+            type: 'sql',
+            sql: 'SELECT * FROM student;',
+          },
+        },
+      ],
+    })
+
+    expect(result.compatibility.sourceSchema).toBe('exam-import@1.0')
+    expect(result.items).toHaveLength(3)
+    expect(result.items[0].type).toBe('fill_blank')
+    expect(result.items[0].blanks[0].comparison_mode).toBe('ordered_sequence')
+    expect(result.items[0].content_blocks[0].type).toBe('graph')
+    expect(result.items[1].type).toBe('structured_form')
+    expect(result.items[1].answer.reference_fields.entities).toContain('Student')
+    expect(result.items[2].type).toBe('sql')
+    expect(result.items[2].answer.reference_answer).toContain('SELECT')
+  })
 })

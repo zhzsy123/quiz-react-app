@@ -4,12 +4,14 @@ import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { listAttempts, loadMasteredWrongMap, markWrongQuestionMastered } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
+import { getWrongItemCategory as runtimeGetWrongItemCategory } from '../utils/questionRuntime'
 
 function attemptDisplayTitle(attempt) {
   return attempt.customTitle?.trim() || attempt.title || '未命名试卷'
 }
 
 function getWrongItemCategory(item) {
+  return runtimeGetWrongItemCategory(item)
   if (item.parentType === 'reading' || item.sourceType === 'reading') return 'reading'
   if (item.sourceType === 'cloze' || item.source_type === 'cloze' || String(item.contextTitle || '').includes('完形') || (item.tags || []).some((tag) => String(tag).toLowerCase() === 'cloze')) {
     return 'cloze'
@@ -39,7 +41,11 @@ export default function WrongBookPage() {
     let cancelled = false
     async function loadData() {
       if (!activeProfileId) return
-      const [rows, mastered] = await Promise.all([listAttempts(activeProfileId), loadMasteredWrongMap(activeProfileId, 'english')])
+      const [rows, masteredEntries] = await Promise.all([
+        listAttempts(activeProfileId),
+        Promise.all(SUBJECT_REGISTRY.map(async (subject) => [subject.key, await loadMasteredWrongMap(activeProfileId, subject.key)])),
+      ])
+      const mastered = Object.fromEntries(masteredEntries)
       if (!cancelled) {
         setAttempts(rows)
         setMasteredMap(mastered)
@@ -68,7 +74,12 @@ export default function WrongBookPage() {
         Object.assign(existing, { ...existing, ...item, wrongTimes: existing.wrongTimes, latestAttemptTitle: item.attemptTitle })
       }
     })
-    return Array.from(map.values()).filter((item) => !masteredMap[item.questionKey] || masteredMap[item.questionKey] < item.lastWrongAt).sort((a, b) => b.lastWrongAt - a.lastWrongAt)
+    return Array.from(map.values())
+      .filter((item) => {
+        const subjectMasteredMap = masteredMap[item.subject] || {}
+        return !subjectMasteredMap[item.questionKey] || subjectMasteredMap[item.questionKey] < item.lastWrongAt
+      })
+      .sort((a, b) => b.lastWrongAt - a.lastWrongAt)
   }, [wrongSourceItems, masteredMap])
 
   const filteredWrongItems = useMemo(() => {

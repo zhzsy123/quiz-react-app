@@ -1,162 +1,257 @@
-# JSON 规范
+# 试卷导入资料包说明
 
-这个项目建议的最小单位是：
+这份资料是给 `DeepSeek / 其他大模型` 和人工整理题库时一起使用的导入协议。
 
-- 一份 JSON = 一份试卷
-- 一份 JSON = 一个科目
-- 不要把多个科目混在同一个 JSON 里
+推荐工作流：
+
+1. 从首页下载“导入资料包”
+2. 把 `试卷原文`、`exam-import.schema.json`、`exam-import.example.json`、`deepseek-exam-import-prompt.txt` 一起发给 DeepSeek
+3. 让 DeepSeek 只返回一份合法 JSON
+4. 回到本站，用导入功能导入这份 JSON
+5. 开始刷题
 
 ## 顶层结构
 
+每次导入一份 `ExamImportPackage`：
+
 ```json
 {
-  "schema_version": "2026-04",
-  "paper_id": "english_mock_2026_001",
-  "title": "英语模拟卷 2026-01",
-  "subject": "english",
-  "description": "用于个人模考与刷题",
-  "duration_minutes": 120,
+  "version": "1.0",
+  "meta": {
+    "title": "2025 湖南财政经济学院计算机专业综合",
+    "sourceType": "paper_parsed",
+    "school": "湖南财政经济学院",
+    "year": 2025,
+    "paperTitle": "2025 湖南财政经济学院专业考试真题回忆版",
+    "paperType": "recall",
+    "subjectScope": ["data_structure", "database"],
+    "language": "zh-CN"
+  },
   "questions": []
 }
 ```
 
-## 必须遵守的规则
+## 必填字段
 
-- 顶层必须包含 `schema_version`、`paper_id`、`title`、`subject`、`questions`
-- `questions` 必须是数组
-- 每道题至少包含 `id`、`type`、`prompt`
-- 一份 JSON 只放一张完整试卷，不要把多张卷子拼在一起
-- 一份 JSON 只放一个科目，不要把英语、数学、数据结构混写
-- 如果某些信息 OCR 缺失，不要凭空乱编；确实需要补推断时，必须在 `description` 或 `answer.rationale` 里说明
+- 顶层必须有：`version`、`meta`、`questions`
+- 每道题必须有：`id`、`subject`、`module`、`questionType`、`content`、`answerMode`、`standardAnswer`
 
-## 题型拆分规则
+## 学科取值
 
-- 普通选择题：每题一个 `single_choice`
-- 多选题：每题一个 `multiple_choice`
-- 判断题：每题一个 `true_false`
-- 单句填空：每题一个 `fill_blank`
-- 完形填空：整篇文章用一个 `cloze`
-- 阅读理解：每篇文章用一个 `reading`
-- 英译中 / 中译英：每题一个 `translation`
-- 作文：每题一个 `essay`
+- `data_structure`
+- `database`
 
-不要这样做：
+## 支持的 content 块
 
-- 不要把整套阅读的 16 个小题全部拆成 16 个独立单选并丢掉文章上下文
-- 不要把整篇完形填空拆成 10 个顶层题目
-- 不要把整张卷子写成一个大对象然后塞所有子题
+- `text`
+- `table`
+- `image`
+- `graph`
+- `binary_tree`
+- `schema`
 
-## 支持题型
+说明：
+
+- 题目展示可以复杂，作答必须尽量简单
+- 如果题目里有图、树、关系模式，优先给结构化数据，不要只给截图
+
+## 支持的 questionType
 
 - `single_choice`
 - `multiple_choice`
 - `true_false`
 - `fill_blank`
-- `reading`
-- `cloze`
-- `translation`
-- `essay`
+- `short_answer`
+- `application`
+- `sql`
 
-## 关键字段约定
+## 支持的 answerMode
 
-- 选择题统一使用 `options: [{ key, text }]`
-- 判断题使用 `answer.correct: true / false`，也可写成 `T / F`
-- `multiple_choice.answer.correct` 必须是数组
-- `fill_blank.blanks[].accepted_answers` 必须是字符串数组
-- `cloze.blanks[].correct` 填选项字母，例如 `"A"`
-- `reading.questions` 里的子题目前只使用 `single_choice`
-- 图片统一挂到 `assets`，不要单独设计图片题类型
+- `single_choice`
+- `multiple_choice`
+- `true_false`
+- `multi_blank`
+- `sequence_input`
+- `structured_form`
+- `sql_editor`
+- `text`
+- `textarea`
 
-## 示例
+## 关键设计原则
+
+### 1. 用户不画图
+
+不要要求用户在前端画树、画图、画 E-R 图。
+
+改成这些作答方式：
+
+- 图题：填访问序列、选边顺序、dist 数组
+- 树题：填先序 / 中序 / 后序 / 编码结果
+- 排序题：填每一趟结果
+- E-R / 数据库设计题：填实体、联系、关系模式
+- SQL 题：直接写 SQL
+
+### 2. 题目可以复杂，答案要结构化
+
+例如图题：
+
+```json
+{
+  "content": [
+    { "type": "text", "value": "写出 DFS 访问序列。" },
+    {
+      "type": "graph",
+      "graphType": "undirected",
+      "vertices": ["A", "B", "C"],
+      "edges": [
+        { "from": "A", "to": "B" },
+        { "from": "B", "to": "C" }
+      ]
+    }
+  ],
+  "answerMode": "sequence_input"
+}
+```
+
+### 3. DeepSeek 必须只返回 JSON
+
+- 不要返回 Markdown
+- 不要加 ```json 包裹
+- 不要解释
+- 不要夹带“以下是结果”
+
+## 常见题型映射
 
 ### 单选题
 
 ```json
 {
   "id": "q_sc_001",
-  "type": "single_choice",
-  "prompt": "What is 2 + 2?",
-  "options": [
-    { "key": "A", "text": "3" },
-    { "key": "B", "text": "4" }
+  "subject": "data_structure",
+  "module": "linear_list",
+  "questionType": "single_choice",
+  "content": [
+    { "type": "text", "value": "顺序表的随机存取时间复杂度是？" }
   ],
-  "answer": {
-    "type": "objective",
-    "correct": "B",
-    "rationale": "基础算术。"
+  "options": [
+    { "key": "A", "text": "O(1)" },
+    { "key": "B", "text": "O(n)" },
+    { "key": "C", "text": "O(log n)" },
+    { "key": "D", "text": "O(n log n)" }
+  ],
+  "answerMode": "single_choice",
+  "standardAnswer": {
+    "type": "single_choice",
+    "value": "A"
+  },
+  "analysis": "顺序表支持按下标直接访问。"
+}
+```
+
+### 图题 / 遍历序列
+
+```json
+{
+  "id": "q_graph_001",
+  "subject": "data_structure",
+  "module": "graph",
+  "subtype": "dfs",
+  "questionType": "application",
+  "content": [
+    { "type": "text", "value": "写出 DFS 访问序列。" },
+    {
+      "type": "graph",
+      "graphType": "undirected",
+      "vertices": ["A", "B", "C"],
+      "edges": [
+        { "from": "A", "to": "B" },
+        { "from": "B", "to": "C" }
+      ]
+    }
+  ],
+  "answerMode": "sequence_input",
+  "answerSpec": {
+    "fields": [
+      { "key": "dfs_order", "label": "DFS 序列", "separatorHint": "空格分隔" }
+    ]
+  },
+  "standardAnswer": {
+    "type": "sequence_input",
+    "fields": {
+      "dfs_order": ["A", "B", "C"]
+    }
   }
 }
 ```
 
-### 完形填空
+### SQL 题
 
 ```json
 {
-  "id": "q_cloze_001",
-  "type": "cloze",
-  "title": "Cloze Test",
-  "prompt": "Choose the best answer for each blank.",
-  "article": "Hello [[1]] world.",
-  "blanks": [
-    {
-      "blank_id": 1,
-      "options": [
-        { "key": "A", "text": "big" },
-        { "key": "B", "text": "small" }
-      ],
-      "correct": "A",
-      "rationale": "语义最合理。"
-    }
-  ]
+  "id": "q_sql_001",
+  "subject": "database",
+  "module": "sql",
+  "questionType": "sql",
+  "content": [
+    { "type": "text", "value": "查询所有学生信息。" }
+  ],
+  "answerMode": "sql_editor",
+  "standardAnswer": {
+    "type": "sql",
+    "sql": "SELECT * FROM student;"
+  }
 }
 ```
 
-### 阅读理解
+### 数据库设计 / 结构化作答
 
 ```json
 {
-  "id": "q_reading_001",
-  "type": "reading",
-  "title": "Healthy Study Habits",
-  "prompt": "Read the passage and answer the questions.",
-  "passage": {
-    "title": "Healthy Study Habits",
-    "content": "Passage text here."
+  "id": "q_design_001",
+  "subject": "database",
+  "module": "database_design",
+  "subtype": "er_to_relational",
+  "questionType": "application",
+  "content": [
+    { "type": "text", "value": "写出实体、联系和关系模式。" }
+  ],
+  "answerMode": "structured_form",
+  "answerSpec": {
+    "fields": [
+      { "key": "entities", "label": "实体", "fieldType": "textarea" },
+      { "key": "relations", "label": "关系模式", "fieldType": "textarea" }
+    ]
   },
-  "questions": [
-    {
-      "id": "q_reading_001_1",
-      "type": "single_choice",
-      "prompt": "What is the passage mainly about?",
-      "options": [
-        { "key": "A", "text": "Good study habits" },
-        { "key": "B", "text": "Travel safety" }
-      ],
-      "answer": {
-        "type": "objective",
-        "correct": "A",
-        "rationale": "文章主旨是学习习惯。"
-      }
+  "standardAnswer": {
+    "type": "structured_form",
+    "fields": {
+      "entities": "Student(sno,sname)",
+      "relations": "Student(sno PK,sname)"
     }
-  ]
+  }
 }
 ```
 
-## 推荐给 AI 的提示词
+## 给 DeepSeek 的使用要求
 
-```text
-请把这份试卷整理成符合本站 JSON 规范的合法 JSON。
-只输出 JSON，不要输出解释。
+把下面这些文件一起发给它：
 
-要求：
-1. 一份 JSON 只对应一张试卷、一个科目。
-2. 顶层必须包含 schema_version、paper_id、title、subject、questions。
-3. 普通选择题写成 single_choice。
-4. 完形填空整篇写成 cloze，不要拆成多个顶层题。
-5. 阅读理解每篇文章写成一个 reading，子题放到 questions 数组里。
-6. 翻译题分别写成独立 translation。
-7. 作文题写成独立 essay。
-8. 选择题 options 必须使用 { key, text }。
-9. 如果原卷信息缺失，不要随意编造；如必须推断，请在 description 或 rationale 中明确说明。
-10. 只返回合法 JSON。
-```
+- `试卷原文`
+- `exam-import.schema.json`
+- `exam-import.example.json`
+- `deepseek-exam-import-prompt.txt`
+
+并要求：
+
+- 严格按照协议输出
+- 只返回 JSON
+- 信息缺失时可以留空，但不要编造事实
+- 复杂题用结构化 `content`
+- 用户作答必须落到 `answerMode + answerSpec + standardAnswer`
+
+## 资料包内容
+
+- `json-schema.md`
+- `exam-import.schema.json`
+- `exam-import.example.json`
+- `deepseek-exam-import-prompt.txt`

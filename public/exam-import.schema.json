@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/exam-import.schema.json",
+  "title": "ExamImportPackage",
+  "type": "object",
+  "required": ["version", "meta", "questions"],
+  "properties": {
+    "version": {
+      "const": "1.0"
+    },
+    "meta": {
+      "type": "object",
+      "required": ["title", "sourceType"],
+      "properties": {
+        "title": { "type": "string" },
+        "sourceType": {
+          "type": "string",
+          "enum": ["ai_generated", "paper_parsed", "manual"]
+        },
+        "school": { "type": "string" },
+        "year": { "type": "integer" },
+        "paperTitle": { "type": "string" },
+        "paperType": {
+          "type": "string",
+          "enum": ["official", "recall", "mock", "custom"]
+        },
+        "subjectScope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["data_structure", "database"]
+          }
+        },
+        "language": {
+          "type": "string",
+          "enum": ["zh-CN"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "subject", "module", "questionType", "content", "answerMode", "standardAnswer"],
+        "properties": {
+          "id": { "type": "string" },
+          "subject": {
+            "type": "string",
+            "enum": ["data_structure", "database"]
+          },
+          "module": { "type": "string" },
+          "subtype": { "type": "string" },
+          "questionType": {
+            "type": "string",
+            "enum": ["single_choice", "multiple_choice", "true_false", "fill_blank", "short_answer", "application", "sql"]
+          },
+          "difficulty": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "score": { "type": "number" },
+          "knowledgePoints": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["text", "table", "image", "graph", "binary_tree", "schema"]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "text"],
+              "properties": {
+                "key": { "type": "string" },
+                "text": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "answerMode": {
+            "type": "string",
+            "enum": ["single_choice", "multiple_choice", "true_false", "text", "textarea", "sql_editor", "sequence_input", "multi_blank", "structured_form"]
+          },
+          "answerSpec": {
+            "type": "object"
+          },
+          "standardAnswer": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["single_choice", "multiple_choice", "true_false", "text", "short_answer", "sequence_input", "multi_blank", "structured_form", "sql"]
+              }
+            },
+            "additionalProperties": true
+          },
+          "analysis": { "type": "string" },
+          "judgeConfig": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

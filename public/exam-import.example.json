@@ -1,0 +1,167 @@
+{
+  "version": "1.0",
+  "meta": {
+    "title": "数据结构与数据库专题示例",
+    "sourceType": "ai_generated",
+    "school": "湖南财政经济学院",
+    "year": 2025,
+    "paperTitle": "数据结构与数据库专题示例",
+    "paperType": "custom",
+    "subjectScope": ["data_structure", "database"],
+    "language": "zh-CN"
+  },
+  "questions": [
+    {
+      "id": "ds_sc_001",
+      "subject": "data_structure",
+      "module": "linear_list",
+      "subtype": "concept",
+      "questionType": "single_choice",
+      "difficulty": 2,
+      "score": 2,
+      "knowledgePoints": ["顺序表", "时间复杂度"],
+      "tags": ["示例"],
+      "content": [
+        {
+          "type": "text",
+          "value": "顺序表的随机存取时间复杂度是？"
+        }
+      ],
+      "options": [
+        { "key": "A", "text": "O(1)" },
+        { "key": "B", "text": "O(n)" },
+        { "key": "C", "text": "O(log n)" },
+        { "key": "D", "text": "O(n log n)" }
+      ],
+      "answerMode": "single_choice",
+      "standardAnswer": {
+        "type": "single_choice",
+        "value": "A"
+      },
+      "analysis": "顺序表支持按下标直接访问。"
+    },
+    {
+      "id": "ds_graph_001",
+      "subject": "data_structure",
+      "module": "graph",
+      "subtype": "dfs",
+      "questionType": "application",
+      "difficulty": 3,
+      "score": 6,
+      "knowledgePoints": ["图", "深度优先遍历"],
+      "content": [
+        {
+          "type": "text",
+          "value": "根据下图写出 DFS 访问序列。默认从 A 开始，邻接点按字母序访问。"
+        },
+        {
+          "type": "graph",
+          "graphType": "undirected",
+          "vertices": ["A", "B", "C", "D"],
+          "edges": [
+            { "from": "A", "to": "B" },
+            { "from": "A", "to": "C" },
+            { "from": "B", "to": "D" }
+          ]
+        }
+      ],
+      "answerMode": "sequence_input",
+      "answerSpec": {
+        "fields": [
+          {
+            "key": "dfs_order",
+            "label": "DFS 序列",
+            "separatorHint": "空格分隔，例如 A B D C"
+          }
+        ]
+      },
+      "standardAnswer": {
+        "type": "sequence_input",
+        "fields": {
+          "dfs_order": ["A", "B", "D", "C"]
+        }
+      },
+      "judgeConfig": {
+        "strategy": "ordered_sequence"
+      },
+      "analysis": "按字母序访问邻接点。"
+    },
+    {
+      "id": "db_sql_001",
+      "subject": "database",
+      "module": "sql",
+      "subtype": "select",
+      "questionType": "sql",
+      "difficulty": 3,
+      "score": 10,
+      "knowledgePoints": ["SQL", "查询"],
+      "content": [
+        {
+          "type": "text",
+          "value": "查询 student 表中的所有记录。"
+        },
+        {
+          "type": "schema",
+          "tables": [
+            {
+              "name": "student",
+              "columns": [
+                { "name": "sno", "dataType": "varchar", "isPrimaryKey": true, "nullable": false },
+                { "name": "sname", "dataType": "varchar", "nullable": false },
+                { "name": "age", "dataType": "int", "nullable": true }
+              ]
+            }
+          ]
+        }
+      ],
+      "answerMode": "sql_editor",
+      "answerSpec": {
+        "placeholder": "请输入 SQL 语句"
+      },
+      "standardAnswer": {
+        "type": "sql",
+        "sql": "SELECT * FROM student;"
+      },
+      "judgeConfig": {
+        "strategy": "sql_result_compare",
+        "sqlChecker": {
+          "compareBy": "normalized_sql"
+        }
+      },
+      "analysis": "基础查询题。"
+    },
+    {
+      "id": "db_design_001",
+      "subject": "database",
+      "module": "database_design",
+      "subtype": "er_to_relational",
+      "questionType": "application",
+      "difficulty": 4,
+      "score": 12,
+      "knowledgePoints": ["E-R 图", "关系模式"],
+      "content": [
+        {
+          "type": "text",
+          "value": "某教学系统中，学生可以选修多门课程，每门课程由一名教师讲授。请写出实体、联系和关系模式。"
+        }
+      ],
+      "answerMode": "structured_form",
+      "answerSpec": {
+        "fields": [
+          { "key": "entities", "label": "实体", "fieldType": "textarea" },
+          { "key": "relationships", "label": "联系", "fieldType": "textarea" },
+          { "key": "relations", "label": "关系模式", "fieldType": "textarea" }
+        ]
+      },
+      "standardAnswer": {
+        "type": "structured_form",
+        "fields": {
+          "entities": "Student(sno,sname)\nCourse(cno,cname)\nTeacher(tno,tname)",
+          "relationships": "Student 与 Course 为多对多 Select\nTeacher 与 Course 为一对多 Teach",
+          "relations": "Student(sno PK,sname)\nTeacher(tno PK,tname)\nCourse(cno PK,cname,tno FK->Teacher.tno)\nSelect(sno FK->Student.sno,cno FK->Course.cno,PK(sno,cno))"
+        }
+      },
+      "analysis": "结构化作答题示例。"
+    }
+  ]
+}

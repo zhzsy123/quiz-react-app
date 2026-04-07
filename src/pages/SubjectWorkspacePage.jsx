@@ -18,6 +18,17 @@ import {
   updateAttemptRecord,
 } from '../boundaries/storageFacade'
 import { getSubjectMetaByRouteParam } from '../config/subjects'
+import {
+  getObjectiveAnswerLabel as runtimeGetObjectiveAnswerLabel,
+  getObjectiveCorrectLabel,
+  getObjectiveItemScore as runtimeGetObjectiveItemScore,
+  getObjectiveItemTotal as runtimeGetObjectiveItemTotal,
+  getObjectiveWrongCount as runtimeGetObjectiveWrongCount,
+  isObjectiveAnswered as runtimeIsObjectiveAnswered,
+  isObjectiveCorrect as runtimeIsObjectiveCorrect,
+  isResponseAnswered as runtimeIsResponseAnswered,
+  normalizeChoiceArray as runtimeNormalizeChoiceArray,
+} from '../utils/questionRuntime'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
@@ -49,8 +60,7 @@ function isNonEmptyText(value) {
 }
 
 function normalizeChoiceArray(value) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
+  return runtimeNormalizeChoiceArray(value)
 }
 
 function clipText(text = '', maxLength = 180) {
@@ -66,6 +76,7 @@ function getOptionText(options = [], key = '') {
 }
 
 function getObjectiveAnswerLabel(item, response) {
+  return runtimeGetObjectiveAnswerLabel(item, response)
   if (item.type === 'multiple_choice') {
     const values = normalizeChoiceArray(response)
     return values.length ? values.map((value) => getOptionText(item.options || [], value)).join(' / ') : '未作答'
@@ -83,6 +94,7 @@ function getObjectiveAnswerLabel(item, response) {
 }
 
 function isObjectiveAnswered(item, response) {
+  return runtimeIsObjectiveAnswered(item, response)
   if (!item || item.answer?.type !== 'objective') return false
   if (item.type === 'multiple_choice') {
     return normalizeChoiceArray(response).length > 0
@@ -95,6 +107,7 @@ function isObjectiveAnswered(item, response) {
 }
 
 function isObjectiveCorrect(item, response) {
+  return runtimeIsObjectiveCorrect(item, response)
   if (!item || item.answer?.type !== 'objective') return false
   if (item.type === 'multiple_choice') {
     const actual = normalizeChoiceArray(response)
@@ -112,6 +125,7 @@ function isObjectiveCorrect(item, response) {
 }
 
 function isResponseAnswered(item, response) {
+  return runtimeIsResponseAnswered(item, response)
   if (!item) return false
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return false
@@ -124,6 +138,7 @@ function isResponseAnswered(item, response) {
 }
 
 function getObjectiveItemTotal(item) {
+  return runtimeGetObjectiveItemTotal(item)
   if (!item) return 0
   if (item.type === 'reading') {
     return item.questions.reduce((sum, question) => sum + (question.score || 0), 0)
@@ -135,6 +150,7 @@ function getObjectiveItemTotal(item) {
 }
 
 function getObjectiveItemScore(item, response) {
+  return runtimeGetObjectiveItemScore(item, response)
   if (!item) return 0
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return 0
@@ -157,6 +173,7 @@ function getObjectiveItemScore(item, response) {
 }
 
 function getObjectiveWrongCount(item, response) {
+  return runtimeGetObjectiveWrongCount(item, response)
   if (!item) return 0
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return item.questions.length
@@ -231,10 +248,7 @@ function buildWrongItems(items, answers, meta) {
       userAnswer,
       userAnswerLabel: getObjectiveAnswerLabel(item, userAnswer),
       correctAnswer: item.answer?.correct || '',
-      correctAnswerLabel:
-        item.type === 'fill_blank'
-          ? item.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
-          : getObjectiveAnswerLabel(item, item.answer?.correct),
+      correctAnswerLabel: getObjectiveCorrectLabel(item),
       rationale: item.answer?.rationale || '暂无解析',
       tags: item.tags || [],
       difficulty: item.difficulty,
@@ -838,6 +852,18 @@ export default function SubjectWorkspacePage() {
     void persistNow({ answers: nextAnswers })
   }
 
+  const handleStructuredFieldChange = (questionId, fieldKey, text) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'structured_form' || currentItem.id !== questionId) return
+
+    const nextItemResponse = { ...(answers[questionId] || {}), [fieldKey]: text }
+    const nextAnswers = { ...answers, [questionId]: nextItemResponse }
+    setAnswers(nextAnswers)
+    void persistNow({ answers: nextAnswers })
+  }
+
   const handleReset = async () => {
     if (!activeProfile?.id || !sessionPaperId) return
     const ok = window.confirm('确定重置当前进度吗？')
@@ -1082,6 +1108,7 @@ export default function SubjectWorkspacePage() {
           onSelectReadingOption={handleSelectReadingOption}
           onFillBlankChange={handleFillBlankChange}
           onTextChange={handleTextChange}
+          onStructuredFieldChange={handleStructuredFieldChange}
           aiReview={aiReview}
           aiQuestionReviewMap={aiQuestionReviewMap}
           aiExplainMap={aiExplainMap}

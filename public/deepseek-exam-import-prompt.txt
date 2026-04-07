@@ -1,0 +1,97 @@
+你现在的任务是：把我提供的试卷原文整理成“本网站可直接导入”的 JSON。
+
+你会同时拿到这些资料：
+
+1. 试卷原文
+2. exam-import.schema.json
+3. exam-import.example.json
+4. json-schema.md
+
+请严格遵守下面要求：
+
+一、输出格式
+
+- 只输出一份合法 JSON
+- 不要输出 Markdown
+- 不要加 ```json 包裹
+- 不要输出解释、分析、说明、备注
+- 不要输出“以下是结果”之类的话
+
+二、目标结构
+
+- 顶层必须是 ExamImportPackage
+- 顶层必须包含：
+  - version
+  - meta
+  - questions
+- version 固定为 "1.0"
+
+三、题目结构要求
+
+每道题至少必须包含：
+
+- id
+- subject
+- module
+- questionType
+- content
+- answerMode
+- standardAnswer
+
+四、学科要求
+
+- 数据结构题的 subject 必须是 "data_structure"
+- 数据库题的 subject 必须是 "database"
+- 如果一份试卷同时包含两类题，可以同时出现在同一个 questions 数组里
+
+五、复杂题处理规则
+
+如果题目里有表格、图、树、数据库表结构，请优先转成结构化 content，而不是只用一段纯文本。
+
+允许的 content.type：
+
+- text
+- table
+- image
+- graph
+- binary_tree
+- schema
+
+六、答题方式规则
+
+不要要求用户在前端画图。请把复杂题转换成结构化作答：
+
+- 图题：优先转成 sequence_input 或 multi_blank
+- 树题：优先转成 sequence_input
+- 排序题：优先转成 multi_blank
+- SQL 题：使用 sql_editor
+- E-R / 数据库设计题：使用 structured_form
+
+七、标准答案规则
+
+- 单选题：standardAnswer.type = "single_choice"
+- 多选题：standardAnswer.type = "multiple_choice"
+- 判断题：standardAnswer.type = "true_false"
+- 序列题：standardAnswer.type = "sequence_input"
+- 多空题：standardAnswer.type = "multi_blank"
+- 结构化题：standardAnswer.type = "structured_form"
+- SQL 题：standardAnswer.type = "sql"
+
+八、信息缺失规则
+
+- 如果 OCR 缺字、题干残缺、选项不全，不要乱编
+- 可以合理保留空字符串，或者只输出能确认的部分
+- 只有在非常明显且低风险时才允许补全
+- 如果做了推断，请写进 analysis，不要伪装成原题事实
+
+九、内容质量要求
+
+- 保持字段名与 schema 一致
+- id 要稳定且唯一
+- content 必须是数组
+- 选择题 options 必须是 { key, text } 数组
+- 输出必须能通过 schema 校验
+
+十、最终要求
+
+请现在根据我给你的试卷原文，输出一份可以直接导入网站的 JSON。

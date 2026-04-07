@@ -1,17 +1,44 @@
 import { callDeepSeekJson } from './deepseekClient'
+import { formatStructuredResponse } from '../../utils/questionRuntime'
+
+function serializeResponse(item, response) {
+  if (item?.type === 'structured_form') {
+    return formatStructuredResponse(response, item.fields || [])
+  }
+
+  if (item?.type === 'sql') {
+    if (typeof response === 'string') return response
+    return response?.text || ''
+  }
+
+  if (item?.answer?.type === 'subjective') {
+    if (typeof response === 'string') return response
+    return response?.text || ''
+  }
+
+  if (Array.isArray(response)) return response.join(', ')
+  if (response && typeof response === 'object') return JSON.stringify(response, null, 2)
+  return response || ''
+}
 
 function subjectiveQuestionPayload(item, response) {
   return {
     question_id: item.id,
     type: item.type,
+    subject: item.subject || '',
+    module: item.module || '',
+    subtype: item.subtype || '',
     prompt: item.prompt,
     score: item.score || 0,
     source_text: item.source_text || '',
+    content_blocks: item.content_blocks || [],
+    fields: item.fields || [],
     requirements: item.requirements || {},
     reference_answer: item.answer?.reference_answer || '',
+    reference_fields: item.answer?.reference_fields || {},
     scoring_points: item.answer?.scoring_points || [],
     scoring_rubric: item.answer?.scoring_rubric || null,
-    user_answer: response?.text || '',
+    user_answer: serializeResponse(item, response),
   }
 }
 
@@ -54,17 +81,12 @@ function buildQuestionTarget(item, response, subQuestion = null) {
     blanks: item.blanks || [],
     correct_answer: item.answer?.correct || item.answer?.reference_answer || '',
     rationale: item.answer?.rationale || item.answer?.reference_answer || '',
-    user_answer:
-      item.answer?.type === 'subjective'
-        ? response?.text || ''
-        : Array.isArray(response)
-          ? response.join(', ')
-          : typeof response === 'object'
-            ? JSON.stringify(response)
-            : response || '',
+    user_answer: serializeResponse(item, response),
     source_text: item.source_text || '',
     context_title: item.context_title || '',
     context: item.context || '',
+    content_blocks: item.content_blocks || [],
+    fields: item.fields || [],
   }
 }
 
@@ -95,7 +117,7 @@ export async function gradeSubjectiveAttempt({
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      'You are a strict but professional English exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete and actionable.',
+      'You are a strict but professional exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete, actionable, and grounded in the provided reference answer or scoring points.',
     userPrompt: JSON.stringify(
       {
         task: 'grade_subjective_questions',
@@ -167,7 +189,7 @@ export async function explainQuizQuestionWithMode({
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      'You are a clear English exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
+      'You are a clear exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
     userPrompt: JSON.stringify(
       {
         task: 'explain_quiz_question',
@@ -206,7 +228,7 @@ export async function generateSimilarQuestions({ paperTitle, item, response, cou
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      'You are an English exam question generator. Return JSON only. Based on the source question, generate 5 similar questions with progressively increasing difficulty.',
+      'You are an exam question generator. Return JSON only. Based on the source question, generate similar questions with progressively increasing difficulty and keep them aligned with the same knowledge point.',
     userPrompt: JSON.stringify(
       {
         task: 'generate_similar_questions',

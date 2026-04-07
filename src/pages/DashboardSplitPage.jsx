@@ -16,13 +16,42 @@ import { listAttempts, loadFavoriteEntries } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY } from '../config/subjects'
 import { getDeepSeekConfig, maskApiKey, updateDeepSeekConfig } from '../services/ai/deepseekClient'
 
+function getSubjectDisplay(subject) {
+  switch (subject.key) {
+    case 'english':
+      return {
+        title: '英语',
+        description: '导入题库、刷题、模考、历史记录与错题回看。',
+      }
+    case 'data_structure':
+      return {
+        title: '数据结构',
+        description: '支持结构化题、图题、树题和过程题练习。',
+      }
+    case 'database_principles':
+      return {
+        title: '数据库原理',
+        description: '支持 SQL、设计题、事务与恢复相关练习。',
+      }
+    default:
+      return {
+        title: subject.shortLabel || subject.key,
+        description: subject.description || '',
+      }
+  }
+}
+
+function getAttemptTitle(attempt) {
+  return attempt?.customTitle?.trim() || attempt?.title || '未命名试卷'
+}
+
 function WorkflowBand() {
   return (
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
         <span className="dashboard-eyebrow">JSON Workflow</span>
-        <h2>使用说明，推荐使用 DeepSeek 清洗试卷</h2>
-        <p>PDF / DOCX 先交给 AI 清洗，再把 JSON 导入本站。</p>
+        <h2>下载资料包，把协议和试卷一起发给 DeepSeek</h2>
+        <p>推荐流程：下载资料包 → 把试卷原文和协议一起发给 AI → 拿回 JSON → 导入本站刷题。</p>
       </div>
 
       <div className="dashboard-band-steps">
@@ -33,10 +62,22 @@ function WorkflowBand() {
         <span>导入练习</span>
       </div>
 
-      <div className="dashboard-band-actions">
+      <div className="dashboard-band-actions import-kit-actions">
+        <a className="primary-btn small-btn" href="./exam-import-kit.zip" download>
+          <Download size={14} />
+          导入资料包
+        </a>
         <a className="secondary-btn small-btn" href="./json-schema.md" download>
           <Download size={14} />
-          JSON 规范
+          协议说明
+        </a>
+        <a className="secondary-btn small-btn" href="./exam-import.schema.json" download>
+          <Download size={14} />
+          JSON Schema
+        </a>
+        <a className="secondary-btn small-btn" href="./exam-import.example.json" download>
+          <Download size={14} />
+          示例 JSON
         </a>
       </div>
     </section>
@@ -70,10 +111,10 @@ export default function DashboardSplitPage() {
     async function loadDashboard() {
       if (!activeProfileId) return
 
-      const [attempts, favorites] = await Promise.all([
-        listAttempts(activeProfileId),
-        loadFavoriteEntries(activeProfileId, 'english'),
-      ])
+      const favoriteRows = await Promise.all(
+        SUBJECT_REGISTRY.map((subject) => loadFavoriteEntries(activeProfileId, subject.key))
+      )
+      const attempts = await listAttempts(activeProfileId)
 
       if (!cancelled) {
         setDashboardState({
@@ -81,7 +122,7 @@ export default function DashboardSplitPage() {
           totalQuestionVolume: attempts.reduce((sum, item) => sum + (item.questionCount || 0), 0),
           totalWrong: attempts.reduce((sum, item) => sum + (item.wrongCount || 0), 0),
         })
-        setFavoriteCount(favorites.length)
+        setFavoriteCount(favoriteRows.reduce((sum, rows) => sum + rows.length, 0))
       }
     }
 
@@ -91,26 +132,25 @@ export default function DashboardSplitPage() {
     }
   }, [activeProfileId])
 
-  const subjectSummaries = useMemo(
-    () =>
-      SUBJECT_REGISTRY.map((subject) => {
-        const attempts = dashboardState.attempts.filter((item) => item.subject === subject.key)
-        const averageRate = attempts.length
-          ? Math.round(
-              attempts.reduce((sum, item) => {
-                return sum + (item.objectiveTotal ? (item.objectiveScore / item.objectiveTotal) * 100 : 0)
-              }, 0) / attempts.length
-            )
-          : 0
+  const subjectSummaries = useMemo(() => {
+    return SUBJECT_REGISTRY.map((subject) => {
+      const attempts = dashboardState.attempts.filter((item) => item.subject === subject.key)
+      const averageRate = attempts.length
+        ? Math.round(
+            attempts.reduce((sum, item) => {
+              return sum + (item.objectiveTotal ? (item.objectiveScore / item.objectiveTotal) * 100 : 0)
+            }, 0) / attempts.length
+          )
+        : 0
 
-        return {
-          ...subject,
-          attemptCount: attempts.length,
-          averageRate,
-        }
-      }),
-    [dashboardState.attempts]
-  )
+      return {
+        ...subject,
+        display: getSubjectDisplay(subject),
+        attemptCount: attempts.length,
+        averageRate,
+      }
+    })
+  }, [dashboardState.attempts])
 
   const latestAttempt = dashboardState.attempts[0] || null
   const overallAverageRate = dashboardState.attempts.length
@@ -129,7 +169,8 @@ export default function DashboardSplitPage() {
   ]
 
   const handleCreateProfile = async () => {
-    await createLocalProfile(newProfileName)
+    const nextName = newProfileName.trim()
+    await createLocalProfile(nextName)
     setNewProfileName('')
     setShowCreateProfile(false)
   }
@@ -155,11 +196,8 @@ export default function DashboardSplitPage() {
           <section className="dashboard-hero">
             <div className="hero-icon">
               <LayoutDashboard size={30} />
-              <button type="button" className="secondary-btn" onClick={handleUpdateApiKey}>
-                更新 API Key
-              </button>
             </div>
-            <h1>智能在线模考系统V2.0</h1>
+            <h1>智能在线模考系统 2.0</h1>
           </section>
         </div>
       </div>
@@ -172,15 +210,18 @@ export default function DashboardSplitPage() {
         <section className="dashboard-showcase">
           <div className="dashboard-showcase-copy">
             <span className="dashboard-eyebrow">Study Workspace</span>
-            <h1>智能在线模考系统V2.0</h1>
-            <p>极速刷题、快速巩固、智能模考、错题本支持。</p>
+            <h1>智能在线模考系统 2.0</h1>
+            <p>支持题库导入、刷题训练、考试模式、AI 辅助讲解与错题回看。</p>
 
-            <div className="dashboard-showcase-actions">
+            <div className="dashboard-showcase-actions import-kit-actions">
               <Link className="primary-btn" to="/exam/english">
-                进入主科目
+                进入题库
               </Link>
+              <a className="secondary-btn" href="./exam-import-kit.zip" download>
+                下载导入资料包
+              </a>
               <a className="secondary-btn" href="./json-schema.md" download>
-                下载 JSON 规范
+                查看协议说明
               </a>
               <button type="button" className="secondary-btn" onClick={handleUpdateApiKey}>
                 更新 API Key
@@ -213,7 +254,7 @@ export default function DashboardSplitPage() {
               </div>
 
               <strong>{activeProfile?.name || '未命名档案'}</strong>
-              <p>档案切换按多角色分离，暂不支持跨设备同步。</p>
+              <p>本地档案彼此隔离，适合按备考阶段或不同目标学校区分使用。</p>
 
               <label className="form-field">
                 <span>切换档案</span>
@@ -237,7 +278,7 @@ export default function DashboardSplitPage() {
                     <input
                       value={newProfileName}
                       onChange={(event) => setNewProfileName(event.target.value)}
-                      placeholder="输入新的本地用户名称"
+                      placeholder="输入新的本地档案名称"
                     />
                   </label>
                   <button className="primary-btn profile-create-btn" onClick={handleCreateProfile}>
@@ -251,7 +292,7 @@ export default function DashboardSplitPage() {
             <div className="dashboard-quick-panel">
               <button className="dashboard-quick-link" type="button" onClick={handleUpdateApiKey}>
                 <Star size={16} />
-                <span>AI Key：{maskApiKey(aiConfig.apiKey)}</span>
+                <span>AI Key：{maskApiKey(aiConfig.apiKey) || '未设置'}</span>
               </button>
               <Link className="dashboard-quick-link" to="/wrong-book">
                 <BookOpen size={16} />
@@ -281,10 +322,10 @@ export default function DashboardSplitPage() {
             {subjectSummaries.map((subject) => (
               <Link key={subject.key} className="dashboard-module-card" to={subject.route}>
                 <div className="dashboard-module-top">
-                  <strong>{subject.shortLabel}</strong>
-                  <span className="dashboard-module-tag">可用</span>
+                  <strong>{subject.display.title}</strong>
+                  <span className="dashboard-module-tag">{subject.isAvailable ? '可用' : '待开放'}</span>
                 </div>
-                <p>{subject.description}</p>
+                <p>{subject.display.description}</p>
                 <div className="dashboard-module-meta">
                   <span>总考试次数 {subject.attemptCount}</span>
                   <span>平均正确率 {subject.averageRate}%</span>
@@ -304,7 +345,7 @@ export default function DashboardSplitPage() {
           <article className="dashboard-summary-card">
             <span className="dashboard-summary-label">最近一次考试</span>
             <strong>{latestAttempt ? `${latestAttempt.objectiveScore}/${latestAttempt.objectiveTotal}` : '--'}</strong>
-            <p>{latestAttempt?.title || '当前还没有提交记录'}</p>
+            <p>{latestAttempt ? getAttemptTitle(latestAttempt) : '当前还没有提交记录。'}</p>
           </article>
 
           <article className="dashboard-summary-card">
@@ -316,7 +357,7 @@ export default function DashboardSplitPage() {
           <article className="dashboard-summary-card">
             <span className="dashboard-summary-label">当前重点</span>
             <strong>{dashboardState.totalWrong} 道错题</strong>
-            <p>如果今天只做一件事，优先从错题本开始。</p>
+            <p>建议优先从错题本开始，先修正薄弱点再刷新题。</p>
           </article>
         </section>
       </div>

@@ -10,16 +10,31 @@ import {
   FileText,
   Languages,
   LoaderCircle,
-  Maximize2,
-  Minimize2,
   Pause,
   Play,
   Star,
   XCircle,
 } from 'lucide-react'
+import RichContentBlocks from './RichContentBlocks'
+import {
+  evaluateFillBlankBlank,
+  formatStructuredResponse,
+  getObjectiveCorrectLabel,
+  getQuestionGroupMeta,
+  isObjectiveCorrect,
+  isResponseAnswered,
+  normalizeChoiceArray,
+} from '../utils/questionRuntime'
 
 function difficultyClass(difficulty = '') {
-  switch ((difficulty || '').toLowerCase()) {
+  const numeric = Number(difficulty)
+  if (Number.isFinite(numeric)) {
+    if (numeric <= 2) return 'tag easy'
+    if (numeric === 3) return 'tag medium'
+    if (numeric >= 4) return 'tag hard'
+  }
+
+  switch (String(difficulty || '').toLowerCase()) {
     case 'easy':
       return 'tag easy'
     case 'medium':
@@ -42,48 +57,13 @@ function getSubjectiveText(response) {
 }
 
 function countWords(text) {
-  return text.trim() ? text.trim().split(/\s+/).length : 0
-}
-
-function normalizeChoiceArray(value) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
-}
-
-function isAnswered(item, response) {
-  if (!item) return false
-  if (item.type === 'reading') {
-    if (!response || typeof response !== 'object') return false
-    return item.questions.every((question) => typeof response[question.id] === 'string' && response[question.id].length > 0)
-  }
-  if (item.type === 'multiple_choice') {
-    return normalizeChoiceArray(response).length > 0
-  }
-  if (item.type === 'fill_blank') {
-    if (!response || typeof response !== 'object') return false
-    return item.blanks.every((blank) => typeof response[blank.blank_id] === 'string' && response[blank.blank_id].trim().length > 0)
-  }
-  if (item.answer?.type === 'subjective') {
-    if (typeof response === 'string') return response.trim().length > 0
-    return Boolean(response?.text?.trim())
-  }
-  return typeof response === 'string' && response.length > 0
+  const normalized = String(text || '').trim()
+  return normalized ? normalized.split(/\s+/).length : 0
 }
 
 function isObjectiveWrong(item, response) {
-  if (!item || item.answer?.type !== 'objective' || !isAnswered(item, response)) return false
-  if (item.type === 'multiple_choice') {
-    const actual = normalizeChoiceArray(response)
-    const expected = normalizeChoiceArray(item.answer?.correct)
-    return actual.length !== expected.length || actual.some((value, index) => value !== expected[index])
-  }
-  if (item.type === 'fill_blank') {
-    return item.blanks.some((blank) => {
-      const userValue = String(response?.[blank.blank_id] || '').trim().toLowerCase()
-      return !blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-    })
-  }
-  return response !== item.answer?.correct
+  if (!item || item.answer?.type !== 'objective' || !isResponseAnswered(item, response)) return false
+  return !isObjectiveCorrect(item, response)
 }
 
 function getSpoilerTags(item) {
@@ -93,16 +73,6 @@ function getSpoilerTags(item) {
   if (item.direction) hiddenTags.add(String(item.direction).toLowerCase())
   if (item.essay_type) hiddenTags.add(String(item.essay_type).toLowerCase())
   return (item.tags || []).filter((tag) => !hiddenTags.has(String(tag).toLowerCase()))
-}
-
-function getNavGroupMeta(item) {
-  if (item.type === 'reading') return { key: 'reading', label: '阅读理解' }
-  if (item.type === 'translation') return { key: 'translation', label: '翻译题' }
-  if (item.type === 'essay') return { key: 'essay', label: '作文题' }
-  if (item.type === 'multiple_choice') return { key: 'multiple_choice', label: '多项选择' }
-  if (item.type === 'true_false') return { key: 'true_false', label: '判断题' }
-  if (item.type === 'fill_blank' || item.source_type === 'cloze') return { key: 'fill_blank', label: '填空题' }
-  return { key: 'single_choice', label: '单项选择' }
 }
 
 function formatRemainingSeconds(totalSeconds) {
@@ -135,7 +105,11 @@ function AiExplainPanel({ entry }) {
   }
 
   if (entry.status === 'failed') {
-    return <div className="analysis-box ai-panel"><div className="ai-panel-status">AI 解释失败：{entry.error || '请稍后重试'}</div></div>
+    return (
+      <div className="analysis-box ai-panel">
+        <div className="ai-panel-status">AI 解释失败：{entry.error || '请稍后重试'}</div>
+      </div>
+    )
   }
 
   if (entry.status !== 'completed') return null
@@ -156,16 +130,26 @@ function AiExplainPanel({ entry }) {
           </button>
         )}
       </div>
+
       {preview && <div className="ai-panel-preview">{preview}</div>}
       {expanded && entry.explanation && <div className="ai-panel-body">{entry.explanation}</div>}
       {expanded && Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0 && (
-        <div className="ai-panel-row"><strong>关键点</strong><span>{entry.keyPoints.join(' / ')}</span></div>
+        <div className="ai-panel-row">
+          <strong>关键点</strong>
+          <span>{entry.keyPoints.join(' / ')}</span>
+        </div>
       )}
       {expanded && Array.isArray(entry.commonMistakes) && entry.commonMistakes.length > 0 && (
-        <div className="ai-panel-row"><strong>误区</strong><span>{entry.commonMistakes.join(' / ')}</span></div>
+        <div className="ai-panel-row">
+          <strong>易错点</strong>
+          <span>{entry.commonMistakes.join(' / ')}</span>
+        </div>
       )}
       {expanded && Array.isArray(entry.answerStrategy) && entry.answerStrategy.length > 0 && (
-        <div className="ai-panel-row"><strong>建议</strong><span>{entry.answerStrategy.join(' / ')}</span></div>
+        <div className="ai-panel-row">
+          <strong>建议</strong>
+          <span>{entry.answerStrategy.join(' / ')}</span>
+        </div>
       )}
     </div>
   )
@@ -185,29 +169,38 @@ function AiQuestionReviewPanel({ review }) {
   return (
     <div className="analysis-box ai-panel ai-review-panel">
       <div className="ai-panel-head">
-        <div>
-          <strong>AI 批改</strong>
-        </div>
+        <strong>AI 批改</strong>
         {(review.feedback || hasDetails) && (
           <button type="button" className="ai-panel-toggle" onClick={() => setExpanded((value) => !value)}>
             {expanded ? '收起' : '展开'}
           </button>
         )}
       </div>
+
       <div className="ai-review-score">
-        <strong>AI 批改：</strong>
+        <strong>得分：</strong>
         {review.score} / {review.maxScore}
       </div>
+
       {preview && <div className="ai-panel-preview">{preview}</div>}
       {expanded && review.feedback && <div className="ai-panel-body">{review.feedback}</div>}
       {expanded && Array.isArray(review.strengths) && review.strengths.length > 0 && (
-        <div className="ai-panel-row"><strong>优点</strong><span>{review.strengths.join(' / ')}</span></div>
+        <div className="ai-panel-row">
+          <strong>优点</strong>
+          <span>{review.strengths.join(' / ')}</span>
+        </div>
       )}
       {expanded && Array.isArray(review.weaknesses) && review.weaknesses.length > 0 && (
-        <div className="ai-panel-row"><strong>扣分点</strong><span>{review.weaknesses.join(' / ')}</span></div>
+        <div className="ai-panel-row">
+          <strong>扣分点</strong>
+          <span>{review.weaknesses.join(' / ')}</span>
+        </div>
       )}
       {expanded && Array.isArray(review.suggestions) && review.suggestions.length > 0 && (
-        <div className="ai-panel-row"><strong>改进</strong><span>{review.suggestions.join(' / ')}</span></div>
+        <div className="ai-panel-row">
+          <strong>改进建议</strong>
+          <span>{review.suggestions.join(' / ')}</span>
+        </div>
       )}
     </div>
   )
@@ -221,7 +214,9 @@ function AiPracticeModal({ modal, onClose }) {
       <div className="ai-modal-card" onClick={(event) => event.stopPropagation()}>
         <div className="ai-modal-head">
           <strong>{modal.title || 'AI 同类题'}</strong>
-          <button type="button" className="ai-panel-toggle" onClick={onClose}>关闭</button>
+          <button type="button" className="ai-panel-toggle" onClick={onClose}>
+            关闭
+          </button>
         </div>
 
         {modal.status === 'pending' && (
@@ -251,8 +246,14 @@ function AiPracticeModal({ modal, onClose }) {
                     ))}
                   </div>
                 )}
-                <div className="ai-panel-row"><strong>答案</strong><span>{question.answer || '--'}</span></div>
-                <div className="ai-panel-row"><strong>解析</strong><span>{question.explanation || '--'}</span></div>
+                <div className="ai-panel-row">
+                  <strong>答案</strong>
+                  <span>{question.answer || '--'}</span>
+                </div>
+                <div className="ai-panel-row">
+                  <strong>解析</strong>
+                  <span>{question.explanation || '--'}</span>
+                </div>
               </article>
             ))}
           </div>
@@ -266,7 +267,7 @@ function ReadingBlock({
   item,
   response,
   submitted,
-  isPaused,
+  disabled,
   mode,
   revealedMap,
   focusSubQuestionId,
@@ -275,7 +276,6 @@ function ReadingBlock({
   aiExplainMap,
   onExplainQuestion,
 }) {
-  const [immersiveReading, setImmersiveReading] = useState(false)
   const readingResponse = response || {}
   const questionRefs = useRef({})
 
@@ -286,35 +286,25 @@ function ReadingBlock({
   }, [focusSubQuestionId])
 
   return (
-    <div className={`reading-layout ${immersiveReading ? 'immersive' : ''}`}>
-      <section className={`reading-passage-card ${immersiveReading ? 'immersive' : ''}`}>
+    <div className="reading-layout">
+      <section className="reading-passage-card">
         <div className="reading-passage-head">
           <div className="reading-passage-title">
             <FileText size={16} />
-            <span>{item.passage?.title || item.title || '阅读文章'}</span>
+            <span>{item.passage?.title || item.title || '阅读材料'}</span>
           </div>
-          <button
-            type="button"
-            className="reading-mode-btn"
-            onClick={() => setImmersiveReading((value) => !value)}
-            disabled={isPaused}
-          >
-            {immersiveReading ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </button>
         </div>
-        <div className={`reading-passage-body ${immersiveReading ? 'immersive' : ''}`}>
-          {item.passage?.content}
-        </div>
+        <div className="reading-passage-body">{item.passage?.content}</div>
       </section>
 
-      <section className={`reading-questions-card ${immersiveReading ? 'immersive' : ''}`}>
+      <section className="reading-questions-card">
         <div className="reading-question-list">
-          {item.questions.map((subQuestion, subIndex) => {
+          {(item.questions || []).map((subQuestion, subIndex) => {
             const userAnswer = readingResponse[subQuestion.id]
             const revealKey = `${item.id}:${subQuestion.id}`
             const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
+            const explainEntry = aiExplainMap?.[revealKey]
             const isFocused = focusSubQuestionId === subQuestion.id
-            const explainEntry = aiExplainMap?.[`${item.id}:${subQuestion.id}`]
 
             return (
               <div
@@ -330,7 +320,7 @@ function ReadingBlock({
                 </div>
 
                 <div className="options compact-options">
-                  {subQuestion.options.map((option, optionIndex) => {
+                  {(subQuestion.options || []).map((option, optionIndex) => {
                     const selected = userAnswer === option.key
                     let className = 'option compact-option'
                     let icon = null
@@ -351,7 +341,7 @@ function ReadingBlock({
                       <button
                         key={optionIndex}
                         className={className}
-                        disabled={submitted || isPaused || (mode === 'practice' && showFeedback)}
+                        disabled={submitted || disabled || (mode === 'practice' && showFeedback)}
                         onClick={() => {
                           onFocusSubQuestion(subQuestion.id)
                           onSelectReadingOption(item.id, subQuestion.id, option.key)
@@ -372,11 +362,12 @@ function ReadingBlock({
                     <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
                   </div>
                 )}
+
                 <button
                   type="button"
                   className="secondary-btn small-btn ai-inline-btn"
-                  onClick={() => onExplainQuestion({ item, subQuestion })}
-                  disabled={isPaused || explainEntry?.status === 'pending'}
+                  onClick={() => onExplainQuestion?.({ item, subQuestion })}
+                  disabled={disabled || explainEntry?.status === 'pending'}
                 >
                   {explainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
                   {explainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
@@ -387,6 +378,111 @@ function ReadingBlock({
           })}
         </div>
       </section>
+    </div>
+  )
+}
+
+function ObjectiveOptionsBlock({
+  item,
+  userResponse,
+  objectiveReveal,
+  submitted,
+  disabled,
+  mode,
+  onSelectOption,
+}) {
+  const selectedValues = item.type === 'multiple_choice' ? normalizeChoiceArray(userResponse) : []
+
+  return (
+    <div className="options">
+      {(item.options || []).map((opt, optIndex) => {
+        const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
+        const selected = item.type === 'multiple_choice'
+          ? selectedValues.includes(option.key)
+          : userResponse === option.key
+        const isCorrect = item.type === 'multiple_choice'
+          ? normalizeChoiceArray(item.answer?.correct).includes(option.key)
+          : option.key === item.answer?.correct
+
+        let className = 'option'
+        let icon = null
+
+        if (!objectiveReveal) {
+          if (selected) className += ' selected'
+        } else if (isCorrect) {
+          className += ' correct'
+          icon = <CheckCircle2 size={18} />
+        } else if (selected) {
+          className += ' wrong'
+          icon = <XCircle size={18} />
+        } else {
+          className += ' muted'
+        }
+
+        return (
+          <button
+            key={optIndex}
+            className={className}
+            disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
+            onClick={() => onSelectOption(item.id, option.key)}
+          >
+            <span>{renderOptionLabel(option)}</span>
+            {icon}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function FillBlankBlock({
+  item,
+  userResponse,
+  objectiveReveal,
+  submitted,
+  disabled,
+  mode,
+  onFillBlankChange,
+}) {
+  const response = userResponse || {}
+
+  return (
+    <div className="subjective-block">
+      <div className="answer-review-grid">
+        {(item.blanks || []).map((blank, index) => {
+          const value = response[blank.blank_id] || ''
+          const evaluation = evaluateFillBlankBlank(blank, value)
+
+          return (
+            <article
+              key={blank.blank_id}
+              className={`answer-review-card ${objectiveReveal ? (evaluation.correct ? 'correct' : 'wrong') : ''}`}
+            >
+              <div className="answer-review-prompt">{blank.label || `第 ${index + 1} 空`}</div>
+              {blank.separator_hint && <div className="answer-review-line subtle">{blank.separator_hint}</div>}
+              <input
+                className="subjective-textarea"
+                value={value}
+                onChange={(event) => onFillBlankChange(item.id, blank.blank_id, event.target.value)}
+                disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
+                placeholder="请输入答案"
+              />
+              {objectiveReveal && (
+                <>
+                  <div className="answer-review-line">
+                    <strong>参考答案：</strong>
+                    {evaluation.correctDisplay}
+                  </div>
+                  <div className="answer-review-line">
+                    <strong>解析：</strong>
+                    {blank.rationale || item.answer?.rationale || '暂无解析'}
+                  </div>
+                </>
+              )}
+            </article>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -435,9 +531,6 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
         onChange={(event) => onTextChange(item.id, event.target.value)}
         disabled={disabled}
         rows={12}
-        spellCheck={false}
-        autoCorrect="off"
-        autoCapitalize="off"
       />
       {submitted && item.answer?.reference_answer && (
         <div className="analysis-box">
@@ -448,98 +541,89 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   )
 }
 
-function ObjectiveOptionsBlock({
-  item,
-  userResponse,
-  objectiveReveal,
-  submitted,
-  disabled,
-  mode,
-  onSelectOption,
-}) {
-  const selectedValues = item.type === 'multiple_choice' ? normalizeChoiceArray(userResponse) : []
+function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTextChange }) {
+  const text = getSubjectiveText(userResponse)
 
   return (
-    <div className="options">
-      {item.options.map((opt, optIndex) => {
-        const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
-        const selected = item.type === 'multiple_choice' ? selectedValues.includes(option.key) : userResponse === option.key
-        const isCorrect = item.type === 'multiple_choice'
-          ? normalizeChoiceArray(item.answer?.correct).includes(option.key)
-          : option.key === item.answer?.correct
-
-        let className = 'option'
-        let icon = null
-
-        if (!objectiveReveal) {
-          if (selected) className += ' selected'
-        } else if (isCorrect) {
-          className += ' correct'
-          icon = <CheckCircle2 size={18} />
-        } else if (selected) {
-          className += ' wrong'
-          icon = <XCircle size={18} />
-        } else {
-          className += ' muted'
-        }
-
-        return (
-          <button
-            key={optIndex}
-            className={className}
-            disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
-            onClick={() => onSelectOption(item.id, option.key)}
-          >
-            <span>{renderOptionLabel(option)}</span>
-            {icon}
-          </button>
-        )
-      })}
+    <div className="subjective-block essay-card">
+      <textarea
+        className="subjective-textarea"
+        value={text}
+        onChange={(event) => onTextChange(item.id, event.target.value)}
+        disabled={disabled}
+        rows={8}
+        placeholder={item.editor_placeholder || '请输入答案'}
+      />
+      {submitted && item.answer?.reference_answer && (
+        <div className="analysis-box">
+          <div>{item.answer.reference_answer}</div>
+        </div>
+      )}
     </div>
   )
 }
 
-function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabled, mode, onFillBlankChange }) {
+function SqlBlock({ item, userResponse, disabled, submitted, onTextChange }) {
+  const text = getSubjectiveText(userResponse)
+
+  return (
+    <div className="subjective-block sql-card">
+      <textarea
+        className="subjective-textarea sql-textarea"
+        value={text}
+        onChange={(event) => onTextChange(item.id, event.target.value)}
+        disabled={disabled}
+        rows={10}
+        placeholder={item.editor_placeholder || '请输入 SQL 语句'}
+      />
+      {submitted && item.answer?.reference_answer && (
+        <div className="analysis-box sql-reference-block">
+          <pre>{item.answer.reference_answer}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StructuredFormBlock({ item, userResponse, disabled, submitted, onStructuredFieldChange }) {
   const response = userResponse || {}
 
   return (
-    <div className="subjective-block">
-      <div className="answer-review-grid">
-        {item.blanks.map((blank, index) => {
-          const value = response[blank.blank_id] || ''
-          const normalized = String(value).trim().toLowerCase()
-          const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
-          const showFeedback = objectiveReveal
+    <div className="subjective-block structured-form-card">
+      <div className="structured-form-grid">
+        {(item.fields || []).map((field) => {
+          const value = response[field.key] || ''
+          const isLongText = field.fieldType === 'textarea' || field.fieldType === 'array_text'
 
           return (
-            <article
-              key={blank.blank_id}
-              className={`answer-review-card ${showFeedback ? (isCorrect ? 'correct' : 'wrong') : ''}`}
-            >
-              <div className="answer-review-prompt">第 {index + 1} 空</div>
-              <input
-                className="subjective-textarea"
-                value={value}
-                onChange={(event) => onFillBlankChange(item.id, blank.blank_id, event.target.value)}
-                disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
-                placeholder="请输入答案"
-              />
-              {showFeedback && (
-                <>
-                  <div className="answer-review-line">
-                    <strong>参考答案：</strong>
-                    {blank.accepted_answers.join(' / ')}
-                  </div>
-                  <div className="answer-review-line">
-                    <strong>解析：</strong>
-                    {blank.rationale || '暂无解析'}
-                  </div>
-                </>
+            <article key={field.key} className="answer-review-card subjective">
+              <div className="answer-review-prompt">{field.label}</div>
+              {isLongText ? (
+                <textarea
+                  className="subjective-textarea"
+                  value={value}
+                  onChange={(event) => onStructuredFieldChange(item.id, field.key, event.target.value)}
+                  disabled={disabled}
+                  rows={field.fieldType === 'array_text' ? 6 : 4}
+                />
+              ) : (
+                <input
+                  className="subjective-textarea"
+                  value={value}
+                  onChange={(event) => onStructuredFieldChange(item.id, field.key, event.target.value)}
+                  disabled={disabled}
+                />
               )}
             </article>
           )
         })}
       </div>
+
+      {submitted && item.answer?.reference_fields && (
+        <div className="analysis-box">
+          <pre>{formatStructuredResponse(item.answer.reference_fields, item.fields || [])}</pre>
+        </div>
+      )}
     </div>
   )
 }
@@ -569,6 +653,7 @@ export default function CleanQuizView({
   onSelectReadingOption,
   onFillBlankChange,
   onTextChange,
+  onStructuredFieldChange,
   aiReview,
   aiQuestionReviewMap = {},
   aiExplainMap = {},
@@ -581,23 +666,31 @@ export default function CleanQuizView({
   onCloseAiPracticeModal,
   onSubmit,
 }) {
-  const total = quiz.items.length
-  const currentItem = quiz.items[currentIndex]
+  const items = quiz?.items || []
+  const total = items.length
+  const currentItem = items[currentIndex]
   const [openGroups, setOpenGroups] = useState({})
   const [focusedReadingQuestion, setFocusedReadingQuestion] = useState(null)
 
   const groupedNavSections = useMemo(() => {
-    const order = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'reading', 'translation', 'essay']
+    const order = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'reading', 'translation', 'sql', 'structured_form', 'subjective', 'essay']
     const map = new Map()
 
-    quiz.items.forEach((item, index) => {
-      const meta = getNavGroupMeta(item)
+    items.forEach((item, index) => {
+      const meta = getQuestionGroupMeta(item)
       if (!map.has(meta.key)) map.set(meta.key, { ...meta, items: [] })
       map.get(meta.key).items.push({ item, index })
     })
 
-    return Array.from(map.values()).sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
-  }, [quiz])
+    return Array.from(map.values()).sort((a, b) => {
+      const aIndex = order.indexOf(a.key)
+      const bIndex = order.indexOf(b.key)
+      if (aIndex === -1 && bIndex === -1) return a.label.localeCompare(b.label)
+      if (aIndex === -1) return 1
+      if (bIndex === -1) return -1
+      return aIndex - bIndex
+    })
+  }, [items])
 
   useEffect(() => {
     setOpenGroups((prev) => {
@@ -611,18 +704,25 @@ export default function CleanQuizView({
 
   useEffect(() => {
     if (!currentItem) return
-    const currentGroupKey = getNavGroupMeta(currentItem).key
-    setOpenGroups((prev) => (prev[currentGroupKey] === false ? { ...prev, [currentGroupKey]: true } : prev))
+    const currentGroupKey = getQuestionGroupMeta(currentItem).key
+    setOpenGroups((prev) => (
+      prev[currentGroupKey] === false
+        ? { ...prev, [currentGroupKey]: true }
+        : prev
+    ))
 
     if (currentItem.type === 'reading') {
       setFocusedReadingQuestion((prev) => {
         if (prev?.itemId === currentItem.id && prev?.subQuestionId) return prev
-        return { itemId: currentItem.id, subQuestionId: currentItem.questions?.[0]?.id || null }
+        return {
+          itemId: currentItem.id,
+          subQuestionId: currentItem.questions?.[0]?.id || null,
+        }
       })
     } else {
       setFocusedReadingQuestion(null)
     }
-  }, [currentItem?.id])
+  }, [currentItem])
 
   if (!currentItem) return null
 
@@ -634,6 +734,9 @@ export default function CleanQuizView({
   const isEssay = currentItem.type === 'essay'
   const isTranslation = currentItem.type === 'translation'
   const isFillBlank = currentItem.type === 'fill_blank'
+  const isSql = currentItem.type === 'sql'
+  const isStructuredForm = currentItem.type === 'structured_form'
+  const currentGroupMeta = getQuestionGroupMeta(currentItem)
   const spoilerTags = getSpoilerTags(currentItem)
   const disabled = isPaused && mode === 'exam'
   const objectiveReveal = submitted || (mode === 'practice' && revealedMap[currentItem.id])
@@ -689,8 +792,8 @@ export default function CleanQuizView({
           <div className="sidebar-tools compact-sidebar-tools">
             <div className="sidebar-tool-card compact-toggle-card">
               <div className="sidebar-tool-copy">
-                <span className="sidebar-tool-title">写入错题库</span>
-                <span className="sidebar-tool-desc">关闭后，本次刷题不会进入错题本。</span>
+                <span className="sidebar-tool-title">写入错题本</span>
+                <span className="sidebar-tool-desc">关闭后，本次练习不会写入错题本。</span>
               </div>
               <button
                 type="button"
@@ -707,10 +810,9 @@ export default function CleanQuizView({
         <div className="nav-accordion">
           {groupedNavSections.map((section) => {
             const isOpen = openGroups[section.key] ?? true
-            const displayCount =
-              section.key === 'reading'
-                ? section.items.reduce((sum, { item }) => sum + (item.questions?.length || 0), 0)
-                : section.items.length
+            const displayCount = section.key === 'reading'
+              ? section.items.reduce((sum, { item }) => sum + (item.questions?.length || 0), 0)
+              : section.items.length
 
             return (
               <div key={section.key} className="nav-group">
@@ -731,13 +833,12 @@ export default function CleanQuizView({
                     {section.items.map(({ item, index }) => {
                       if (section.key === 'reading') {
                         const readingResponse = answers[item.id] || {}
-                        return item.questions.map((question, subIndex) => {
+                        return (item.questions || []).map((question, subIndex) => {
                           const answered = typeof readingResponse[question.id] === 'string' && readingResponse[question.id].length > 0
                           const wrong = submitted && answered && readingResponse[question.id] !== question.answer?.correct
-                          const active =
-                            index === currentIndex &&
-                            focusedReadingQuestion?.itemId === item.id &&
-                            focusedReadingQuestion?.subQuestionId === question.id
+                          const active = index === currentIndex
+                            && focusedReadingQuestion?.itemId === item.id
+                            && focusedReadingQuestion?.subQuestionId === question.id
 
                           return (
                             <button
@@ -756,15 +857,17 @@ export default function CleanQuizView({
                         })
                       }
 
-                      const answered = isAnswered(item, answers[item.id])
-                      const active = index === currentIndex
+                      const answered = isResponseAnswered(item, answers[item.id])
                       const wrong = submitted && isObjectiveWrong(item, answers[item.id])
 
                       return (
                         <button
                           key={item.id}
-                          className={`nav-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`}
-                          onClick={() => onJump(index)}
+                          className={`nav-item ${index === currentIndex ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`}
+                          onClick={() => {
+                            if (disabled) return
+                            onJump(index)
+                          }}
                           disabled={disabled}
                         >
                           {index + 1}
@@ -786,27 +889,35 @@ export default function CleanQuizView({
           <div className="question-top">
             <div className="question-meta">
               <span className="tag">第 {currentIndex + 1} 题</span>
-              {isTranslation && <span className="tag purple">{currentItem.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span>}
-              {isEssay && <span className="tag purple">作文</span>}
-              {isReading && <span className="tag purple">阅读理解</span>}
-              {currentItem.type === 'multiple_choice' && <span className="tag purple">多选</span>}
-              {currentItem.type === 'true_false' && <span className="tag purple">判断</span>}
-              {isFillBlank && <span className="tag purple">填空</span>}
+              <span className="tag purple">{currentGroupMeta.label}</span>
+              {isTranslation && (
+                <span className="tag purple">
+                  {currentItem.direction === 'zh_to_en' ? '汉译英' : '英译汉'}
+                </span>
+              )}
               {spoilerTags.length > 0 && (
                 <button type="button" className="spoiler-icon-toggle" onClick={onToggleSpoiler}>
                   {spoilerExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
               )}
-              {spoilerExpanded && spoilerTags.map((tag) => <span key={tag} className="tag spoiler-tag">{tag}</span>)}
+              {spoilerExpanded && spoilerTags.map((tag) => (
+                <span key={tag} className="tag spoiler-tag">{tag}</span>
+              ))}
             </div>
 
             <div className="question-top-actions">
               {onToggleFavorite && (
-                <button type="button" className={`favorite-toggle ${isFavorite ? 'active' : ''}`} onClick={onToggleFavorite}>
+                <button
+                  type="button"
+                  className={`favorite-toggle ${isFavorite ? 'active' : ''}`}
+                  onClick={onToggleFavorite}
+                >
                   <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
                 </button>
               )}
-              {currentItem.difficulty && <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>}
+              {currentItem.difficulty && (
+                <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>
+              )}
             </div>
           </div>
 
@@ -820,6 +931,7 @@ export default function CleanQuizView({
           )}
 
           <h3>{currentItem.prompt}</h3>
+          <RichContentBlocks blocks={currentItem.content_blocks || []} />
 
           {!isReading && (
             <div className="ai-toolbar">
@@ -844,12 +956,13 @@ export default function CleanQuizView({
                 <button
                   type="button"
                   className="secondary-btn small-btn ai-inline-btn"
-                  onClick={() => onExplainQuestion({ item: currentItem })}
+                  onClick={() => onExplainQuestion?.({ item: currentItem })}
                   disabled={disabled || currentExplainEntry?.status === 'pending'}
                 >
                   {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
                   {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
                 </button>
+
                 <button
                   type="button"
                   className="secondary-btn small-btn ai-inline-btn"
@@ -858,6 +971,7 @@ export default function CleanQuizView({
                 >
                   为什么我错了
                 </button>
+
                 <button
                   type="button"
                   className="secondary-btn small-btn ai-inline-btn"
@@ -875,10 +989,14 @@ export default function CleanQuizView({
               item={currentItem}
               response={userResponse}
               submitted={submitted}
-              isPaused={disabled}
+              disabled={disabled}
               mode={mode}
               revealedMap={revealedMap}
-              focusSubQuestionId={focusedReadingQuestion?.itemId === currentItem.id ? focusedReadingQuestion?.subQuestionId : null}
+              focusSubQuestionId={
+                focusedReadingQuestion?.itemId === currentItem.id
+                  ? focusedReadingQuestion?.subQuestionId
+                  : null
+              }
               onFocusSubQuestion={(subQuestionId) => setFocusedReadingQuestion({ itemId: currentItem.id, subQuestionId })}
               onSelectReadingOption={onSelectReadingOption}
               aiExplainMap={aiExplainMap}
@@ -912,8 +1030,32 @@ export default function CleanQuizView({
               submitted={submitted}
               onTextChange={onTextChange}
             />
-          ) : (
+          ) : isEssay ? (
             <EssayBlock
+              item={currentItem}
+              userResponse={userResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onTextChange={onTextChange}
+            />
+          ) : isSql ? (
+            <SqlBlock
+              item={currentItem}
+              userResponse={userResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onTextChange={onTextChange}
+            />
+          ) : isStructuredForm ? (
+            <StructuredFormBlock
+              item={currentItem}
+              userResponse={userResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onStructuredFieldChange={onStructuredFieldChange}
+            />
+          ) : (
+            <GenericSubjectiveBlock
               item={currentItem}
               userResponse={userResponse}
               disabled={disabled || submitted}
@@ -925,16 +1067,12 @@ export default function CleanQuizView({
           {objectiveReveal && !isSubjective && !isReading && !isFillBlank && (
             <div className="analysis-box">
               <div>
-                正确答案：
-                <strong>
-                  {Array.isArray(currentItem.answer?.correct)
-                    ? currentItem.answer.correct.join(' / ')
-                    : currentItem.answer?.correct}
-                </strong>
+                正确答案：<strong>{getObjectiveCorrectLabel(currentItem)}</strong>
               </div>
               <div>解析：{currentItem.answer?.rationale || '暂无解析'}</div>
             </div>
           )}
+
           {isSubjective && submitted && <AiQuestionReviewPanel review={currentQuestionReview} />}
           {isSubjective && submitted && aiReview?.status === 'pending' && (
             <div className="analysis-box ai-panel">
@@ -955,7 +1093,7 @@ export default function CleanQuizView({
             {!submitted ? (
               isLast ? (
                 <button className="submit-btn small-submit-btn" onClick={() => onSubmit()} disabled={disabled}>
-                  {mode === 'practice' ? '结束练习' : '交卷并查看解析'}
+                  {mode === 'practice' ? '结束练习' : '交卷并查看结果'}
                 </button>
               ) : (
                 <button className="secondary-btn" onClick={onNext} disabled={disabled}>
@@ -975,11 +1113,12 @@ export default function CleanQuizView({
         {!submitted && total > 0 && !isLast && (
           <div className="submit-wrap">
             <button className="submit-btn" onClick={() => onSubmit()} disabled={disabled}>
-              {mode === 'practice' ? '结束练习' : '交卷并查看解析'}
+              {mode === 'practice' ? '结束练习' : '交卷并查看结果'}
             </button>
           </div>
         )}
       </div>
+
       <AiPracticeModal modal={aiPracticeModal} onClose={onCloseAiPracticeModal} />
     </section>
   )
