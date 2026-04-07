@@ -3,95 +3,48 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
-  Database,
   Download,
   FileJson,
-  FolderOpen,
+  History,
   LayoutDashboard,
   Pencil,
   Plus,
   Star,
   User2,
-  WandSparkles,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { listAttempts, loadFavoriteEntries } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY } from '../config/subjects'
 
-function Sparkline({ values }) {
-  if (!values.length) return <div className="sparkline-empty">暂无历史成绩</div>
-
-  const width = 220
-  const height = 64
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = max - min || 1
-  const points = values
-    .map((value, index) => {
-      const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width
-      const y = height - ((value - min) / range) * (height - 8) - 4
-      return `${x},${y}`
-    })
-    .join(' ')
-
+function WorkflowBand() {
   return (
-    <svg className="sparkline" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function WorkflowCard() {
-  return (
-    <section className="dashboard-section-card dashboard-workflow-card">
-      <div className="section-header-row">
-        <h2>
-          <FileJson size={18} />
-          JSON 规范与导入工作流
-        </h2>
-        <span className="section-header-tip">先让 AI 清洗，再导入本站</span>
+    <section className="dashboard-band-card">
+      <div className="dashboard-band-copy">
+        <span className="dashboard-eyebrow">
+          <FileJson size={14} />
+          JSON Workflow
+        </span>
+        <h2>PDF / DOCX 先交给 AI 清洗，再把 JSON 导入本站。</h2>
+        <p>首页只保留这一条最核心的使用路径，不再堆满说明卡片。</p>
       </div>
 
-      <div className="workflow-step-grid">
-        <article className="workflow-step-card">
-          <span className="workflow-step-index">01</span>
-          <h3>准备原始试卷</h3>
-          <p>把 PDF 或 DOCX 试卷整理好，尽量保证题号、选项和答案区块完整。</p>
-        </article>
-
-        <article className="workflow-step-card">
-          <span className="workflow-step-index">02</span>
-          <h3>让 AI 输出 JSON</h3>
-          <p>把试卷和 JSON Schema v2 一起发给 AI，让它只返回符合规范的 JSON 数据。</p>
-        </article>
-
-        <article className="workflow-step-card">
-          <span className="workflow-step-index">03</span>
-          <h3>导入并开始练习</h3>
-          <p>在题库页导入 JSON，之后就可以进入练习、考试、错题复习和收藏流程。</p>
-        </article>
+      <div className="dashboard-band-steps">
+        <span>试卷原文</span>
+        <ArrowRight size={14} />
+        <span>AI 输出 JSON</span>
+        <ArrowRight size={14} />
+        <span>导入练习</span>
       </div>
 
-      <div className="workflow-download-strip">
+      <div className="dashboard-band-actions">
         <a className="secondary-btn small-btn" href="./json-schema-v2.md" download>
           <Download size={14} />
-          下载 JSON 规范
+          JSON 规范
         </a>
         <a className="secondary-btn small-btn" href="./sample-schema-v2.json" download>
           <Download size={14} />
-          下载 v2 示例
-        </a>
-        <a className="secondary-btn small-btn" href="./sample-schema-v1.json" download>
-          <Download size={14} />
-          下载 v1 示例
+          v2 示例
         </a>
       </div>
     </section>
@@ -149,7 +102,6 @@ export default function DashboardSplitPage() {
     () =>
       SUBJECT_REGISTRY.map((subject) => {
         const attempts = dashboardState.attempts.filter((item) => item.subject === subject.key)
-        const latest = attempts[0] || null
         const averageRate = attempts.length
           ? Math.round(
               attempts.reduce((sum, item) => {
@@ -157,25 +109,17 @@ export default function DashboardSplitPage() {
               }, 0) / attempts.length
             )
           : 0
-        const trend = attempts
-          .slice()
-          .reverse()
-          .map((item) => (item.objectiveTotal ? Math.round((item.objectiveScore / item.objectiveTotal) * 100) : 0))
 
         return {
           ...subject,
-          latest,
-          averageRate,
-          trend,
           attemptCount: attempts.length,
+          averageRate,
         }
       }),
     [dashboardState.attempts]
   )
 
-  const activeModules = subjectSummaries.filter((item) => item.isAvailable)
-  const primarySummary = activeModules[0] || null
-  const recentAttempts = dashboardState.attempts.slice(0, 4)
+  const latestAttempt = dashboardState.attempts[0] || null
   const overallAverageRate = dashboardState.attempts.length
     ? Math.round(
         dashboardState.attempts.reduce((sum, item) => {
@@ -183,29 +127,12 @@ export default function DashboardSplitPage() {
         }, 0) / dashboardState.attempts.length
       )
     : 0
-  const latestAttempt = dashboardState.attempts[0] || null
 
-  const heroStats = [
-    {
-      label: '历史考试',
-      value: `${dashboardState.attempts.length} 次`,
-      hint: '已完成的正式提交记录',
-    },
-    {
-      label: '总刷题量',
-      value: dashboardState.totalQuestionVolume,
-      hint: '累计处理过的题目数量',
-    },
-    {
-      label: '平均正确率',
-      value: `${overallAverageRate}%`,
-      hint: '按客观题得分率计算',
-    },
-    {
-      label: '收藏题目',
-      value: favoriteCount,
-      hint: '当前档案下的收藏内容',
-    },
+  const spotlightStats = [
+    { label: '历史考试', value: `${dashboardState.attempts.length} 次` },
+    { label: '平均正确率', value: `${overallAverageRate}%` },
+    { label: '错题', value: `${dashboardState.totalWrong}` },
+    { label: '收藏', value: `${favoriteCount}` },
   ]
 
   const handleCreateProfile = async () => {
@@ -238,90 +165,44 @@ export default function DashboardSplitPage() {
 
   return (
     <div className="app-shell">
-      <div className="container dashboard-home-shell">
-        <section className="dashboard-hero-panel">
-          <div className="dashboard-hero-copy">
-            <div className="dashboard-board-kicker">Study Control Center</div>
-            <h1>把题库、练习、错题和历史记录放到同一个工作台里。</h1>
+      <div className="container dashboard-minimal-shell">
+        <section className="dashboard-showcase">
+          <div className="dashboard-showcase-copy">
+            <span className="dashboard-eyebrow">
+              <LayoutDashboard size={14} />
+              Study Workspace
+            </span>
+            <h1>个人题库、练习记录和复习入口，收成一个干净的首页。</h1>
             <p>
-              这里优先承载个人使用场景：用 AI 把试卷清洗成 JSON，导入后继续在本地完成练习、考试、收藏与复习。
+              首页不再承担所有说明和所有数据，只保留开始使用时最需要的几个动作，让你打开页面就知道下一步该做什么。
             </p>
 
-            <div className="dashboard-hero-actions">
+            <div className="dashboard-showcase-actions">
               <Link className="primary-btn" to="/exam/english">
                 进入主科目
               </Link>
-              <Link className="secondary-btn" to="/history">
-                查看历史记录
-              </Link>
-              <Link className="secondary-btn" to="/wrong-book">
-                打开错题本
-              </Link>
+              <a className="secondary-btn" href="./json-schema-v2.md" download>
+                下载 JSON 规范
+              </a>
             </div>
 
-            <div className="dashboard-hero-stats">
-              {heroStats.map((item) => (
-                <article key={item.label} className="hero-stat-card">
+            <div className="dashboard-stat-strip">
+              {spotlightStats.map((item) => (
+                <article key={item.label} className="dashboard-stat-pill">
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
-                  <small>{item.hint}</small>
                 </article>
               ))}
             </div>
           </div>
 
-          <div className="dashboard-hero-aside">
-            <article className="hero-aside-card hero-profile-card">
-              <div className="hero-aside-label">
-                <User2 size={16} />
-                当前工作档案
-              </div>
-              <strong>{activeProfile?.name || '未命名档案'}</strong>
-              <p>首页优先展示你最常用的入口，减少跳转和找功能的时间。</p>
-            </article>
-
-            <div className="hero-action-grid">
-              <Link className="hero-action-card hero-action-card-danger" to="/wrong-book">
-                <div className="hero-action-title">
-                  <BookOpen size={18} />
-                  错题复习
-                </div>
-                <strong>{dashboardState.totalWrong}</strong>
-                <span>优先消化累计错题</span>
-              </Link>
-
-              <Link className="hero-action-card hero-action-card-accent" to="/favorites">
-                <div className="hero-action-title">
-                  <Star size={18} />
-                  收藏题单
-                </div>
-                <strong>{favoriteCount}</strong>
-                <span>回看重点和待复习题目</span>
-              </Link>
-            </div>
-
-            <article className="hero-aside-card hero-next-step-card">
-              <div className="hero-aside-label">
-                <WandSparkles size={16} />
-                推荐下一步
-              </div>
-              <p>先下载 JSON 规范，把 PDF / DOCX 交给 AI 清洗，再导入题库开始练习。</p>
-              <a className="secondary-btn small-btn" href="./json-schema-v2.md" download>
-                <Download size={14} />
-                下载规范
-              </a>
-            </article>
-          </div>
-        </section>
-
-        <div className="dashboard-main-grid">
-          <aside className="dashboard-control-column">
-            <section className="dashboard-section-card workspace-card dashboard-profile-card">
-              <div className="rail-card-head">
-                <div className="rail-card-title">
-                  <User2 size={18} />
-                  本地档案
-                </div>
+          <div className="dashboard-showcase-panel">
+            <div className="dashboard-profile-panel">
+              <div className="dashboard-panel-head">
+                <span className="dashboard-panel-title">
+                  <User2 size={16} />
+                  当前档案
+                </span>
                 {activeProfile && (
                   <button className="secondary-btn small-btn" onClick={handleRenameProfile}>
                     <Pencil size={14} />
@@ -330,212 +211,109 @@ export default function DashboardSplitPage() {
                 )}
               </div>
 
-              <div className="rail-profile-badge">
-                当前档案：<strong>{activeProfile?.name || '未命名档案'}</strong>
-              </div>
+              <strong>{activeProfile?.name || '未命名档案'}</strong>
+              <p>这里保留档案切换，其他管理动作不放在首页抢视觉焦点。</p>
 
-              <div className="workspace-summary-row">
-                <div className="workspace-mini-stat">
-                  <span>历史考试</span>
-                  <strong>{dashboardState.attempts.length}</strong>
+              <label className="form-field">
+                <span>切换档案</span>
+                <select value={activeProfileId || ''} onChange={(event) => switchProfile(event.target.value)}>
+                  {profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button className="ghost-btn" onClick={() => setShowCreateProfile((value) => !value)}>
+                {showCreateProfile ? '收起新建档案' : '新建档案'}
+              </button>
+
+              {showCreateProfile && (
+                <div className="profile-create-panel">
+                  <label className="form-field grow">
+                    <span>新档案名称</span>
+                    <input
+                      value={newProfileName}
+                      onChange={(event) => setNewProfileName(event.target.value)}
+                      placeholder="输入新的本地用户名称"
+                    />
+                  </label>
+                  <button className="primary-btn profile-create-btn" onClick={handleCreateProfile}>
+                    <Plus size={16} />
+                    新建并切换
+                  </button>
                 </div>
-                <div className="workspace-mini-stat">
-                  <span>总刷题量</span>
-                  <strong>{dashboardState.totalQuestionVolume}</strong>
+              )}
+            </div>
+
+            <div className="dashboard-quick-panel">
+              <Link className="dashboard-quick-link" to="/wrong-book">
+                <BookOpen size={16} />
+                <span>错题复习</span>
+              </Link>
+              <Link className="dashboard-quick-link" to="/favorites">
+                <Star size={16} />
+                <span>收藏夹</span>
+              </Link>
+              <Link className="dashboard-quick-link" to="/history">
+                <History size={16} />
+                <span>历史记录</span>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-section-block">
+          <div className="dashboard-section-head">
+            <div>
+              <span className="dashboard-eyebrow">Modules</span>
+              <h2>选择要进入的科目模块</h2>
+            </div>
+          </div>
+
+          <div className="dashboard-module-grid">
+            {subjectSummaries.map((subject) => (
+              <Link key={subject.key} className="dashboard-module-card" to={subject.route}>
+                <div className="dashboard-module-top">
+                  <strong>{subject.shortLabel}</strong>
+                  <span className="dashboard-module-tag">可用</span>
                 </div>
-              </div>
-
-              <div className="profile-controls compact-profile-controls">
-                <label className="form-field">
-                  <span>切换档案</span>
-                  <select value={activeProfileId || ''} onChange={(event) => switchProfile(event.target.value)}>
-                    {profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <button className="ghost-btn" onClick={() => setShowCreateProfile((value) => !value)}>
-                  {showCreateProfile ? '收起新建档案' : '展开新建档案'}
-                </button>
-
-                {showCreateProfile && (
-                  <div className="profile-create-panel">
-                    <label className="form-field grow">
-                      <span>新建档案</span>
-                      <input
-                        value={newProfileName}
-                        onChange={(event) => setNewProfileName(event.target.value)}
-                        placeholder="输入新的本地用户名称"
-                      />
-                    </label>
-                    <button className="primary-btn profile-create-btn" onClick={handleCreateProfile}>
-                      <Plus size={16} />
-                      新建并切换
-                    </button>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="dashboard-section-card dashboard-mini-panel">
-              <div className="section-header-row">
-                <h2>
-                  <LayoutDashboard size={18} />
-                  快捷入口
-                </h2>
-              </div>
-
-              <div className="dashboard-mini-links">
-                <Link className="mini-link-card" to="/history">
-                  <BarChart3 size={16} />
-                  历史记录
-                </Link>
-                <Link className="mini-link-card" to="/wrong-book">
-                  <BookOpen size={16} />
-                  错题本
-                </Link>
-                <Link className="mini-link-card" to="/favorites">
-                  <Star size={16} />
-                  收藏夹
-                </Link>
-              </div>
-            </section>
-          </aside>
-
-          <main className="dashboard-content-column">
-            <section className="dashboard-section-card dashboard-modules-card">
-              <div className="section-header-row">
-                <h2>
-                  <FolderOpen size={18} />
-                  科目入口
-                </h2>
-                <span className="section-header-tip">把高频动作放在首页第一屏</span>
-              </div>
-
-              <div className="subject-module-grid">
-                {activeModules.map((subject) => (
-                  <Link key={subject.key} className="subject-module-card" to={subject.route}>
-                    <div className="subject-module-head">
-                      <div>
-                        <strong>{subject.shortLabel}</strong>
-                        <p>{subject.description}</p>
-                      </div>
-                      <span className="module-badge">可用</span>
-                    </div>
-
-                    <div className="subject-module-meta">
-                      <span>历史考试 {subject.attemptCount}</span>
-                      <span>平均正确率 {subject.averageRate}%</span>
-                    </div>
-
-                    <div className="primary-task-footer">
-                      <span>进入模块</span>
-                      <ArrowRight size={16} />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-
-            <WorkflowCard />
-
-            <section className="stats-grid dashboard-stats-grid">
-              <article className="metric-card">
-                <div className="metric-head">
-                  <BookOpen size={18} />
-                  最近一次考试
+                <p>{subject.description}</p>
+                <div className="dashboard-module-meta">
+                  <span>历史考试 {subject.attemptCount}</span>
+                  <span>平均正确率 {subject.averageRate}%</span>
                 </div>
-                <div className="metric-value">
-                  {latestAttempt ? `${latestAttempt.objectiveScore}/${latestAttempt.objectiveTotal}` : '--'}
+                <div className="dashboard-module-entry">
+                  <span>进入模块</span>
+                  <ArrowRight size={16} />
                 </div>
-                <div className="metric-subtext">
-                  {latestAttempt?.title || '当前还没有提交记录'}
-                </div>
-              </article>
+              </Link>
+            ))}
+          </div>
+        </section>
 
-              <article className="metric-card">
-                <div className="metric-head">
-                  <BarChart3 size={18} />
-                  历史平均分
-                </div>
-                <div className="metric-value">{overallAverageRate}%</div>
-                <div className="metric-subtext">按所有历史记录的客观题得分率计算</div>
-              </article>
+        <WorkflowBand />
 
-              <article className="metric-card">
-                <div className="metric-head">
-                  <FolderOpen size={18} />
-                  总刷题量
-                </div>
-                <div className="metric-value">{dashboardState.totalQuestionVolume}</div>
-                <div className="metric-subtext">累计参与练习和考试的题目数量</div>
-              </article>
+        <section className="dashboard-summary-row">
+          <article className="dashboard-summary-card">
+            <span className="dashboard-summary-label">最近一次考试</span>
+            <strong>{latestAttempt ? `${latestAttempt.objectiveScore}/${latestAttempt.objectiveTotal}` : '--'}</strong>
+            <p>{latestAttempt?.title || '当前还没有提交记录'}</p>
+          </article>
 
-              <article className="metric-card">
-                <div className="metric-head">
-                  <Database size={18} />
-                  累计错题
-                </div>
-                <div className="metric-value">{dashboardState.totalWrong}</div>
-                <div className="metric-subtext">来自已提交记录中的错题统计</div>
-              </article>
-            </section>
+          <article className="dashboard-summary-card">
+            <span className="dashboard-summary-label">总刷题量</span>
+            <strong>{dashboardState.totalQuestionVolume}</strong>
+            <p>累计参与练习和考试的题目数量</p>
+          </article>
 
-            <section className="dashboard-bottom-grid">
-              <section className="trend-card dashboard-section-card">
-                <div className="section-header-row">
-                  <h2>
-                    <BarChart3 size={18} />
-                    {primarySummary?.shortLabel || '英语'} 成绩趋势
-                  </h2>
-                  <span className="section-header-tip">最近 {primarySummary?.attemptCount || 0} 次</span>
-                </div>
-
-                <div className="trend-body">
-                  <Sparkline values={primarySummary?.trend || []} />
-                </div>
-              </section>
-
-              <section className="dashboard-section-card recent-activity-card">
-                <div className="section-header-row">
-                  <h2>
-                    <LayoutDashboard size={18} />
-                    最近活动
-                  </h2>
-                  <span className="section-header-tip">最近 4 次考试</span>
-                </div>
-
-                {recentAttempts.length === 0 ? (
-                  <div className="local-library-empty">暂无记录</div>
-                ) : (
-                  <div className="recent-attempt-list">
-                    {recentAttempts.map((attempt) => {
-                      const rate = attempt.objectiveTotal
-                        ? Math.round((attempt.objectiveScore / attempt.objectiveTotal) * 100)
-                        : 0
-
-                      return (
-                        <article key={attempt.id} className="recent-attempt-item">
-                          <div className="recent-attempt-title">{attempt.title || '未命名试卷'}</div>
-                          <div className="recent-attempt-meta">
-                            <span>{new Date(attempt.submittedAt).toLocaleString()}</span>
-                            <span>
-                              {attempt.objectiveScore}/{attempt.objectiveTotal}
-                            </span>
-                            <span>{rate}%</span>
-                          </div>
-                        </article>
-                      )
-                    })}
-                  </div>
-                )}
-              </section>
-            </section>
-          </main>
-        </div>
+          <article className="dashboard-summary-card">
+            <span className="dashboard-summary-label">当前重点</span>
+            <strong>{dashboardState.totalWrong} 道错题</strong>
+            <p>如果只是打开首页准备继续学习，优先从错题本开始更有效。</p>
+          </article>
+        </section>
       </div>
     </div>
   )
