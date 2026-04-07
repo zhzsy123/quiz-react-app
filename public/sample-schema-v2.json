@@ -1,0 +1,183 @@
+{
+  "schema_version": "2.0",
+  "paper_id": "mixed_mock_v2_demo_001",
+  "title": "综合示例试卷 v2",
+  "subject": "english",
+  "description": "用于演示 schema v2 的多题型结构，供 AI 清洗和手工编写参考。",
+  "duration_minutes": 90,
+  "total_score": 39,
+  "sections": [
+    { "id": "sec_single", "title": "单项选择", "question_ids": ["q_sc_001"] },
+    { "id": "sec_multi", "title": "多项选择", "question_ids": ["q_mc_001"] },
+    { "id": "sec_judge", "title": "判断题", "question_ids": ["q_tf_001"] },
+    { "id": "sec_blank", "title": "填空题", "question_ids": ["q_fb_001"] },
+    { "id": "sec_reading", "title": "阅读理解", "question_ids": ["q_reading_001"] },
+    { "id": "sec_translation", "title": "翻译", "question_ids": ["q_translation_001"] },
+    { "id": "sec_short", "title": "简答题", "question_ids": ["q_short_001"] },
+    { "id": "sec_essay", "title": "作文", "question_ids": ["q_essay_001"] }
+  ],
+  "questions": [
+    {
+      "id": "q_sc_001",
+      "type": "single_choice",
+      "section_id": "sec_single",
+      "prompt": "Artificial intelligence is developing so rapidly that its influence on modern life cannot be ______.",
+      "score": 2,
+      "difficulty": "medium",
+      "tags": ["grammar", "voice"],
+      "assets": [],
+      "options": [
+        { "key": "A", "text": "ignored" },
+        { "key": "B", "text": "ignoring" },
+        { "key": "C", "text": "ignore" },
+        { "key": "D", "text": "to ignore" }
+      ],
+      "answer": { "type": "objective", "correct": "A", "rationale": "cannot be ignored 为被动结构。" }
+    },
+    {
+      "id": "q_mc_001",
+      "type": "multiple_choice",
+      "section_id": "sec_multi",
+      "prompt": "Which of the following are renewable energy sources?",
+      "score": 3,
+      "difficulty": "easy",
+      "tags": ["energy"],
+      "assets": [],
+      "options": [
+        { "key": "A", "text": "Solar power" },
+        { "key": "B", "text": "Wind power" },
+        { "key": "C", "text": "Coal" },
+        { "key": "D", "text": "Hydropower" }
+      ],
+      "answer": { "type": "objective", "correct": ["A", "B", "D"], "rationale": "太阳能、风能和水电都属于可再生能源。" }
+    },
+    {
+      "id": "q_tf_001",
+      "type": "true_false",
+      "section_id": "sec_judge",
+      "prompt": "The Pacific Ocean is the largest ocean on Earth.",
+      "score": 1,
+      "difficulty": "easy",
+      "tags": ["geography"],
+      "assets": [],
+      "answer": { "type": "objective", "correct": true, "rationale": "太平洋是面积最大的海洋。" }
+    },
+    {
+      "id": "q_fb_001",
+      "type": "fill_blank",
+      "section_id": "sec_blank",
+      "prompt": "Only by making good use of time can college students improve their learning ______.",
+      "score": 2,
+      "difficulty": "medium",
+      "tags": ["vocabulary"],
+      "assets": [],
+      "blanks": [
+        { "blank_id": 1, "accepted_answers": ["efficiency"], "rationale": "固定表达 learning efficiency。" }
+      ],
+      "answer": { "type": "objective" }
+    },
+    {
+      "id": "q_reading_001",
+      "type": "reading",
+      "section_id": "sec_reading",
+      "title": "Healthy Study Habits",
+      "prompt": "Read the passage and answer the following questions.",
+      "score": 6,
+      "difficulty": "medium",
+      "tags": ["reading"],
+      "assets": [
+        { "type": "image", "src": "https://example.com/reading-cover.png", "alt": "阅读题示意图" }
+      ],
+      "passage": {
+        "title": "Healthy Study Habits",
+        "content": "Good study habits are important for students. Managing time well and taking regular exercise can improve efficiency and reduce stress."
+      },
+      "questions": [
+        {
+          "id": "q_reading_001_1",
+          "type": "single_choice",
+          "prompt": "What is the passage mainly about?",
+          "score": 2,
+          "options": [
+            { "key": "A", "text": "Good study habits" },
+            { "key": "B", "text": "Travel safety" },
+            { "key": "C", "text": "Food choice" },
+            { "key": "D", "text": "Campus jobs" }
+          ],
+          "answer": { "type": "objective", "correct": "A", "rationale": "文章主旨是学习习惯。" }
+        },
+        {
+          "id": "q_reading_001_2",
+          "type": "single_choice",
+          "prompt": "What may help reduce stress according to the passage?",
+          "score": 2,
+          "options": [
+            { "key": "A", "text": "Watching TV all night" },
+            { "key": "B", "text": "Regular exercise" },
+            { "key": "C", "text": "Skipping classes" },
+            { "key": "D", "text": "Eating less" }
+          ],
+          "answer": { "type": "objective", "correct": "B", "rationale": "原文明确提到 regular exercise helps reduce stress。" }
+        }
+      ]
+    },
+    {
+      "id": "q_translation_001",
+      "type": "translation",
+      "section_id": "sec_translation",
+      "prompt": "Translate the following sentence into Chinese.",
+      "score": 10,
+      "difficulty": "medium",
+      "tags": ["translation", "en_to_zh"],
+      "assets": [],
+      "direction": "en_to_zh",
+      "source_text": "Only by making good use of time can college students improve their learning efficiency and reduce unnecessary pressure.",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "只有充分利用时间，大学生才能提高学习效率并减少不必要的压力。",
+        "alternate_answers": ["只有好好利用时间，大学生才能提升学习效率，减轻不必要的压力。"],
+        "scoring_points": [
+          { "point": "正确理解倒装结构", "score": 4 },
+          { "point": "准确表达 learning efficiency", "score": 3 },
+          { "point": "准确表达 reduce unnecessary pressure", "score": 3 }
+        ]
+      }
+    },
+    {
+      "id": "q_short_001",
+      "type": "short_answer",
+      "section_id": "sec_short",
+      "prompt": "请简述时间管理的重要性。",
+      "score": 5,
+      "difficulty": "medium",
+      "tags": ["short_answer"],
+      "assets": [],
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "时间管理可以提升学习效率，帮助规划任务，减少拖延和压力。",
+        "scoring_points": [
+          { "point": "提到效率提升", "score": 2 },
+          { "point": "提到任务规划", "score": 2 },
+          { "point": "提到压力管理", "score": 1 }
+        ]
+      }
+    },
+    {
+      "id": "q_essay_001",
+      "type": "essay",
+      "section_id": "sec_essay",
+      "prompt": "Write an essay about effective study habits.",
+      "score": 10,
+      "difficulty": "medium",
+      "tags": ["writing"],
+      "assets": [],
+      "essay_type": "writing",
+      "requirements": { "word_count": "120-150" },
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "",
+        "outline": ["引入学习习惯的重要性", "说明有效方法", "总结习惯带来的帮助"]
+      }
+    }
+  ]
+}

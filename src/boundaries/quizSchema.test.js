@@ -79,6 +79,54 @@ describe('quizSchema boundary', () => {
     expect(result.compatibility.supportedCount).toBe(2)
   })
 
+  it('normalizes multiple choice, true false and fill blank data', () => {
+    const result = normalizeQuizPayload({
+      schema_version: '2.0',
+      title: 'Objective quiz',
+      questions: [
+        {
+          id: 'q_mc_1',
+          type: 'multiple_choice',
+          prompt: 'Pick all',
+          options: [{ key: 'A', text: 'One' }, { key: 'B', text: 'Two' }],
+          answer: {
+            correct: ['B', 'A'],
+          },
+        },
+        {
+          id: 'q_tf_1',
+          type: 'true_false',
+          prompt: 'True or false',
+          answer: {
+            correct: true,
+          },
+        },
+        {
+          id: 'q_fb_1',
+          type: 'fill_blank',
+          prompt: 'Fill',
+          blanks: [
+            {
+              blank_id: 1,
+              accepted_answers: ['alpha', 'Alpha'],
+            },
+          ],
+          answer: {
+            type: 'objective',
+          },
+        },
+      ],
+    })
+
+    expect(result.items).toHaveLength(3)
+    expect(result.items[0].type).toBe('multiple_choice')
+    expect(result.items[0].answer.correct).toEqual(['A', 'B'])
+    expect(result.items[1].type).toBe('true_false')
+    expect(result.items[1].answer.correct).toBe('T')
+    expect(result.items[2].type).toBe('fill_blank')
+    expect(result.items[2].blanks[0].accepted_answers).toEqual(['alpha', 'Alpha'])
+  })
+
   it('reports invalid payloads at the boundary', () => {
     expect(() => normalizeQuizPayload({ title: 'broken' })).toThrow(/questions|items/)
   })

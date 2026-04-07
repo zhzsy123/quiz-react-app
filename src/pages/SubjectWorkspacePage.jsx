@@ -25,10 +25,88 @@ function isNonEmptyText(value) {
   return typeof value === 'string' && value.trim().length > 0
 }
 
+function normalizeChoiceArray(value) {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
+}
+
+function clipText(text = '', maxLength = 180) {
+  if (typeof text !== 'string') return ''
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
+}
+
+function getOptionText(options = [], key = '') {
+  if (!key) return '未作答'
+  const match = options.find((option) => option?.key === key)
+  if (!match) return key
+  return `${match.key}. ${match.text}`
+}
+
+function getObjectiveAnswerLabel(item, response) {
+  if (item.type === 'multiple_choice') {
+    const values = normalizeChoiceArray(response)
+    return values.length ? values.map((value) => getOptionText(item.options || [], value)).join(' / ') : '未作答'
+  }
+  if (item.type === 'fill_blank') {
+    if (!response || typeof response !== 'object') return '未作答'
+    return (
+      item.blanks
+        .map((blank) => String(response[blank.blank_id] || '').trim())
+        .filter(Boolean)
+        .join(' / ') || '未作答'
+    )
+  }
+  return getOptionText(item.options || [], response || '')
+}
+
+function isObjectiveAnswered(item, response) {
+  if (!item || item.answer?.type !== 'objective') return false
+  if (item.type === 'multiple_choice') {
+    return normalizeChoiceArray(response).length > 0
+  }
+  if (item.type === 'fill_blank') {
+    if (!response || typeof response !== 'object') return false
+    return item.blanks.every((blank) => isNonEmptyText(response[blank.blank_id]))
+  }
+  return isNonEmptyText(response)
+}
+
+function isObjectiveCorrect(item, response) {
+  if (!item || item.answer?.type !== 'objective') return false
+  if (item.type === 'multiple_choice') {
+    const actual = normalizeChoiceArray(response)
+    const expected = normalizeChoiceArray(item.answer?.correct)
+    return actual.length > 0 && actual.length === expected.length && actual.every((value, index) => value === expected[index])
+  }
+  if (item.type === 'fill_blank') {
+    if (!response || typeof response !== 'object') return false
+    return item.blanks.every((blank) => {
+      const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
+      return blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
+    })
+  }
+  return response === item.answer?.correct
+}
+
+function isResponseAnswered(item, response) {
+  if (!item) return false
+  if (item.type === 'reading') {
+    if (!response || typeof response !== 'object') return false
+    return item.questions.every((question) => isNonEmptyText(response[question.id]))
+  }
+  if (item.answer?.type === 'subjective') {
+    return Boolean(response?.text?.trim())
+  }
+  return isObjectiveAnswered(item, response)
+}
+
 function getObjectiveItemTotal(item) {
   if (!item) return 0
   if (item.type === 'reading') {
     return item.questions.reduce((sum, question) => sum + (question.score || 1), 0)
+  }
+  if (item.type === 'fill_blank') {
+    return item.blanks.reduce((sum, blank) => sum + (blank.score || 1), 0)
   }
   return item.answer?.type === 'objective' ? item.score || 1 : 0
 }
@@ -37,9 +115,19 @@ function getObjectiveItemScore(item, response) {
   if (!item) return 0
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return 0
-    return item.questions.reduce((sum, question) => sum + (response[question.id] === question.answer?.correct ? question.score || 1 : 0), 0)
+    return item.questions.reduce((sum, question) => {
+      return sum + (response[question.id] === question.answer?.correct ? question.score || 1 : 0)
+    }, 0)
   }
-  if (item.answer?.type === 'objective' && response === item.answer?.correct) {
+  if (item.type === 'fill_blank') {
+    if (!response || typeof response !== 'object') return 0
+    return item.blanks.reduce((sum, blank) => {
+      const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
+      const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
+      return sum + (isCorrect ? blank.score || 1 : 0)
+    }, 0)
+  }
+  if (item.answer?.type === 'objective' && isObjectiveCorrect(item, response)) {
     return item.score || 1
   }
   return 0
@@ -51,26 +139,23 @@ function getObjectiveWrongCount(item, response) {
     if (!response || typeof response !== 'object') return item.questions.length
     return item.questions.reduce((sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1), 0)
   }
+  if (item.type === 'fill_blank') {
+    if (!response || typeof response !== 'object') return item.blanks.length
+    return item.blanks.reduce((sum, blank) => {
+      const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
+      const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
+      return sum + (isCorrect ? 0 : 1)
+    }, 0)
+  }
   if (item.answer?.type === 'objective') {
-    return response === item.answer?.correct ? 0 : 1
+    return isObjectiveCorrect(item, response) ? 0 : 1
   }
   return 0
 }
 
-function clipText(text = '', maxLength = 180) {
-  if (typeof text !== 'string') return ''
-  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
-}
-
-function getOptionText(options = [], key = '') {
-  if (!key) return '未作答'
-  const match = options.find((option) => option?.key === key)
-  if (!match) return key
-  return `${match.key}. ${match.text}`
-}
-
 function buildWrongItems(items, answers, meta) {
   const wrongItems = []
+
   items.forEach((item) => {
     if (item.type === 'reading') {
       const readingAnswers = answers[item.id] || {}
@@ -104,8 +189,9 @@ function buildWrongItems(items, answers, meta) {
     }
 
     if (item.answer?.type !== 'objective') return
-    const userAnswer = answers[item.id] || ''
-    if (userAnswer === item.answer?.correct) return
+    const userAnswer = answers[item.id]
+    if (isObjectiveCorrect(item, userAnswer)) return
+
     wrongItems.push({
       questionKey: `${meta.subject}:${meta.paperId}:${item.id}`,
       subject: meta.subject,
@@ -118,15 +204,20 @@ function buildWrongItems(items, answers, meta) {
       contextTitle: item.context_title || '',
       contextSnippet: clipText(item.context || ''),
       options: item.options || [],
+      blanks: item.blanks || [],
       userAnswer,
-      userAnswerLabel: getOptionText(item.options || [], userAnswer),
+      userAnswerLabel: getObjectiveAnswerLabel(item, userAnswer),
       correctAnswer: item.answer?.correct || '',
-      correctAnswerLabel: getOptionText(item.options || [], item.answer?.correct || ''),
+      correctAnswerLabel:
+        item.type === 'fill_blank'
+          ? item.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
+          : getObjectiveAnswerLabel(item, item.answer?.correct),
       rationale: item.answer?.rationale || '暂无解析',
       tags: item.tags || [],
       difficulty: item.difficulty,
     })
   })
+
   return wrongItems
 }
 
@@ -169,7 +260,7 @@ function buildFavoriteEntryFromItem(item, meta) {
 export default function SubjectWorkspacePage() {
   const { subjectParam = 'english' } = useParams()
   const subjectMeta = getSubjectMetaByRouteParam(subjectParam)
-  const SUBJECT_KEY = subjectMeta.key
+  const subjectKey = subjectMeta.key
 
   const { activeProfile } = useAppContext()
   const [searchParams] = useSearchParams()
@@ -209,7 +300,7 @@ export default function SubjectWorkspacePage() {
         return
       }
 
-      const favoriteRows = await loadFavoriteEntries(activeProfile.id, SUBJECT_KEY)
+      const favoriteRows = await loadFavoriteEntries(activeProfile.id, subjectKey)
       if (cancelled) return
       setFavoriteEntries(favoriteRows)
 
@@ -218,24 +309,26 @@ export default function SubjectWorkspacePage() {
 
       if (source === 'favorites') {
         const items = favoriteRows.map((favoriteEntry, index) => cloneFavoriteItem(favoriteEntry, index))
-        resolvedEntry = { title: `${subjectMeta.shortLabel}的收藏`, paperId: 'favorites' }
-        resolvedQuiz = { title: `${subjectMeta.shortLabel}的收藏`, items }
+        resolvedEntry = { title: `${subjectMeta.shortLabel}的收藏题`, paperId: 'favorites' }
+        resolvedQuiz = { title: `${subjectMeta.shortLabel}的收藏题`, items }
       } else {
         if (!paperId) {
           setLoading(false)
           return
         }
-        const entries = await listLibraryEntries(activeProfile.id, SUBJECT_KEY)
+
+        const entries = await listLibraryEntries(activeProfile.id, subjectKey)
         const matched = entries.find((item) => item.paperId === paperId)
         if (!matched || cancelled) {
           setLoading(false)
           return
         }
+
         resolvedEntry = matched
         resolvedQuiz = parseQuizText(matched.rawText).parsed
       }
 
-      const progress = await loadProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId)
+      const progress = await loadProgressRecord(activeProfile.id, subjectKey, sessionPaperId)
       if (cancelled) return
 
       setEntry(resolvedEntry)
@@ -255,7 +348,7 @@ export default function SubjectWorkspacePage() {
     return () => {
       cancelled = true
     }
-  }, [activeProfile?.id, paperId, source, sessionPaperId, SUBJECT_KEY, subjectMeta.shortLabel])
+  }, [activeProfile?.id, paperId, source, sessionPaperId, subjectKey, subjectMeta.shortLabel])
 
   const buildProgressPayload = (overrides = {}) => ({
     answers,
@@ -273,7 +366,7 @@ export default function SubjectWorkspacePage() {
 
   const persistNow = async (overrides = {}) => {
     if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
-    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId, buildProgressPayload(overrides))
+    await saveProgressRecord(activeProfile.id, subjectKey, sessionPaperId, buildProgressPayload(overrides))
   }
 
   const objectiveTotalScore = useMemo(() => {
@@ -282,8 +375,10 @@ export default function SubjectWorkspacePage() {
 
   const practiceAccuracy = useMemo(() => {
     if (!quiz || mode !== 'practice') return { correct: 0, answered: 0, rate: 0 }
+
     let correct = 0
     let answered = 0
+
     quiz.items.forEach((item) => {
       if (item.type === 'reading') {
         const response = answers[item.id] || {}
@@ -295,11 +390,13 @@ export default function SubjectWorkspacePage() {
         })
         return
       }
-      if (item.answer?.type === 'objective' && isNonEmptyText(answers[item.id])) {
+
+      if (item.answer?.type === 'objective' && isObjectiveAnswered(item, answers[item.id])) {
         answered += 1
-        if (answers[item.id] === item.answer?.correct) correct += 1
+        if (isObjectiveCorrect(item, answers[item.id])) correct += 1
       }
     })
+
     return { correct, answered, rate: answered ? Math.round((correct / answered) * 100) : 0 }
   }, [quiz, mode, answers])
 
@@ -320,17 +417,9 @@ export default function SubjectWorkspacePage() {
 
   const handleFinish = async (forced = false) => {
     if (!quiz?.items?.length || !activeProfile?.id) return
+
     const totalQuestions = quiz.items.length
-    const answeredCount = quiz.items.filter((item) => {
-      if (item.type === 'reading') {
-        const response = answers[item.id] || {}
-        return item.questions.every((question) => isNonEmptyText(response[question.id]))
-      }
-      if (item.answer?.type === 'subjective') {
-        return Boolean(answers[item.id]?.text?.trim())
-      }
-      return Boolean(answers[item.id])
-    }).length
+    const answeredCount = quiz.items.filter((item) => isResponseAnswered(item, answers[item.id])).length
 
     if (mode === 'exam' && !forced && answeredCount < totalQuestions) {
       const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
@@ -339,15 +428,17 @@ export default function SubjectWorkspacePage() {
 
     const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
     const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
+
     setScore(nextScore)
     setSubmitted(true)
     setIsPaused(false)
+
     await persistNow({ submitted: true, score: nextScore, isPaused: false })
 
     if (mode === 'exam' && source !== 'favorites') {
       await saveAttemptRecord({
         profileId: activeProfile.id,
-        subject: SUBJECT_KEY,
+        subject: subjectKey,
         paperId,
         title: entry?.title || quiz.title || '未命名试卷',
         objectiveScore: nextScore,
@@ -359,7 +450,7 @@ export default function SubjectWorkspacePage() {
         answersSnapshot: answers,
         itemsSnapshot: quiz.items,
         wrongItems: buildWrongItems(quiz.items, answers, {
-          subject: SUBJECT_KEY,
+          subject: subjectKey,
           paperId,
           paperTitle: entry?.title || quiz.title || '未命名试卷',
         }),
@@ -411,9 +502,19 @@ export default function SubjectWorkspacePage() {
 
   const handleSelectOption = (questionId, optionLetter) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
     const currentItem = quiz.items[currentIndex]
-    if (currentItem?.type === 'reading' || currentItem?.answer?.type !== 'objective') return
-    const nextAnswers = { ...answers, [questionId]: optionLetter }
+    if (currentItem?.type === 'reading' || currentItem?.answer?.type !== 'objective' || currentItem?.type === 'fill_blank') return
+
+    let nextValue = optionLetter
+    if (currentItem.type === 'multiple_choice') {
+      const currentValues = normalizeChoiceArray(answers[questionId])
+      nextValue = currentValues.includes(optionLetter)
+        ? currentValues.filter((value) => value !== optionLetter)
+        : [...currentValues, optionLetter].sort()
+    }
+
+    const nextAnswers = { ...answers, [questionId]: nextValue }
     setAnswers(nextAnswers)
 
     if (mode === 'practice') {
@@ -424,17 +525,20 @@ export default function SubjectWorkspacePage() {
     }
 
     let nextIndex = currentIndex
-    if (autoAdvance && currentIndex < quiz.items.length - 1) {
+    if (autoAdvance && currentItem.type !== 'multiple_choice' && currentIndex < quiz.items.length - 1) {
       nextIndex = currentIndex + 1
       setCurrentIndex(nextIndex)
     }
+
     void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
   }
 
   const handleSelectReadingOption = (questionId, subQuestionId, optionLetter) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'reading' || currentItem.id !== questionId) return
+
     const nextItemResponse = { ...(answers[questionId] || {}), [subQuestionId]: optionLetter }
     const nextAnswers = { ...answers, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
@@ -452,7 +556,29 @@ export default function SubjectWorkspacePage() {
       nextIndex = currentIndex + 1
       setCurrentIndex(nextIndex)
     }
+
     void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
+  }
+
+  const handleFillBlankChange = (questionId, blankId, text) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'fill_blank' || currentItem.id !== questionId) return
+
+    const nextItemResponse = { ...(answers[questionId] || {}), [blankId]: text }
+    const nextAnswers = { ...answers, [questionId]: nextItemResponse }
+    setAnswers(nextAnswers)
+
+    if (mode === 'practice') {
+      const allFilled = currentItem.blanks.every((blank) => isNonEmptyText(nextItemResponse[blank.blank_id]))
+      const nextRevealed = allFilled ? { ...revealedMap, [questionId]: true } : revealedMap
+      if (allFilled) setRevealedMap(nextRevealed)
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+      return
+    }
+
+    void persistNow({ answers: nextAnswers })
   }
 
   const handleTextChange = (questionId, text) => {
@@ -466,7 +592,8 @@ export default function SubjectWorkspacePage() {
     if (!activeProfile?.id || !sessionPaperId) return
     const ok = window.confirm('确定重置当前进度吗？')
     if (!ok) return
-    await clearProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId)
+
+    await clearProgressRecord(activeProfile.id, subjectKey, sessionPaperId)
     setAnswers({})
     setRevealedMap({})
     setSubmitted(false)
@@ -474,7 +601,8 @@ export default function SubjectWorkspacePage() {
     setCurrentIndex(0)
     setRemainingSeconds(EXAM_DURATION_SECONDS)
     setIsPaused(false)
-    await saveProgressRecord(activeProfile.id, SUBJECT_KEY, sessionPaperId, {
+
+    await saveProgressRecord(activeProfile.id, subjectKey, sessionPaperId, {
       answers: {},
       revealedMap: {},
       submitted: false,
@@ -495,8 +623,8 @@ export default function SubjectWorkspacePage() {
       const favoriteEntry = favoriteEntries[currentIndex]
       return favoriteEntry?.questionKey || ''
     }
-    return `${SUBJECT_KEY}:${paperId}:${item.id}`
-  }, [quiz, currentIndex, source, favoriteEntries, paperId, SUBJECT_KEY])
+    return `${subjectKey}:${paperId}:${item.id}`
+  }, [quiz, currentIndex, source, favoriteEntries, paperId, subjectKey])
 
   const favoriteMap = useMemo(() => {
     const map = {}
@@ -510,16 +638,24 @@ export default function SubjectWorkspacePage() {
     if (!activeProfile?.id || !quiz?.items?.[currentIndex] || source === 'favorites') return
     const item = quiz.items[currentIndex]
     const entryToToggle = buildFavoriteEntryFromItem(item, {
-      subject: SUBJECT_KEY,
+      subject: subjectKey,
       paperId,
       paperTitle: entry?.title || quiz.title || '未命名试卷',
     })
-    const result = await toggleFavoriteEntry(activeProfile.id, SUBJECT_KEY, entryToToggle)
+    const result = await toggleFavoriteEntry(activeProfile.id, subjectKey, entryToToggle)
     setFavoriteEntries(result.entries)
   }
 
   if (loading) {
-    return <div className="app-shell"><div className="container"><section className="hero-card"><h1>加载中</h1></section></div></div>
+    return (
+      <div className="app-shell">
+        <div className="container">
+          <section className="hero-card">
+            <h1>加载中...</h1>
+          </section>
+        </div>
+      </div>
+    )
   }
 
   if (!entry || !quiz) {
@@ -529,8 +665,17 @@ export default function SubjectWorkspacePage() {
           <section className="hero-card workspace-empty-state">
             <h1>未找到可用内容</h1>
             <div className="workspace-header-actions">
-              <Link className="secondary-btn small-btn" to="/"><Home size={14} /> 返回首页</Link>
-              <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`}><ArrowLeft size={14} /> 返回</Link>
+              <Link className="secondary-btn small-btn" to="/">
+                <Home size={14} />
+                返回首页
+              </Link>
+              <Link
+                className="secondary-btn small-btn"
+                to={source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`}
+              >
+                <ArrowLeft size={14} />
+                返回
+              </Link>
             </div>
           </section>
         </div>
@@ -547,18 +692,60 @@ export default function SubjectWorkspacePage() {
             <div className="workspace-mode-row">
               <span className="tag blue">{subjectMeta.shortLabel}</span>
               <span className="tag blue">{mode === 'practice' ? '刷题模式' : '考试模式'}</span>
-              {mode === 'practice' && <span className="accuracy-chip"><Star size={14} /> 正确率 {practiceAccuracy.rate}%</span>}
-              {mode === 'exam' && <span className={`timer-chip ${remainingSeconds <= 300 ? 'danger' : ''}`}><Clock3 size={14} /> {formatRemainingSeconds(remainingSeconds)}</span>}
+              {mode === 'practice' && (
+                <span className="accuracy-chip">
+                  <Star size={14} />
+                  正确率 {practiceAccuracy.rate}%
+                </span>
+              )}
+              {mode === 'exam' && (
+                <span className={`timer-chip ${remainingSeconds <= 300 ? 'danger' : ''}`}>
+                  <Clock3 size={14} />
+                  {formatRemainingSeconds(remainingSeconds)}
+                </span>
+              )}
             </div>
           </div>
+
           <div className="workspace-header-actions">
-            {mode === 'exam' && <button className="secondary-btn small-btn" onClick={() => { const next = !isPaused; setIsPaused(next); void persistNow({ isPaused: next }) }} disabled={submitted}>{isPaused ? <Play size={14} /> : <Pause size={14} />}{isPaused ? '继续' : '暂停'}</button>}
-            <button className="secondary-btn small-btn" onClick={handleReset}><RefreshCw size={14} /> 重置</button>
-            <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`}><ArrowLeft size={14} /> 返回</Link>
-            <Link className="secondary-btn small-btn" to="/"><Home size={14} /> 返回首页</Link>
+            {mode === 'exam' && (
+              <button
+                className="secondary-btn small-btn"
+                onClick={() => {
+                  const next = !isPaused
+                  setIsPaused(next)
+                  void persistNow({ isPaused: next })
+                }}
+                disabled={submitted}
+              >
+                {isPaused ? <Play size={14} /> : <Pause size={14} />}
+                {isPaused ? '继续' : '暂停'}
+              </button>
+            )}
+            <button className="secondary-btn small-btn" onClick={handleReset}>
+              <RefreshCw size={14} />
+              重置
+            </button>
+            <Link className="secondary-btn small-btn" to={source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`}>
+              <ArrowLeft size={14} />
+              返回
+            </Link>
+            <Link className="secondary-btn small-btn" to="/">
+              <Home size={14} />
+              返回首页
+            </Link>
           </div>
         </section>
-        {submitted && <section className="score-card compact-score-card"><div className="score-line"><strong>{score}</strong><span>/ {objectiveTotalScore}</span></div></section>}
+
+        {submitted && (
+          <section className="score-card compact-score-card">
+            <div className="score-line">
+              <strong>{score}</strong>
+              <span>/ {objectiveTotalScore}</span>
+            </div>
+          </section>
+        )}
+
         <CleanQuizView
           quiz={quiz}
           answers={answers}
@@ -574,12 +761,17 @@ export default function SubjectWorkspacePage() {
           onToggleFavorite={handleToggleFavorite}
           onToggleSpoiler={handleToggleSpoiler}
           onToggleAutoAdvance={handleToggleAutoAdvance}
-          onTogglePause={() => { const next = !isPaused; setIsPaused(next); void persistNow({ isPaused: next }) }}
+          onTogglePause={() => {
+            const next = !isPaused
+            setIsPaused(next)
+            void persistNow({ isPaused: next })
+          }}
           onJump={handleJump}
           onPrev={handlePrev}
           onNext={handleNext}
           onSelectOption={handleSelectOption}
           onSelectReadingOption={handleSelectReadingOption}
+          onFillBlankChange={handleFillBlankChange}
           onTextChange={handleTextChange}
           onSubmit={handleFinish}
         />
