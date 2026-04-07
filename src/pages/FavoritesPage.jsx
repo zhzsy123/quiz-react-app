@@ -1,62 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React from 'react'
 import { ArrowLeft, Play, Search, Star, Trash2 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAppContext } from '../app/providers/AppContext'
-import { loadFavoriteEntries, removeFavoriteEntry } from '../shared/lib/storage/storageFacade'
+import { Link } from 'react-router-dom'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
-
-function formatType(entry) {
-  if (entry.itemType === 'reading') return '阅读理解'
-  if (entry.itemType === 'translation') return '翻译题'
-  if (entry.itemType === 'short_answer') return '简答题'
-  if (entry.itemType === 'case_analysis') return '案例分析'
-  if (entry.itemType === 'calculation') return '计算题'
-  if (entry.itemType === 'operation') return '操作题'
-  if (entry.itemType === 'essay') return '作文题'
-  if (entry.sourceType === 'cloze') return '完形填空'
-  return '单项选择'
-}
+import { formatFavoriteType, useFavoritesPageState } from '../features/favorites/model/useFavoritesPageState'
 
 export default function FavoritesPage() {
-  const { activeProfile, activeProfileId } = useAppContext()
-  const navigate = useNavigate()
-  const [entries, setEntries] = useState([])
-  const [query, setQuery] = useState('')
-  const [subjectFilter, setSubjectFilter] = useState('all')
-
-  const refreshEntries = async () => {
-    if (!activeProfileId) return
-    const groups = await Promise.all(SUBJECT_REGISTRY.map((subject) => loadFavoriteEntries(activeProfileId, subject.key)))
-    setEntries(groups.flat().sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0)))
-  }
-
-  useEffect(() => {
-    void refreshEntries()
-  }, [activeProfileId])
-
-  const filteredEntries = useMemo(() => {
-    const lowered = query.trim().toLowerCase()
-    return entries.filter((entry) => {
-      const subjectMatched = subjectFilter === 'all' || entry.subject === subjectFilter
-      if (!subjectMatched) return false
-      if (!lowered) return true
-      const bucket = [entry.prompt, entry.paperTitle, entry.contextTitle, ...(entry.tags || [])].join(' ').toLowerCase()
-      return bucket.includes(lowered)
-    })
-  }, [entries, query, subjectFilter])
-
-  const handleRemove = async (entry) => {
-    if (!activeProfileId) return
-    await removeFavoriteEntry(activeProfileId, entry.subject, entry.questionKey)
-    await refreshEntries()
-  }
-
-  const handleStartPractice = () => {
-    const targetSubjectKey = subjectFilter !== 'all' ? subjectFilter : filteredEntries[0]?.subject
-    if (!targetSubjectKey) return
-    const subjectMeta = getSubjectMeta(targetSubjectKey)
-    navigate(`/workspace/${subjectMeta.routeSlug}?source=favorites&mode=practice`)
-  }
+  const {
+    filteredEntries,
+    query,
+    setQuery,
+    subjectFilter,
+    setSubjectFilter,
+    handleRemove,
+    handleStartPractice,
+  } = useFavoritesPageState()
 
   return (
     <div className="app-shell">
@@ -106,7 +63,7 @@ export default function FavoritesPage() {
                       <div className="wrongbook-card-title">{entry.prompt}</div>
                       <div className="wrongbook-meta">
                         <span>{getSubjectMeta(entry.subject).shortLabel}</span>
-                        <span>{formatType(entry)}</span>
+                        <span>{formatFavoriteType(entry)}</span>
                         <span>{entry.paperTitle || '未命名来源'}</span>
                       </div>
                     </div>
