@@ -14,9 +14,9 @@ import {
   saveProgressRecord,
   setActiveProfileId,
   upsertWrongBookEntries,
-} from './storageFacade'
+} from './legacyStorageFacade'
 
-describe('storageFacade boundary', () => {
+describe('legacyStorageFacade compatibility', () => {
   beforeEach(() => {
     globalThis.indexedDB = new FDBFactory()
     localStorage.clear()
@@ -45,7 +45,7 @@ describe('storageFacade boundary', () => {
     expect(savePreference('quiz:pref:autoAdvance', true)).toBe(false)
   })
 
-  it('persists profile and progress records through the facade', async () => {
+  it('persists profile and progress records through the compatibility facade', async () => {
     const fallbackProfile = await ensureDefaultProfile()
     const secondProfile = await createProfile('Second')
     const profiles = await listProfiles()
@@ -91,7 +91,11 @@ describe('storageFacade boundary', () => {
       { questionKey: 'english:paper:q2', subject: 'english', prompt: 'Question 2' },
     ])
 
-    const nextEntries = await removeWrongBookEntries(profile.id, 'english', ['english:paper:q1', 'english:paper:q2'])
+    const nextEntries = await removeWrongBookEntries(profile.id, 'english', [
+      'english:paper:q1',
+      'english:paper:q2',
+    ])
+
     expect(nextEntries).toHaveLength(0)
   })
 })

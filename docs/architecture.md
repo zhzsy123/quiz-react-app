@@ -1,8 +1,10 @@
 # Architecture
 
-本文档描述的是当前仓库已经落地的真实结构，不是目标结构草案。
+本文描述当前已落地结构与稳定度，并与迁移过程保持区分：未完全稳定的模块只标注为“预埋/在建”。
 
-## 当前目录分层
+## 一、当前主结构（已稳定）
+
+当前项目结构不再是“`pages + boundaries`”作为主要分层，实际主干为：
 
 ```text
 src/
@@ -14,209 +16,105 @@ src/
   shared/
 ```
 
-### 1. `app`
+### 结构稳定度说明
 
-职责：
+- `app`：**稳定**（应用启动、路由、全局上下文和样式入口已定型）
+- `pages`：**迁移中（稳定承载 + 命名收敛进行中）**
+- `widgets`：**稳定**（功能组件边界稳定，接口逐步收敛）
+- `features`：**稳定（内部分布式模型仍在优化）**
+- `entities`：**稳定（quiz 与若干领域能力已落地）**
+- `shared`：**稳定（存储/接口分层已稳定）**
 
-- 应用入口
-- 路由注册
-- 全局 Provider
-- 全局样式
+## 二、分层职责
 
-当前文件：
+### `app`（稳定）
 
-- `src/app/main.jsx`
-- `src/app/router/AppRouter.jsx`
-- `src/app/providers/AppContext.jsx`
-- `src/app/styles/*`
+- 负责应用启动、路由注册、全局 Provider 与基础样式：
+  - `src/app/main.jsx`
+  - `src/app/router/AppRouter.jsx`
+  - `src/app/providers/AppContext.jsx`
+  - `src/app/styles/*`
 
-### 2. `pages`
+### `pages`（迁移中）
 
-职责：
+- 页面容器层，当前作为可运行的迁移容器，承载页面布局与路由映射。
+- 当前页面示例：`DashboardSplitPage`, `FileHubPage`, `SubjectWorkspacePage`, `HistoryPage`, `WrongBookPage`, `FavoritesPage`
+- 说明：页面命名与调用链仍在清理中，优先保证兼容和可运行性。
 
-- 路由页面
-- 页面布局与页面级组合
+### `widgets`（稳定）
 
-当前页面：
+- 可复用展示/交互组件，当前重点承载题库展示与导入类组件：
+  - `widgets/quiz/CleanQuizView.jsx`
+  - `widgets/quiz-importer/QuizImporter.jsx`
 
-- `DashboardSplitPage.jsx`
-- `FileHubPage.jsx`
-- `SubjectWorkspacePage.jsx`
-- `HistoryPage.jsx`
-- `WrongBookPage.jsx`
-- `FavoritesPage.jsx`
+### `features`（稳定，部分能力在建）
 
-当前状态：
+- 负责页面内业务编排与状态管理（含 `model`），如：
+  - `dashboard`, `workspace`, `history`, `wrong-book`, `favorites`, `file-hub`
+- AI 相关：`ai` 层为**在建增强能力**，当前已有预留与部分落地，不应视为全部成熟功能。
 
-- 页面层已经在 Phase 2 变薄
-- 主要业务状态已经下沉到 `features/*/model`
+### `entities`（稳定）
 
-### 3. `widgets`
-
-职责：
-
-- 页面内复用的视图组件
-- 不直接持有复杂持久化职责
-
-当前组件：
-
-- `src/widgets/quiz/CleanQuizView.jsx`
-- `src/widgets/quiz-importer/QuizImporter.jsx`
-
-### 4. `features`
-
-职责：
-
-- 页面场景逻辑
-- 页面状态管理
-- AI 调用编排
-
-当前已落地 feature：
-
-- `features/dashboard`
-- `features/file-hub`
-- `features/workspace`
-- `features/history`
-- `features/wrong-book`
-- `features/favorites`
-- `features/ai`
-
-当前状态：
-
-- `features/*/model` 中承载页面级逻辑
-- `features/ai/reviewService.js` 负责 AI 批改、解释、核题、同类题生成
-
-### 5. `entities`
-
-职责：
-
-- 领域对象
-- 题库处理
-- repository 抽象
-- 科目配置
-
-当前已落地：
-
-- `entities/quiz/lib`
-  - `quizSchema.js`
-  - `quizPipeline.js`
-  - `paperId.js`
-- `entities/subject/model/subjects.js`
-- `entities/profile/api/profileRepository.js`
-- `entities/library/api/libraryRepository.js`
-- `entities/attempt/api/attemptRepository.js`
-- `entities/favorite/api/favoriteRepository.js`
-- `entities/wrong-book/api/wrongBookRepository.js`
-- `entities/workspace/api/workspaceSessionRepository.js`
-
-### 6. `shared`
-
-职责：
-
-- 技术基础设施
-- API client
-- 偏好项访问
-- 存储 adapter
-- IndexedDB 基础实现
-
-当前已落地：
-
-- `shared/api/httpClient.js`
-- `shared/api/aiGateway.js`
-- `shared/api/deepseekClient.js`
-- `shared/lib/preferences/preferenceRepository.js`
-- `shared/storage/adapters/*`
-- `shared/storage/indexedDb/*`
-
-兼容层：
-
-- `shared/lib/storage/storageFacade.js`
-
-它仍然存在，但现在主要用于兼容旧测试和旧调用，不是新代码的一线入口。
-
-## 当前依赖方向
-
-当前推荐依赖方向：
+- 领域能力层：实体模型 + 基础服务 + 仓储导出
+- 关键能力：`entities/quiz/lib`（`quizPipeline` 及配套子模块）
+- 当前仓储能力：`entities/*/api/*Repository.js`
+- `quiz` 子结构：
 
 ```text
-app
-  -> pages
-    -> widgets
-    -> features
-      -> entities
-        -> shared
+entities/quiz/lib/
+  text/
+  validation/
+  normalize/
+  scoring/
+  quizPipeline.js
+  quizSchema.js
+  paperId.js
 ```
 
-当前真实代码里还存在一个保留耦合点：
+`quizPipeline` 当前处于“**已稳定运转的核心入口 + 正在收口兼容边界**”阶段，主要用于题库导入闭环的统一编排。
 
-- `features/*` 会通过 `useAppContext()` 读取当前激活档案
+### `shared`（稳定）
 
-这意味着 `features -> app/providers` 仍然存在轻度依赖。它没有破坏运行，但说明依赖方向还没有完全收敛成纯单向结构。
+- 提供横向能力：`api`、`lib/preferences`、`storage`
+- 关键注意：`shared/storage/compat/legacyStorageFacade` 与 `shared/lib/storage/storageFacade` 仍处于迁移收口阶段，兼容层尚未宣布清退。
 
-## 当前导入与标准化链路
+## 三、关键能力成熟度
 
-题库导入的实际流程已经固定为：
+### 已稳定支持
 
-1. `parseQuizJsonText`
-2. `validateQuizPayload`
-3. `normalizeQuizDocument`
-4. `buildQuizDocumentFromText`
-5. 进入题库仓储或工作区
+- `entities/quiz/lib` 的 `validation / normalize / scoring / pipeline` 主要链路可运行
+- 页面容器 + 核心 state 流转（features -> pages）的闭环可用
+- 持久化基础能力（IndexedDB / browserStorageAdapter）链路可用
 
-代码位置：
+### 预埋/在建
 
-- `src/entities/quiz/lib/quizPipeline.js`
+- `PDF / DOCX` 导入（与题库流程的完整闭环仍在持续整合）
+- `features/ai` 及其与 `shared/api` 的完整能力演进（AI 服务调用与结果处理处于增强中）
+- 页面层命名与历史命名兼容清理（包括部分目录与引用）
 
-说明：
+## 四、数据与调用链（当前）
 
-- `quizPipeline.js` 负责流程编排
-- `quizSchema.js` 仍然负责题型级归一化和兼容转换
-
-## 当前存储边界
-
-当前存储访问链路：
+### 页面/Widget -> 实体 -> 存储
 
 ```text
-features / app
-  -> entities/*/api repository
-    -> shared/storage/adapters
-      -> shared/storage/indexedDb
+pages / widgets / features
+  -> entities/*/api/*Repository
+  -> shared/storage/adapters/*
+  -> shared/storage/indexedDb/*
+  -> localStorage
 ```
 
-偏好项链路：
-
-```text
-features / shared/api
-  -> shared/lib/preferences/preferenceRepository
-    -> shared/storage/adapters/browserStorageAdapter
-      -> localStorage
-```
-
-这意味着页面和 feature 已经不直接碰 IndexedDB store 文件和 `localStorage` API。
-
-## 当前 API 边界
-
-当前 API 调用链路：
+### AI 调用链（在建增强）
 
 ```text
 features/ai/reviewService
   -> shared/api/aiGateway
-    -> shared/api/deepseekClient
-      -> shared/api/httpClient
-        -> fetch
+  -> shared/api/deepseekClient
+  -> shared/api/httpClient
 ```
 
-说明：
+## 五、与迁移文档关系
 
-- `shared/api` 已经具备统一入口和 provider 分发能力
-- 当前唯一真实 provider 是 DeepSeek
-- 还没有接真实后端服务
-
-## 当前仍然未完成的部分
-
-以下内容已经明确是“还没完成”，不是当前架构已经解决的事情：
-
-- `quizSchema.js` 仍然偏重，题型归一化尚未继续拆小
-- `storageFacade.js` 仍然保留为兼容层
-- `features` 对 `AppContext` 仍有轻度依赖
-- `shared/api` 只完成了前端内的 provider gateway，还没有后端 API
+本文件聚焦“当前稳定结构 + 迁移中的边界状态”。完整迁移步骤、完成度、风险项与待办事项请以
+[docs/migration.md](/C:/Users/23343/.codex/worktrees/e580/quiz-react-app/docs/migration.md)
+为准。
