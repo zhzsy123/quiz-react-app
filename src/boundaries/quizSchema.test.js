@@ -149,6 +149,29 @@ describe('quizSchema boundary', () => {
     expect(result.items[2].blanks[0].accepted_answers).toEqual(['alpha', 'Alpha'])
   })
 
+  it('accepts translation questions that use prompt plus answer.correct', () => {
+    const result = normalizeQuizPayload({
+      schema_version: '2026-04',
+      title: 'Translation quiz',
+      questions: [
+        {
+          id: 'q_tr_1',
+          type: 'translation',
+          prompt: 'Translate this sentence into Chinese.',
+          answer: {
+            type: 'objective',
+            correct: '把这句话翻译成中文。',
+          },
+        },
+      ],
+    })
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].type).toBe('translation')
+    expect(result.items[0].source_text).toBe('Translate this sentence into Chinese.')
+    expect(result.items[0].answer.reference_answer).toBe('把这句话翻译成中文。')
+  })
+
   it('reports invalid payloads at the boundary', () => {
     expect(() => normalizeQuizPayload({ title: 'broken' })).toThrow(/questions/)
   })

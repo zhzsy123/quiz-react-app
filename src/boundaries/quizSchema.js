@@ -255,15 +255,31 @@ function convertCloze(question) {
 }
 
 function convertTranslation(question) {
-  if (!question.source_text) return null
+  const sourceText =
+    question.source_text ||
+    question.sourceText ||
+    question.text ||
+    question.content ||
+    question.body ||
+    question.prompt
+
+  if (!sourceText) return null
+
+  const prompt =
+    question.translation_prompt ||
+    question.instruction ||
+    (question.source_text || question.sourceText || question.text || question.content || question.body
+      ? question.prompt || '请完成翻译'
+      : '请完成翻译')
 
   return {
     ...ensureQuestionBase(question, 'translation'),
+    prompt,
     direction: question.direction || 'en_to_zh',
-    source_text: question.source_text,
+    source_text: sourceText,
     answer: {
       type: 'subjective',
-      reference_answer: question.answer?.reference_answer || '',
+      reference_answer: question.answer?.reference_answer || question.answer?.correct || '',
       alternate_answers: question.answer?.alternate_answers || [],
       scoring_points: question.answer?.scoring_points || [],
       ai_scoring: question.answer?.ai_scoring || { enabled: false },
