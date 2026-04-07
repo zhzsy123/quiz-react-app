@@ -51,6 +51,26 @@ function normalizeTrueFalseCorrect(correct) {
   return ''
 }
 
+export const DEFAULT_QUESTION_SCORES = {
+  single_choice: 2,
+  multiple_choice: 2,
+  true_false: 2,
+  fill_blank: 2,
+  cloze: 2,
+  reading: 2.5,
+  translation: 15,
+  essay: 30,
+}
+
+function parseScore(value, fallback) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback
+}
+
+function getDefaultScoreByType(type) {
+  return DEFAULT_QUESTION_SCORES[type] || 1
+}
+
 export function normalizeQuizText(text) {
   let cleaned = String(text || '').trim()
   if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
@@ -78,7 +98,7 @@ function normalizeLegacySchema(data) {
     prompt: item.question,
     difficulty: item.difficulty,
     tags: item.tags || [],
-    score: Number(item.score) || 1,
+    score: parseScore(item.score, getDefaultScoreByType('single_choice')),
     source_type: 'legacy_single_choice',
     assets: [],
     options: (item.options || []).map(normalizeOption),
@@ -106,24 +126,24 @@ function normalizeLegacySchema(data) {
   }
 }
 
-function ensureQuestionBase(question, fallbackType) {
+function ensureQuestionBase(question, fallbackType, defaultScore = getDefaultScoreByType(fallbackType || question.type)) {
   return {
     id: question.id,
     type: fallbackType || question.type,
     prompt: question.prompt,
     difficulty: question.difficulty,
     tags: question.tags || [],
-    score: Number(question.score) || 1,
+    score: parseScore(question.score, defaultScore),
     source_type: question.type,
     assets: Array.isArray(question.assets) ? question.assets : [],
   }
 }
 
-function convertSingleChoice(question) {
+function convertSingleChoice(question, options = {}) {
   if (!Array.isArray(question.options) || !question.answer?.correct) return null
 
   return {
-    ...ensureQuestionBase(question, 'single_choice'),
+    ...ensureQuestionBase(question, 'single_choice', options.defaultScore || getDefaultScoreByType('single_choice')),
     options: question.options.map(normalizeOption),
     answer: {
       type: 'objective',
@@ -139,7 +159,7 @@ function convertMultipleChoice(question) {
   if (!correct.length) return null
 
   return {
-    ...ensureQuestionBase(question, 'multiple_choice'),
+    ...ensureQuestionBase(question, 'multiple_choice', getDefaultScoreByType('multiple_choice')),
     options: question.options.map(normalizeOption),
     answer: {
       type: 'objective',
@@ -154,7 +174,7 @@ function convertTrueFalse(question) {
   if (!correct) return null
 
   return {
-    ...ensureQuestionBase(question, 'true_false'),
+    ...ensureQuestionBase(question, 'true_false', getDefaultScoreByType('true_false')),
     options: [
       { key: 'T', text: '正确' },
       { key: 'F', text: '错误' },
@@ -182,7 +202,7 @@ function convertFillBlank(question) {
         blank_id: blank.blank_id ?? index + 1,
         accepted_answers: acceptedAnswers,
         rationale: blank.rationale || '暂无解析',
-        score: Number(blank.score) || 1,
+        score: parseScore(blank.score, getDefaultScoreByType('fill_blank')),
       }
     })
     .filter(Boolean)
@@ -190,14 +210,18 @@ function convertFillBlank(question) {
   if (!blanks.length) return null
 
   return {
-    ...ensureQuestionBase(question, 'fill_blank'),
+    ...ensureQuestionBase(
+      question,
+      'fill_blank',
+      blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)
+    ),
     blanks,
     answer: {
       type: 'objective',
       correct: blanks.map((blank) => blank.accepted_answers),
       rationale: question.answer?.rationale || '',
     },
-    score: blanks.reduce((sum, blank) => sum + (blank.score || 1), 0),
+    score: blanks.reduce((sum, blank) => sum + (blank.score || 0), 0),
   }
 }
 
@@ -205,13 +229,17 @@ function convertReading(question) {
   if (!question.passage?.content || !Array.isArray(question.questions)) return null
 
   const normalizedQuestions = question.questions
-    .map((subQuestion) => convertSingleChoice(subQuestion))
+    .map((subQuestion) => convertSingleChoice(subQuestion, { defaultScore: getDefaultScoreByType('reading') }))
     .filter(Boolean)
 
   if (!normalizedQuestions.length) return null
 
   return {
-    ...ensureQuestionBase(question, 'reading'),
+    ...ensureQuestionBase(
+      question,
+      'reading',
+      normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 0), 0)
+    ),
     title: question.title,
     passage: {
       title: question.passage?.title || question.title,
@@ -221,7 +249,7 @@ function convertReading(question) {
     answer: {
       type: 'objective',
     },
-    score: normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 1), 0),
+    score: normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 0), 0),
   }
 }
 
@@ -240,7 +268,7 @@ function convertCloze(question) {
         context: question.article.replace(`[[${blank.blank_id}]]`, `____(${blank.blank_id})____`),
         difficulty: question.difficulty,
         tags: question.tags || [],
-        score: Number(blank.score) || 1,
+        score: parseScore(blank.score, getDefaultScoreByType('cloze')),
         source_type: 'cloze',
         assets: Array.isArray(question.assets) ? question.assets : [],
         options: blank.options.map(normalizeOption),
@@ -273,7 +301,7 @@ function convertTranslation(question) {
       : '请完成翻译')
 
   return {
-    ...ensureQuestionBase(question, 'translation'),
+    ...ensureQuestionBase(question, 'translation', getDefaultScoreByType('translation')),
     prompt,
     direction: question.direction || 'en_to_zh',
     source_text: sourceText,
@@ -289,7 +317,7 @@ function convertTranslation(question) {
 
 function convertEssay(question) {
   return {
-    ...ensureQuestionBase(question, 'essay'),
+    ...ensureQuestionBase(question, 'essay', getDefaultScoreByType('essay')),
     essay_type: question.essay_type || 'writing',
     requirements: question.requirements || {},
     answer: {
@@ -407,4 +435,40 @@ export function normalizeQuizPayload(data) {
       skippedTypes: [...new Set(skippedTypes)],
     },
   }
+}
+
+export function getQuizScoreBreakdown(items = []) {
+  return items.reduce(
+    (summary, item) => {
+      if (!item) return summary
+
+      if (item.type === 'reading') {
+        const readingScore = (item.questions || []).reduce((sum, question) => sum + parseScore(question.score, 0), 0)
+        summary.objectiveTotal += readingScore
+        summary.paperTotal += readingScore
+        return summary
+      }
+
+      if (item.type === 'fill_blank') {
+        const fillBlankScore = (item.blanks || []).reduce((sum, blank) => sum + parseScore(blank.score, 0), 0)
+        summary.objectiveTotal += fillBlankScore
+        summary.paperTotal += fillBlankScore
+        return summary
+      }
+
+      const itemScore = parseScore(item.score, 0)
+      if (item.answer?.type === 'subjective') {
+        summary.subjectiveTotal += itemScore
+      } else {
+        summary.objectiveTotal += itemScore
+      }
+      summary.paperTotal += itemScore
+      return summary
+    },
+    {
+      objectiveTotal: 0,
+      subjectiveTotal: 0,
+      paperTotal: 0,
+    }
+  )
 }

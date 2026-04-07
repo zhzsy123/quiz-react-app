@@ -17,6 +17,15 @@ export default function QuizImporter({ onQuizLoaded }) {
       const rawText = await file.text()
       const { cleanedText, parsed: normalized } = parseQuizText(rawText)
 
+      const shouldContinue = await onQuizLoaded({ parsed: normalized, rawText: cleanedText, fileName: file.name })
+      if (shouldContinue === false) {
+        setInfo('已取消导入。')
+        setError('')
+        setFileName('')
+        setQuestionCount(0)
+        return
+      }
+
       setFileName(file.name)
       setQuestionCount(normalized.items.length)
       setError('')
@@ -27,8 +36,6 @@ export default function QuizImporter({ onQuizLoaded }) {
       } else {
         setInfo(`已成功导入 ${compatibility?.supportedCount || normalized.items.length} 题。`)
       }
-
-      onQuizLoaded({ parsed: normalized, rawText: cleanedText })
     } catch (err) {
       setError(`解析失败：${err.message}`)
       setInfo('')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeQuizPayload, parseQuizText } from './quizSchema'
+import { getQuizScoreBreakdown, normalizeQuizPayload, parseQuizText } from './quizSchema'
 
 describe('quizSchema boundary', () => {
   it('keeps compatibility for legacy items payloads', () => {
@@ -99,6 +99,8 @@ describe('quizSchema boundary', () => {
     expect(result.items[0].type).toBe('reading')
     expect(result.items[1].type).toBe('single_choice')
     expect(result.items[1].context).toContain('____(1)____')
+    expect(result.items[0].questions[0].score).toBe(2.5)
+    expect(result.items[1].score).toBe(2)
   })
 
   it('normalizes multiple choice, true false and fill blank data', () => {
@@ -143,10 +145,13 @@ describe('quizSchema boundary', () => {
     expect(result.items).toHaveLength(3)
     expect(result.items[0].type).toBe('multiple_choice')
     expect(result.items[0].answer.correct).toEqual(['A', 'B'])
+    expect(result.items[0].score).toBe(2)
     expect(result.items[1].type).toBe('true_false')
     expect(result.items[1].answer.correct).toBe('T')
+    expect(result.items[1].score).toBe(2)
     expect(result.items[2].type).toBe('fill_blank')
     expect(result.items[2].blanks[0].accepted_answers).toEqual(['alpha', 'Alpha'])
+    expect(result.items[2].score).toBe(2)
   })
 
   it('accepts translation questions that use prompt plus answer.correct', () => {
@@ -169,7 +174,66 @@ describe('quizSchema boundary', () => {
     expect(result.items).toHaveLength(1)
     expect(result.items[0].type).toBe('translation')
     expect(result.items[0].source_text).toBe('Translate this sentence into Chinese.')
+    expect(result.items[0].score).toBe(15)
     expect(result.items[0].answer.reference_answer).toBe('把这句话翻译成中文。')
+  })
+
+  it('computes objective, subjective and paper totals', () => {
+    const result = normalizeQuizPayload({
+      schema_version: '2026-04',
+      title: 'English paper',
+      questions: [
+        {
+          id: 'q1',
+          type: 'single_choice',
+          prompt: 'Single',
+          options: ['A. one', 'B. two'],
+          answer: {
+            correct: 'A',
+          },
+        },
+        {
+          id: 'q2',
+          type: 'reading',
+          prompt: 'Reading',
+          passage: {
+            title: 'Passage',
+            content: 'Content',
+          },
+          questions: [
+            {
+              id: 'q2_1',
+              type: 'single_choice',
+              prompt: 'Sub question',
+              options: ['A. one', 'B. two'],
+              answer: {
+                correct: 'B',
+              },
+            },
+          ],
+        },
+        {
+          id: 'q3',
+          type: 'translation',
+          prompt: 'Translate',
+          answer: {
+            correct: '答案',
+          },
+        },
+        {
+          id: 'q4',
+          type: 'essay',
+          prompt: 'Write',
+          answer: {},
+        },
+      ],
+    })
+
+    expect(getQuizScoreBreakdown(result.items)).toEqual({
+      objectiveTotal: 4.5,
+      subjectiveTotal: 45,
+      paperTotal: 49.5,
+    })
   })
 
   it('reports invalid payloads at the boundary', () => {

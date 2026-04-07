@@ -3,7 +3,7 @@ import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw, Star } from 'lucide-re
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
-import { parseQuizText } from '../boundaries/quizSchema'
+import { getQuizScoreBreakdown, parseQuizText } from '../boundaries/quizSchema'
 import {
   clearProgressRecord,
   listLibraryEntries,
@@ -104,12 +104,12 @@ function isResponseAnswered(item, response) {
 function getObjectiveItemTotal(item) {
   if (!item) return 0
   if (item.type === 'reading') {
-    return item.questions.reduce((sum, question) => sum + (question.score || 1), 0)
+    return item.questions.reduce((sum, question) => sum + (question.score || 0), 0)
   }
   if (item.type === 'fill_blank') {
-    return item.blanks.reduce((sum, blank) => sum + (blank.score || 1), 0)
+    return item.blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)
   }
-  return item.answer?.type === 'objective' ? item.score || 1 : 0
+  return item.answer?.type === 'objective' ? item.score || 0 : 0
 }
 
 function getObjectiveItemScore(item, response) {
@@ -117,7 +117,7 @@ function getObjectiveItemScore(item, response) {
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return 0
     return item.questions.reduce((sum, question) => {
-      return sum + (response[question.id] === question.answer?.correct ? question.score || 1 : 0)
+      return sum + (response[question.id] === question.answer?.correct ? question.score || 0 : 0)
     }, 0)
   }
   if (item.type === 'fill_blank') {
@@ -125,11 +125,11 @@ function getObjectiveItemScore(item, response) {
     return item.blanks.reduce((sum, blank) => {
       const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
       const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-      return sum + (isCorrect ? blank.score || 1 : 0)
+      return sum + (isCorrect ? blank.score || 0 : 0)
     }, 0)
   }
   if (item.answer?.type === 'objective' && isObjectiveCorrect(item, response)) {
-    return item.score || 1
+    return item.score || 0
   }
   return 0
 }
@@ -377,9 +377,13 @@ export default function SubjectWorkspacePage() {
     await saveProgressRecord(activeProfile.id, subjectKey, sessionPaperId, buildProgressPayload(overrides))
   }
 
-  const objectiveTotalScore = useMemo(() => {
-    return (quiz?.items || []).reduce((sum, item) => sum + getObjectiveItemTotal(item), 0)
+  const scoreSummary = useMemo(() => {
+    return getQuizScoreBreakdown(quiz?.items || [])
   }, [quiz])
+
+  const objectiveTotalScore = scoreSummary.objectiveTotal
+  const paperTotalScore = scoreSummary.paperTotal
+  const subjectivePendingScore = scoreSummary.subjectiveTotal
 
   const practiceAccuracy = useMemo(() => {
     if (!quiz || mode !== 'practice') return { correct: 0, answered: 0, rate: 0 }
@@ -451,6 +455,8 @@ export default function SubjectWorkspacePage() {
         title: entry?.title || quiz.title || '未命名试卷',
         objectiveScore: nextScore,
         objectiveTotal: objectiveTotalScore,
+        paperTotal: paperTotalScore,
+        subjectivePendingTotal: subjectivePendingScore,
         questionCount: totalQuestions,
         answeredCount,
         wrongCount,
@@ -757,8 +763,16 @@ export default function SubjectWorkspacePage() {
         {submitted && (
           <section className="score-card compact-score-card">
             <div className="score-line">
-              <strong>{score}</strong>
-              <span>/ {objectiveTotalScore}</span>
+              <strong>客观题得分</strong>
+              <span>{score} / {objectiveTotalScore}</span>
+            </div>
+            <div className="score-line">
+              <strong>试卷总分</strong>
+              <span>{paperTotalScore}</span>
+            </div>
+            <div className="score-line">
+              <strong>主观题待评分分值</strong>
+              <span>{subjectivePendingScore}</span>
             </div>
           </section>
         )}

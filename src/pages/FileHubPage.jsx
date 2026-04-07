@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, FileText, FolderOpen, Pencil, Play, Search, Tags, Timer, Trash2, UserCircle2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import QuizImporter from '../components/QuizImporter'
+import { getQuizScoreBreakdown } from '../boundaries/quizSchema'
 import { buildPaperId } from '../utils/storage'
 import { useAppContext } from '../context/AppContext'
 import { deleteLibraryEntry, listLibraryEntries, updateLibraryEntry, upsertLibraryEntry } from '../boundaries/storageFacade'
@@ -44,6 +45,15 @@ export default function FileHubPage() {
 
   const handleQuizLoaded = async ({ parsed, rawText }) => {
     if (!activeProfile?.id) return
+    const scoreBreakdown = getQuizScoreBreakdown(parsed.items || [])
+
+    if (SUBJECT_KEY === 'english' && scoreBreakdown.paperTotal !== 150) {
+      const shouldContinue = window.confirm(
+        `当前英语试卷总分为 ${scoreBreakdown.paperTotal} 分，不是 150 分。可能是 JSON 缺少 score 或题型分值异常，是否继续导入？`
+      )
+      if (!shouldContinue) return false
+    }
+
     const nextPaperId = buildPaperId(rawText)
     await upsertLibraryEntry({
       profileId: activeProfile.id,
@@ -56,6 +66,7 @@ export default function FileHubPage() {
       questionCount: parsed.items?.length || 0,
     })
     await refreshEntries()
+    return true
   }
 
   const handleRename = async (entry) => {
