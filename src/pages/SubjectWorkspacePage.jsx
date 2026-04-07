@@ -918,34 +918,36 @@ export default function SubjectWorkspacePage() {
 
         {submitted && (
           <section className="score-card compact-score-card">
-            <div className="score-line">
-              <strong>客观题得分</strong>
-              <span>{score} / {objectiveTotalScore}</span>
+            <div className="score-hero">
+              <div className="score-hero-label">试卷总分</div>
+              <div className="score-hero-value">
+                {aiReview?.status === 'completed' ? aiReview.totalScore : score}
+                <span>/ {paperTotalScore}</span>
+              </div>
             </div>
-            <div className="score-line">
-              <strong>试卷总分</strong>
-              <span>{paperTotalScore}</span>
+
+            <div className="score-subgrid">
+              <article className="score-subcard">
+                <div className="score-subtitle">客观题得分</div>
+                <div className="score-subvalue">{score}<span>/ {objectiveTotalScore}</span></div>
+              </article>
+              <article className="score-subcard">
+                <div className="score-subtitle">主观题</div>
+                <div className="score-subvalue">
+                  {aiReview?.status === 'completed' ? aiReview.totalSubjectiveScore : 0}
+                  <span>/ {subjectivePendingScore}</span>
+                </div>
+              </article>
             </div>
-            <div className="score-line">
-              <strong>主观题待评分分值</strong>
-              <span>{subjectivePendingScore}</span>
-            </div>
+
             {subjectivePendingScore > 0 && (
-              <div className="analysis-box">
+              <div className="analysis-box score-ai-summary">
                 <div>
                   <strong>AI 批改状态：</strong>
                   {aiReview?.status === 'pending' ? '批改中' : aiReview?.status === 'completed' ? '已完成' : aiReview?.status === 'failed' ? '失败' : '未开始'}
                 </div>
                 {aiReview?.status === 'completed' && (
                   <>
-                    <div>
-                      <strong>AI 主观题估分：</strong>
-                      {aiReview.totalSubjectiveScore} / {subjectivePendingScore}
-                    </div>
-                    <div>
-                      <strong>AI 估算总分：</strong>
-                      {aiReview.totalScore} / {paperTotalScore}
-                    </div>
                     {aiReview.overallComment && (
                       <div>
                         <strong>总体点评：</strong>

@@ -9,6 +9,7 @@ import {
   Clock3,
   FileText,
   Languages,
+  LoaderCircle,
   Maximize2,
   Minimize2,
   Pause,
@@ -123,7 +124,14 @@ function AiExplainPanel({ entry }) {
   if (!entry) return null
 
   if (entry.status === 'pending') {
-    return <div className="analysis-box ai-panel"><div className="ai-panel-status">AI 正在生成解释...</div></div>
+    return (
+      <div className="analysis-box ai-panel">
+        <div className="ai-panel-status ai-loading-row">
+          <LoaderCircle size={16} className="spin" />
+          AI 正在生成解释...
+        </div>
+      </div>
+    )
   }
 
   if (entry.status === 'failed') {
@@ -321,7 +329,7 @@ function ReadingBlock({
                   onClick={() => onExplainQuestion({ item, subQuestion })}
                   disabled={isPaused || explainEntry?.status === 'pending'}
                 >
-                  <Bot size={14} />
+                  {explainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
                   {explainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
                 </button>
                 <AiExplainPanel entry={explainEntry} />
@@ -744,7 +752,7 @@ export default function CleanQuizView({
                   onClick={() => onExplainQuestion({ item: currentItem })}
                   disabled={disabled || currentExplainEntry?.status === 'pending'}
                 >
-                  <Bot size={14} />
+                  {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
                   {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
                 </button>
               )}
@@ -835,7 +843,12 @@ export default function CleanQuizView({
           )}
           {isSubjective && submitted && <AiQuestionReviewPanel review={currentQuestionReview} />}
           {isSubjective && submitted && aiReview?.status === 'pending' && (
-            <div className="analysis-box">AI 正在批改当前主观题...</div>
+            <div className="analysis-box ai-panel">
+              <div className="ai-panel-status ai-loading-row">
+                <LoaderCircle size={16} className="spin" />
+                AI 正在批改当前主观题...
+              </div>
+            </div>
           )}
           {!isReading && <AiExplainPanel entry={currentExplainEntry} />}
 
