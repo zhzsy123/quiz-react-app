@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { listAttempts, loadFavoriteEntries } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY } from '../config/subjects'
+import { getDeepSeekConfig, maskApiKey, updateDeepSeekConfig } from '../services/ai/deepseekClient'
 
 function WorkflowBand() {
   return (
@@ -56,6 +57,7 @@ export default function DashboardSplitPage() {
   const [newProfileName, setNewProfileName] = useState('')
   const [showCreateProfile, setShowCreateProfile] = useState(false)
   const [favoriteCount, setFavoriteCount] = useState(0)
+  const [aiConfig, setAiConfig] = useState(() => getDeepSeekConfig())
   const [dashboardState, setDashboardState] = useState({
     attempts: [],
     totalQuestionVolume: 0,
@@ -139,6 +141,13 @@ export default function DashboardSplitPage() {
     await renameLocalProfile(activeProfile.id, nextName)
   }
 
+  const handleUpdateApiKey = () => {
+    const nextKey = window.prompt('请输入新的 DeepSeek API Key。留空则取消。', aiConfig.apiKey || '')
+    if (nextKey === null) return
+    const nextConfig = updateDeepSeekConfig({ apiKey: nextKey })
+    setAiConfig(nextConfig)
+  }
+
   if (loading) {
     return (
       <div className="app-shell">
@@ -146,6 +155,9 @@ export default function DashboardSplitPage() {
           <section className="dashboard-hero">
             <div className="hero-icon">
               <LayoutDashboard size={30} />
+              <button type="button" className="secondary-btn" onClick={handleUpdateApiKey}>
+                更新 API Key
+              </button>
             </div>
             <h1>智能在线模考系统V2.0</h1>
           </section>
@@ -170,6 +182,9 @@ export default function DashboardSplitPage() {
               <a className="secondary-btn" href="./json-schema.md" download>
                 下载 JSON 规范
               </a>
+              <button type="button" className="secondary-btn" onClick={handleUpdateApiKey}>
+                更新 API Key
+              </button>
             </div>
 
             <div className="dashboard-stat-strip">
@@ -234,6 +249,10 @@ export default function DashboardSplitPage() {
             </div>
 
             <div className="dashboard-quick-panel">
+              <button className="dashboard-quick-link" type="button" onClick={handleUpdateApiKey}>
+                <Star size={16} />
+                <span>AI Key：{maskApiKey(aiConfig.apiKey)}</span>
+              </button>
               <Link className="dashboard-quick-link" to="/wrong-book">
                 <BookOpen size={16} />
                 <span>错题复习</span>

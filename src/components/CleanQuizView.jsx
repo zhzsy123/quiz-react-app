@@ -213,6 +213,55 @@ function AiQuestionReviewPanel({ review }) {
   )
 }
 
+function AiPracticeModal({ modal, onClose }) {
+  if (!modal) return null
+
+  return (
+    <div className="ai-modal-backdrop" onClick={onClose}>
+      <div className="ai-modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="ai-modal-head">
+          <strong>{modal.title || 'AI 同类题'}</strong>
+          <button type="button" className="ai-panel-toggle" onClick={onClose}>关闭</button>
+        </div>
+
+        {modal.status === 'pending' && (
+          <div className="ai-loading-row">
+            <LoaderCircle size={18} className="spin" />
+            AI 正在生成同类题...
+          </div>
+        )}
+
+        {modal.status === 'failed' && (
+          <div className="ai-panel-status">生成失败：{modal.error || '请稍后重试'}</div>
+        )}
+
+        {modal.status === 'completed' && (
+          <div className="ai-similar-list">
+            {(modal.questions || []).map((question, index) => (
+              <article key={`${question.index || index}`} className="ai-similar-card">
+                <div className="ai-similar-head">
+                  <span className="tag blue">第 {index + 1} 题</span>
+                  <span className="tag">{question.difficulty || 'progressive'}</span>
+                </div>
+                <div className="ai-similar-prompt">{question.prompt}</div>
+                {Array.isArray(question.options) && question.options.length > 0 && (
+                  <div className="ai-similar-options">
+                    {question.options.map((option, optionIndex) => (
+                      <div key={`${index}-${optionIndex}`}>{option}</div>
+                    ))}
+                  </div>
+                )}
+                <div className="ai-panel-row"><strong>答案</strong><span>{question.answer || '--'}</span></div>
+                <div className="ai-panel-row"><strong>解析</strong><span>{question.explanation || '--'}</span></div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ReadingBlock({
   item,
   response,
@@ -523,7 +572,13 @@ export default function CleanQuizView({
   aiReview,
   aiQuestionReviewMap = {},
   aiExplainMap = {},
+  aiExplainMode = 'standard',
+  aiPracticeModal = null,
+  onChangeAiExplainMode,
   onExplainQuestion,
+  onExplainWhyWrong,
+  onGenerateSimilarQuestions,
+  onCloseAiPracticeModal,
   onSubmit,
 }) {
   const total = quiz.items.length
@@ -584,6 +639,7 @@ export default function CleanQuizView({
   const objectiveReveal = submitted || (mode === 'practice' && revealedMap[currentItem.id])
   const currentExplainEntry = aiExplainMap[currentItem.id]
   const currentQuestionReview = aiQuestionReviewMap[currentItem.id]
+  const currentQuestionWrong = !isReading && !isSubjective && isObjectiveWrong(currentItem, userResponse)
 
   return (
     <section className="quiz-layout clean-workspace-layout">
@@ -745,17 +801,6 @@ export default function CleanQuizView({
             </div>
 
             <div className="question-top-actions">
-              {onExplainQuestion && !isReading && (
-                <button
-                  type="button"
-                  className="secondary-btn small-btn ai-inline-btn"
-                  onClick={() => onExplainQuestion({ item: currentItem })}
-                  disabled={disabled || currentExplainEntry?.status === 'pending'}
-                >
-                  {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
-                  {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
-                </button>
-              )}
               {onToggleFavorite && (
                 <button type="button" className={`favorite-toggle ${isFavorite ? 'active' : ''}`} onClick={onToggleFavorite}>
                   <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -775,6 +820,55 @@ export default function CleanQuizView({
           )}
 
           <h3>{currentItem.prompt}</h3>
+
+          {!isReading && (
+            <div className="ai-toolbar">
+              <div className="ai-mode-switch">
+                {[
+                  { key: 'brief', label: '简要' },
+                  { key: 'standard', label: '标准' },
+                  { key: 'deep', label: '深入' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`ai-mode-chip ${aiExplainMode === item.key ? 'active' : ''}`}
+                    onClick={() => onChangeAiExplainMode?.(item.key)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ai-action-row">
+                <button
+                  type="button"
+                  className="secondary-btn small-btn ai-inline-btn"
+                  onClick={() => onExplainQuestion({ item: currentItem })}
+                  disabled={disabled || currentExplainEntry?.status === 'pending'}
+                >
+                  {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
+                  {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn small-btn ai-inline-btn"
+                  onClick={() => onExplainWhyWrong?.({ item: currentItem })}
+                  disabled={disabled || !currentQuestionWrong || currentExplainEntry?.status === 'pending'}
+                >
+                  为什么我错了
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn small-btn ai-inline-btn"
+                  onClick={() => onGenerateSimilarQuestions?.({ item: currentItem })}
+                  disabled={disabled}
+                >
+                  给我同类题
+                </button>
+              </div>
+            </div>
+          )}
 
           {isReading ? (
             <ReadingBlock
@@ -886,6 +980,7 @@ export default function CleanQuizView({
           </div>
         )}
       </div>
+      <AiPracticeModal modal={aiPracticeModal} onClose={onCloseAiPracticeModal} />
     </section>
   )
 }

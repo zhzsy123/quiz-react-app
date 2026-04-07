@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
 import { getQuizScoreBreakdown, parseQuizText } from '../boundaries/quizSchema'
-import { explainQuizQuestion, gradeSubjectiveAttempt } from '../services/ai/reviewService'
+import { explainQuizQuestion, explainQuizQuestionWithMode, generateSimilarQuestions, gradeSubjectiveAttempt } from '../services/ai/reviewService'
 import {
   clearProgressRecord,
   listLibraryEntries,
@@ -21,6 +21,7 @@ import { getSubjectMetaByRouteParam } from '../config/subjects'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
+const AI_EXPLAIN_MODE_KEY = 'quiz:pref:aiExplainMode'
 const EXAM_DURATION_SECONDS = 90 * 60
 const DEFAULT_PRACTICE_WRONG_BOOK = true
 
@@ -300,6 +301,8 @@ export default function SubjectWorkspacePage() {
   const [attemptId, setAttemptId] = useState('')
   const [aiReview, setAiReview] = useState(null)
   const [aiExplainMap, setAiExplainMap] = useState({})
+  const [aiExplainMode, setAiExplainMode] = useState('standard')
+  const [aiPracticeModal, setAiPracticeModal] = useState(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [autoAdvance, setAutoAdvance] = useState(false)
   const [practiceWritesWrongBook, setPracticeWritesWrongBook] = useState(DEFAULT_PRACTICE_WRONG_BOOK)
@@ -315,6 +318,10 @@ export default function SubjectWorkspacePage() {
     if (storedAdvance !== null) setAutoAdvance(storedAdvance === 'true')
     const storedSpoiler = loadPreference(SPOILER_PREF_KEY, null)
     if (storedSpoiler !== null) setSpoilerExpanded(storedSpoiler === 'true')
+    const storedExplainMode = loadPreference(AI_EXPLAIN_MODE_KEY, null)
+    if (storedExplainMode && ['brief', 'standard', 'deep'].includes(storedExplainMode)) {
+      setAiExplainMode(storedExplainMode)
+    }
   }, [])
 
   useEffect(() => {
@@ -501,7 +508,7 @@ export default function SubjectWorkspacePage() {
     }
   }
 
-  const handleExplainQuestion = async ({ item, subQuestion = null }) => {
+  const handleExplainQuestion = async ({ item, subQuestion = null, focus = 'general' }) => {
     if (!quiz || !item) return
 
     const entryKey = getExplainEntryKey(item.id, subQuestion?.id)
@@ -535,6 +542,73 @@ export default function SubjectWorkspacePage() {
         commonMistakes: [],
         answerStrategy: [],
         error: error?.message || 'AI 解释失败',
+      })
+    }
+  }
+
+  const handleExplainQuestionWithMode = async ({ item, subQuestion = null, focus = 'general' }) => {
+    if (!quiz || !item) return
+
+    const entryKey = getExplainEntryKey(item.id, subQuestion?.id)
+    await syncAiExplainEntry(
+      entryKey,
+      {
+        status: 'pending',
+        title: '',
+        explanation: '',
+        keyPoints: [],
+        commonMistakes: [],
+        answerStrategy: [],
+        error: '',
+      }
+    )
+
+    try {
+      const completedExplain = await explainQuizQuestionWithMode({
+        paperTitle: quiz.title,
+        item,
+        response: answers[item.id],
+        subQuestion,
+        mode: aiExplainMode,
+        focus,
+      })
+      await syncAiExplainEntry(entryKey, completedExplain)
+    } catch (error) {
+      await syncAiExplainEntry(entryKey, {
+        status: 'failed',
+        title: 'AI 解释失败',
+        explanation: '',
+        keyPoints: [],
+        commonMistakes: [],
+        answerStrategy: [],
+        error: error?.message || 'AI 解释失败',
+      })
+    }
+  }
+
+  const handleGenerateSimilarQuestions = async ({ item }) => {
+    if (!quiz || !item) return
+
+    setAiPracticeModal({
+      status: 'pending',
+      title: 'AI 同类题生成中',
+      questions: [],
+      error: '',
+    })
+
+    try {
+      const generated = await generateSimilarQuestions({
+        paperTitle: quiz.title,
+        item,
+        response: answers[item.id],
+      })
+      setAiPracticeModal(generated)
+    } catch (error) {
+      setAiPracticeModal({
+        status: 'failed',
+        title: 'AI 同类题生成失败',
+        questions: [],
+        error: error?.message || 'AI 同类题生成失败',
       })
     }
   }
@@ -645,6 +719,12 @@ export default function SubjectWorkspacePage() {
       savePreference(AUTO_ADVANCE_KEY, next)
       return next
     })
+  }
+
+  const handleChangeAiExplainMode = (nextMode) => {
+    if (!['brief', 'standard', 'deep'].includes(nextMode)) return
+    setAiExplainMode(nextMode)
+    savePreference(AI_EXPLAIN_MODE_KEY, nextMode)
   }
 
   const handleTogglePracticeWrongBook = () => {
@@ -1005,7 +1085,15 @@ export default function SubjectWorkspacePage() {
           aiReview={aiReview}
           aiQuestionReviewMap={aiQuestionReviewMap}
           aiExplainMap={aiExplainMap}
-          onExplainQuestion={handleExplainQuestion}
+          aiExplainMode={aiExplainMode}
+          aiPracticeModal={aiPracticeModal}
+          onChangeAiExplainMode={handleChangeAiExplainMode}
+          onExplainQuestion={handleExplainQuestionWithMode}
+          onExplainWhyWrong={({ item, subQuestion = null }) =>
+            handleExplainQuestionWithMode({ item, subQuestion, focus: 'wrong_reason' })
+          }
+          onGenerateSimilarQuestions={handleGenerateSimilarQuestions}
+          onCloseAiPracticeModal={() => setAiPracticeModal(null)}
           onSubmit={handleFinish}
         />
       </div>

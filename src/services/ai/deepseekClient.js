@@ -39,6 +39,26 @@ export function getDeepSeekConfig() {
   }
 }
 
+export function updateDeepSeekConfig(patch = {}) {
+  if (typeof patch.apiKey === 'string') {
+    savePreference(API_KEY_PREF, patch.apiKey.trim())
+  }
+  if (typeof patch.baseUrl === 'string' && patch.baseUrl.trim()) {
+    savePreference(BASE_URL_PREF, patch.baseUrl.trim())
+  }
+  if (typeof patch.model === 'string' && patch.model.trim()) {
+    savePreference(MODEL_PREF, patch.model.trim())
+  }
+  return getDeepSeekConfig()
+}
+
+export function maskApiKey(apiKey = '') {
+  const text = String(apiKey || '').trim()
+  if (!text) return '未配置'
+  if (text.length <= 10) return `${text.slice(0, 2)}***${text.slice(-2)}`
+  return `${text.slice(0, 4)}***${text.slice(-4)}`
+}
+
 export function ensureDeepSeekConfigInteractive() {
   const current = getDeepSeekConfig()
   if (current.apiKey) return current

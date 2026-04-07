@@ -17,22 +17,65 @@ function subjectiveQuestionPayload(item, response) {
 
 function buildQuestionReviewMap(questionReviews = []) {
   return questionReviews.reduce((map, review) => {
-    if (review?.question_id) {
-      map[review.question_id] = {
-        questionId: review.question_id,
-        score: Number(review.score) || 0,
-        maxScore: Number(review.max_score) || 0,
-        feedback: review.feedback || '',
-        strengths: Array.isArray(review.strengths) ? review.strengths : [],
-        weaknesses: Array.isArray(review.weaknesses) ? review.weaknesses : [],
-        suggestions: Array.isArray(review.suggestions) ? review.suggestions : [],
-      }
+    if (!review?.question_id) return map
+    map[review.question_id] = {
+      questionId: review.question_id,
+      score: Number(review.score) || 0,
+      maxScore: Number(review.max_score) || 0,
+      feedback: review.feedback || '',
+      strengths: Array.isArray(review.strengths) ? review.strengths : [],
+      weaknesses: Array.isArray(review.weaknesses) ? review.weaknesses : [],
+      suggestions: Array.isArray(review.suggestions) ? review.suggestions : [],
     }
     return map
   }, {})
 }
 
-export async function gradeSubjectiveAttempt({ quiz, answers, objectiveScore, objectiveTotal, paperTotal, subjectivePendingTotal }) {
+function buildQuestionTarget(item, response, subQuestion = null) {
+  if (subQuestion) {
+    return {
+      question_id: subQuestion.id,
+      type: subQuestion.type || 'single_choice',
+      prompt: subQuestion.prompt,
+      options: subQuestion.options || [],
+      correct_answer: subQuestion.answer?.correct || '',
+      rationale: subQuestion.answer?.rationale || '',
+      user_answer: typeof response === 'object' ? response?.[subQuestion.id] || '' : '',
+      passage_title: item?.passage?.title || item?.title || '',
+      passage_content: item?.passage?.content || '',
+    }
+  }
+
+  return {
+    question_id: item.id,
+    type: item.type,
+    prompt: item.prompt,
+    options: item.options || [],
+    blanks: item.blanks || [],
+    correct_answer: item.answer?.correct || item.answer?.reference_answer || '',
+    rationale: item.answer?.rationale || item.answer?.reference_answer || '',
+    user_answer:
+      item.answer?.type === 'subjective'
+        ? response?.text || ''
+        : Array.isArray(response)
+          ? response.join(', ')
+          : typeof response === 'object'
+            ? JSON.stringify(response)
+            : response || '',
+    source_text: item.source_text || '',
+    context_title: item.context_title || '',
+    context: item.context || '',
+  }
+}
+
+export async function gradeSubjectiveAttempt({
+  quiz,
+  answers,
+  objectiveScore,
+  objectiveTotal,
+  paperTotal,
+  subjectivePendingTotal,
+}) {
   const subjectiveQuestions = (quiz?.items || [])
     .filter((item) => item?.answer?.type === 'subjective')
     .map((item) => subjectiveQuestionPayload(item, answers[item.id]))
@@ -52,11 +95,11 @@ export async function gradeSubjectiveAttempt({ quiz, answers, objectiveScore, ob
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      '你是一名严格但专业的英语模考试卷评阅老师。请只返回 JSON，不要输出任何额外文本。分数必须在 0 到 max_score 之间，点评要具体、可执行。',
+      'You are a strict but professional English exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete and actionable.',
     userPrompt: JSON.stringify(
       {
         task: 'grade_subjective_questions',
-        paper_title: quiz?.title || '未命名试卷',
+        paper_title: quiz?.title || 'Untitled paper',
         scoring_context: {
           objective_score: objectiveScore,
           objective_total: objectiveTotal,
@@ -102,46 +145,35 @@ export async function gradeSubjectiveAttempt({ quiz, answers, objectiveScore, ob
 }
 
 export async function explainQuizQuestion({ paperTitle, item, response, subQuestion = null }) {
-  const target = subQuestion
-    ? {
-        question_id: subQuestion.id,
-        type: subQuestion.type || 'single_choice',
-        prompt: subQuestion.prompt,
-        options: subQuestion.options || [],
-        correct_answer: subQuestion.answer?.correct || '',
-        rationale: subQuestion.answer?.rationale || '',
-        user_answer: typeof response === 'object' ? response?.[subQuestion.id] || '' : '',
-        passage_title: item?.passage?.title || item?.title || '',
-        passage_content: item?.passage?.content || '',
-      }
-    : {
-        question_id: item.id,
-        type: item.type,
-        prompt: item.prompt,
-        options: item.options || [],
-        blanks: item.blanks || [],
-        correct_answer: item.answer?.correct || item.answer?.reference_answer || '',
-        rationale: item.answer?.rationale || item.answer?.reference_answer || '',
-        user_answer:
-          item.answer?.type === 'subjective'
-            ? response?.text || ''
-            : Array.isArray(response)
-              ? response.join(', ')
-              : typeof response === 'object'
-                ? JSON.stringify(response)
-                : response || '',
-        source_text: item.source_text || '',
-        context_title: item.context_title || '',
-        context: item.context || '',
-      }
+  return explainQuizQuestionWithMode({
+    paperTitle,
+    item,
+    response,
+    subQuestion,
+    mode: 'standard',
+    focus: 'general',
+  })
+}
+
+export async function explainQuizQuestionWithMode({
+  paperTitle,
+  item,
+  response,
+  subQuestion = null,
+  mode = 'standard',
+  focus = 'general',
+}) {
+  const target = buildQuestionTarget(item, response, subQuestion)
 
   const { content, model } = await callDeepSeekJson({
     systemPrompt:
-      '你是一名善于讲题的英语考试老师。请只返回 JSON，不要输出任何额外文本。解释要说明为什么对、为什么错，以及考点和改进建议。',
+      'You are a clear English exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
     userPrompt: JSON.stringify(
       {
         task: 'explain_quiz_question',
-        paper_title: paperTitle || '未命名试卷',
+        mode,
+        focus,
+        paper_title: paperTitle || 'Untitled paper',
         question: target,
         output_schema: {
           title: 'string',
@@ -166,5 +198,46 @@ export async function explainQuizQuestion({ paperTitle, item, response, subQuest
     keyPoints: Array.isArray(content?.key_points) ? content.key_points : [],
     commonMistakes: Array.isArray(content?.common_mistakes) ? content.common_mistakes : [],
     answerStrategy: Array.isArray(content?.answer_strategy) ? content.answer_strategy : [],
+  }
+}
+
+export async function generateSimilarQuestions({ paperTitle, item, response, count = 5 }) {
+  const target = buildQuestionTarget(item, response)
+
+  const { content, model } = await callDeepSeekJson({
+    systemPrompt:
+      'You are an English exam question generator. Return JSON only. Based on the source question, generate 5 similar questions with progressively increasing difficulty.',
+    userPrompt: JSON.stringify(
+      {
+        task: 'generate_similar_questions',
+        paper_title: paperTitle || 'Untitled paper',
+        count,
+        source_question: target,
+        output_schema: {
+          title: 'string',
+          questions: [
+            {
+              index: 'number',
+              difficulty: 'easy | medium | hard',
+              prompt: 'string',
+              options: ['string'],
+              answer: 'string',
+              explanation: 'string',
+            },
+          ],
+        },
+      },
+      null,
+      2
+    ),
+  })
+
+  return {
+    status: 'completed',
+    provider: 'deepseek',
+    model,
+    generatedAt: Date.now(),
+    title: content?.title || 'AI Similar Questions',
+    questions: Array.isArray(content?.questions) ? content.questions : [],
   }
 }
