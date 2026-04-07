@@ -682,6 +682,14 @@ button { border: none; }
 .question-actions .submit-btn {
   min-width: 132px;
 }
+.ai-inline-btn.ai-dynamic-label {
+  font-size: 0;
+}
+.ai-inline-btn.ai-dynamic-label::after {
+  content: attr(data-ai-label);
+  font-size: 0.92rem;
+  line-height: 1;
+}
 .question-inline-actions {
   display: flex;
   justify-content: flex-end;

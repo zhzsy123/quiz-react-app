@@ -160,6 +160,15 @@ function AiExplainPanel({ entry }) {
           </button>
         )}
       </div>
+      {(entry.auditVerdict || typeof entry.confidenceScore === 'number') && (
+        <div className="ai-panel-row">
+          <strong>核题结果</strong>
+          <span>
+            {entry.auditVerdict || '--'}
+            {typeof entry.confidenceScore === 'number' ? ` / 置信度 ${entry.confidenceScore}` : ''}
+          </span>
+        </div>
+      )}
       {preview && <div className="ai-panel-preview">{preview}</div>}
       {expanded && entry.explanation && <div className="ai-panel-body">{entry.explanation}</div>}
       {expanded && Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0 && (
@@ -377,6 +386,7 @@ function ReadingBlock({
             const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
             const isFocused = focusSubQuestionId === subQuestion.id
             const explainEntry = aiExplainMap?.[`${item.id}:${subQuestion.id}`]
+            const canUseAiTool = mode === 'practice' || submitted
 
             return (
               <div
@@ -436,7 +446,17 @@ function ReadingBlock({
                 )}
                 <button
                   type="button"
-                  className="secondary-btn small-btn ai-inline-btn"
+                  className="secondary-btn small-btn ai-inline-btn ai-dynamic-label"
+                  data-ai-label={
+                    mode === 'exam'
+                      ? explainEntry?.status === 'pending'
+                        ? 'AI 核题中'
+                        : 'AI 核题'
+                      : explainEntry?.status === 'pending'
+                        ? 'AI 解释中'
+                        : 'AI 解释'
+                  }
+                  style={{ display: canUseAiTool ? undefined : 'none' }}
                   onClick={() => onExplainQuestion({ item, subQuestion })}
                   disabled={isPaused || explainEntry?.status === 'pending'}
                 >
@@ -548,6 +568,7 @@ function ObjectiveOptionsBlock({
         return (
           <button
             key={optIndex}
+            type="button"
             className={className}
             disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
             onClick={() => onSelectOption(item.id, option.key)}
@@ -712,7 +733,9 @@ export default function CleanQuizView({
   const currentExplainEntry = aiExplainMap[currentItem.id]
   const currentQuestionReview = aiQuestionReviewMap[currentItem.id]
   const currentQuestionWrong = !isReading && !isSubjective && isObjectiveWrong(currentItem, userResponse)
-  const showWrongFollowups = mode === 'practice' && objectiveReveal && currentQuestionWrong
+  const showPracticeAiToolbar = mode === 'practice'
+  const showExamAuditToolbar = mode === 'exam' && submitted
+  const showWrongFollowups = showPracticeAiToolbar && objectiveReveal && currentQuestionWrong
 
   return (
     <section className="quiz-layout clean-workspace-layout">
@@ -919,9 +942,9 @@ export default function CleanQuizView({
 
           <h3>{currentItem.prompt}</h3>
 
-          {!isReading && (
+          {!isReading && (showPracticeAiToolbar || showExamAuditToolbar) && (
             <div className="ai-toolbar">
-              <div className="ai-mode-switch">
+              <div className="ai-mode-switch" style={{ display: showPracticeAiToolbar ? undefined : 'none' }}>
                 {[
                   { key: 'brief', label: '简要' },
                   { key: 'standard', label: '标准' },
@@ -941,14 +964,23 @@ export default function CleanQuizView({
               <div className="ai-action-row">
                 <button
                   type="button"
-                  className="secondary-btn small-btn ai-inline-btn"
+                  className="secondary-btn small-btn ai-inline-btn ai-dynamic-label"
+                  data-ai-label={
+                    mode === 'exam'
+                      ? currentExplainEntry?.status === 'pending'
+                        ? 'AI 核题中'
+                        : 'AI 核题'
+                      : currentExplainEntry?.status === 'pending'
+                        ? 'AI 解释中'
+                        : 'AI 解释'
+                  }
                   onClick={() => onExplainQuestion({ item: currentItem })}
                   disabled={disabled || currentExplainEntry?.status === 'pending'}
                 >
                   {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
                   {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
                 </button>
-                {showWrongFollowups && (
+                {showPracticeAiToolbar && showWrongFollowups && (
                   <>
                     <button
                       type="button"
@@ -1062,7 +1094,7 @@ export default function CleanQuizView({
               </div>
             </div>
           )}
-          {!isReading && <AiExplainPanel entry={currentExplainEntry} />}
+          {!isReading && (showPracticeAiToolbar || showExamAuditToolbar) && <AiExplainPanel entry={currentExplainEntry} />}
 
           <div className="question-actions">
             <button className="secondary-btn" onClick={onPrev} disabled={isFirst || disabled}>

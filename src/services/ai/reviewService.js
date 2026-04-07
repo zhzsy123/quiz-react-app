@@ -203,6 +203,47 @@ export async function explainQuizQuestionWithMode({
   }
 }
 
+export async function auditQuizQuestionCompliance({ paperTitle, item, response, subQuestion = null }) {
+  const target = buildQuestionTarget(item, response, subQuestion)
+
+  const { content, model } = await callDeepSeekJson({
+    systemPrompt:
+      'You are an exam quality auditor. Return JSON only. Check whether the question, answer, rationale, and options are compliant, unambiguous, and internally consistent.',
+    userPrompt: JSON.stringify(
+      {
+        task: 'audit_quiz_question_compliance',
+        paper_title: paperTitle || 'Untitled paper',
+        question: target,
+        allowed_verdicts: ['规范', '有歧义', '不规范', '错题'],
+        output_schema: {
+          verdict: '规范 | 有歧义 | 不规范 | 错题',
+          confidence: 'number(0-100)',
+          summary: 'string',
+          issues: ['string'],
+          evidence: ['string'],
+          suggestions: ['string'],
+        },
+      },
+      null,
+      2
+    ),
+  })
+
+  return {
+    status: 'completed',
+    provider: 'deepseek',
+    model,
+    generatedAt: Date.now(),
+    title: 'AI 核题',
+    explanation: content?.summary || '',
+    keyPoints: Array.isArray(content?.evidence) ? content.evidence : [],
+    commonMistakes: Array.isArray(content?.issues) ? content.issues : [],
+    answerStrategy: Array.isArray(content?.suggestions) ? content.suggestions : [],
+    auditVerdict: content?.verdict || '规范',
+    confidenceScore: Number(content?.confidence) || 0,
+  }
+}
+
 export async function generateSimilarQuestions({ paperTitle, item, response, count = 5 }) {
   const target = buildQuestionTarget(item, response)
 

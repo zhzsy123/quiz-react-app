@@ -1,10 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw, Star } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import CleanQuizView from '../components/CleanQuizView'
 import { useAppContext } from '../context/AppContext'
 import { getQuizScoreBreakdown, parseQuizText } from '../boundaries/quizSchema'
-import { explainQuizQuestionWithMode, generateSimilarQuestions, gradeSubjectiveAttempt } from '../services/ai/reviewService'
+import {
+  auditQuizQuestionCompliance,
+  explainQuizQuestionWithMode,
+  generateSimilarQuestions,
+  gradeSubjectiveAttempt,
+} from '../services/ai/reviewService'
 import {
   clearProgressRecord,
   listLibraryEntries,
@@ -62,6 +67,11 @@ function normalizeChoiceArray(value) {
 function clipText(text = '', maxLength = 180) {
   if (typeof text !== 'string') return ''
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
+}
+
+function normalizeMultiChoiceResponse(value) {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
 }
 
 function getOptionText(options = [], key = '') {
@@ -306,6 +316,7 @@ export default function SubjectWorkspacePage() {
   const [entry, setEntry] = useState(null)
   const [quiz, setQuiz] = useState(null)
   const [answers, setAnswers] = useState({})
+  const answersRef = useRef({})
   const [revealedMap, setRevealedMap] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
@@ -324,6 +335,10 @@ export default function SubjectWorkspacePage() {
   const [loading, setLoading] = useState(true)
   const [readyToPersist, setReadyToPersist] = useState(false)
   const [favoriteEntries, setFavoriteEntries] = useState([])
+
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
 
   useEffect(() => {
     const storedAdvance = loadPreference(AUTO_ADVANCE_KEY, null)
@@ -557,14 +572,22 @@ export default function SubjectWorkspacePage() {
     )
 
     try {
-      const completedExplain = await explainQuizQuestionWithMode({
-        paperTitle: quiz.title,
-        item,
-        response: answers[item.id],
-        subQuestion,
-        mode: aiExplainMode,
-        focus,
-      })
+      const completedExplain =
+        mode === 'exam'
+          ? await auditQuizQuestionCompliance({
+              paperTitle: quiz.title,
+              item,
+              response: answers[item.id],
+              subQuestion,
+            })
+          : await explainQuizQuestionWithMode({
+              paperTitle: quiz.title,
+              item,
+              response: answers[item.id],
+              subQuestion,
+              mode: aiExplainMode,
+              focus,
+            })
       await syncAiExplainEntry(entryKey, completedExplain)
     } catch (error) {
       await syncAiExplainEntry(entryKey, {
@@ -764,7 +787,7 @@ export default function SubjectWorkspacePage() {
 
     let nextValue = optionLetter
     if (currentItem.type === 'multiple_choice') {
-      const currentValues = normalizeChoiceArray(answers[questionId])
+      const currentValues = normalizeMultiChoiceResponse(answersRef.current[questionId])
       nextValue = currentValues.includes(optionLetter)
         ? currentValues.filter((value) => value !== optionLetter)
         : [...currentValues, optionLetter].sort()
@@ -772,6 +795,7 @@ export default function SubjectWorkspacePage() {
 
     const nextAnswers = { ...answers, [questionId]: nextValue }
     setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
 
     if (mode === 'practice') {
       const nextRevealed = { ...revealedMap, [questionId]: true }
@@ -804,6 +828,7 @@ export default function SubjectWorkspacePage() {
     const nextItemResponse = { ...(answers[questionId] || {}), [subQuestionId]: optionLetter }
     const nextAnswers = { ...answers, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
 
     if (mode === 'practice') {
       const nextRevealed = { ...revealedMap, [`${questionId}:${subQuestionId}`]: true }
@@ -840,6 +865,7 @@ export default function SubjectWorkspacePage() {
     const nextItemResponse = { ...(answers[questionId] || {}), [blankId]: text }
     const nextAnswers = { ...answers, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
 
     if (mode === 'practice') {
       const allFilled = currentItem.blanks.every((blank) => isNonEmptyText(nextItemResponse[blank.blank_id]))
@@ -888,6 +914,7 @@ export default function SubjectWorkspacePage() {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
     const nextAnswers = { ...answers, [questionId]: { text } }
     setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
     void persistNow({ answers: nextAnswers })
   }
 
