@@ -3,12 +3,14 @@ import {
   ArrowRight,
   BookOpen,
   Download,
+  FileJson,
   History,
   LayoutDashboard,
   Pencil,
   Plus,
   Star,
   User2,
+  X,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
@@ -16,7 +18,31 @@ import { listAttempts, loadFavoriteEntries } from '../boundaries/storageFacade'
 import { SUBJECT_REGISTRY } from '../config/subjects'
 import { getDeepSeekConfig, updateDeepSeekConfig } from '../services/ai/deepseekClient'
 
-function WorkflowBand() {
+const DOWNLOAD_OPTIONS = [
+  {
+    key: 'schema',
+    title: 'JSON 规范',
+    description: '统一题库字段说明和导入约定，适合直接发给 AI 清洗试卷。',
+    href: './json-schema.md',
+    filename: 'json-schema.md',
+  },
+  {
+    key: 'trade-comprehensive',
+    title: '国际贸易综合样卷',
+    description: '覆盖选择、判断、简答、案例分析等常见国际贸易题型。',
+    href: './sample-international-trade-comprehensive.json',
+    filename: 'sample-international-trade-comprehensive.json',
+  },
+  {
+    key: 'trade-practical',
+    title: '国际贸易计算与操作样卷',
+    description: '适合验证计算题、操作题、主观题的导入和答题链路。',
+    href: './sample-international-trade-practical.json',
+    filename: 'sample-international-trade-practical.json',
+  },
+]
+
+function WorkflowBand({ onOpenDownloads }) {
   return (
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
@@ -34,12 +60,56 @@ function WorkflowBand() {
       </div>
 
       <div className="dashboard-band-actions">
-        <a className="secondary-btn small-btn" href="./json-schema.md" download>
+        <button type="button" className="secondary-btn small-btn" onClick={onOpenDownloads}>
           <Download size={14} />
-          JSON 规范
-        </a>
+          下载资料
+        </button>
       </div>
     </section>
+  )
+}
+
+function DownloadDialog({ open, onClose }) {
+  if (!open) return null
+
+  return (
+    <div className="ai-modal-backdrop" onClick={onClose}>
+      <div className="ai-modal-card download-dialog-card-shell" onClick={(event) => event.stopPropagation()}>
+        <div className="ai-modal-head">
+          <div className="download-dialog-copy">
+            <span className="dashboard-eyebrow">Downloads</span>
+            <h3>选择要下载的资料</h3>
+            <p>规范和国际贸易样卷都放在这里，首页只保留一个入口。</p>
+          </div>
+
+          <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭下载对话框">
+            <X size={16} />
+            关闭
+          </button>
+        </div>
+
+        <div className="download-dialog-list">
+          {DOWNLOAD_OPTIONS.map((item) => (
+            <a
+              key={item.key}
+              className="download-dialog-item"
+              href={item.href}
+              download={item.filename}
+              onClick={onClose}
+            >
+              <div className="download-dialog-meta">
+                <strong>{item.title}</strong>
+                <p>{item.description}</p>
+              </div>
+              <span className="download-dialog-action">
+                <FileJson size={16} />
+                立即下载
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -56,6 +126,7 @@ export default function DashboardSplitPage() {
 
   const [newProfileName, setNewProfileName] = useState('')
   const [showCreateProfile, setShowCreateProfile] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   const [favoriteCount, setFavoriteCount] = useState(0)
   const [dashboardState, setDashboardState] = useState({
     attempts: [],
@@ -154,7 +225,7 @@ export default function DashboardSplitPage() {
             <div className="hero-icon">
               <LayoutDashboard size={30} />
             </div>
-            <h1>智能在线模考系统V2.0</h1>
+            <h1>智能在线模考系统 V2.0</h1>
           </section>
         </div>
       </div>
@@ -167,16 +238,16 @@ export default function DashboardSplitPage() {
         <section className="dashboard-showcase">
           <div className="dashboard-showcase-copy">
             <span className="dashboard-eyebrow">Study Workspace</span>
-            <h1>智能在线模考系统V2.0</h1>
+            <h1>智能在线模考系统 V2.0</h1>
             <p>极速刷题、快速巩固、智能模考、错题本支持。</p>
 
             <div className="dashboard-showcase-actions">
               <Link className="primary-btn" to="/exam/english">
                 进入主科目
               </Link>
-              <a className="secondary-btn" href="./json-schema.md" download>
-                下载 JSON 规范
-              </a>
+              <button type="button" className="secondary-btn" onClick={() => setShowDownloadDialog(true)}>
+                下载资料
+              </button>
               <button type="button" className="secondary-btn" onClick={handleUpdateApiKey}>
                 更新 API Key
               </button>
@@ -289,7 +360,7 @@ export default function DashboardSplitPage() {
           </div>
         </section>
 
-        <WorkflowBand />
+        <WorkflowBand onOpenDownloads={() => setShowDownloadDialog(true)} />
 
         <section className="dashboard-summary-row">
           <article className="dashboard-summary-card">
@@ -311,6 +382,8 @@ export default function DashboardSplitPage() {
           </article>
         </section>
       </div>
+
+      <DownloadDialog open={showDownloadDialog} onClose={() => setShowDownloadDialog(false)} />
     </div>
   )
 }

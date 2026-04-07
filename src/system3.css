@@ -370,6 +370,80 @@
   justify-content: flex-end;
 }
 
+.download-dialog-card-shell {
+  width: min(760px, 100%);
+}
+
+.download-dialog-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.download-dialog-copy h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.5rem;
+}
+
+.download-dialog-copy p {
+  margin: 0;
+  color: rgba(203, 213, 225, 0.82);
+  line-height: 1.7;
+}
+
+.download-dialog-list {
+  display: grid;
+  gap: 12px;
+}
+
+.download-dialog-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  color: inherit;
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(10, 16, 30, 0.86) 0%, rgba(15, 23, 42, 0.66) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.download-dialog-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(125, 211, 252, 0.22);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.24);
+}
+
+.download-dialog-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.download-dialog-meta strong {
+  color: #f8fafc;
+  font-size: 1.02rem;
+}
+
+.download-dialog-meta p {
+  margin: 0;
+  color: rgba(203, 213, 225, 0.82);
+  line-height: 1.6;
+}
+
+.download-dialog-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: #93c5fd;
+  font-weight: 700;
+}
+
 .dashboard-summary-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -451,5 +525,10 @@
   .dashboard-panel-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .download-dialog-item {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
