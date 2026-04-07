@@ -13,10 +13,10 @@ import {
   X,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAppContext } from '../context/AppContext'
-import { listAttempts, loadFavoriteEntries } from '../boundaries/storageFacade'
-import { SUBJECT_REGISTRY } from '../config/subjects'
-import { getDeepSeekConfig, updateDeepSeekConfig } from '../services/ai/deepseekClient'
+import { useAppContext } from '../app/providers/AppContext'
+import { listAttempts, loadFavoriteEntries } from '../shared/lib/storage/storageFacade'
+import { SUBJECT_REGISTRY } from '../entities/subject/model/subjects'
+import { getDeepSeekConfig, updateDeepSeekConfig } from '../shared/api/deepseekClient'
 
 const DOWNLOAD_OPTIONS = [
   {

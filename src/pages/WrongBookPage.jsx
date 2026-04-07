@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, BookOpen, BookX, CheckCircle2, Filter, Play, RotateCcw, Search, Trash2, XCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAppContext } from '../context/AppContext'
-import { loadWrongBookEntries, removeWrongBookEntries, removeWrongBookEntry } from '../boundaries/storageFacade'
-import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
+import { useAppContext } from '../app/providers/AppContext'
+import { loadWrongBookEntries, removeWrongBookEntries, removeWrongBookEntry } from '../shared/lib/storage/storageFacade'
+import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
 
 function getWrongItemCategory(item) {
   if (item.parentType === 'reading' || item.sourceType === 'reading') return 'reading'

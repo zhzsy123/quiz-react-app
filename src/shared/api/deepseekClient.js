@@ -1,4 +1,4 @@
-import { loadPreference, savePreference } from '../../boundaries/storageFacade'
+import { loadPreference, savePreference } from '../lib/storage/storageFacade'
 
 const API_KEY_PREF = 'ai:deepseekApiKey'
 const BASE_URL_PREF = 'ai:deepseekBaseUrl'

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, Upload } from 'lucide-react'
-import { parseQuizText } from '../boundaries/quizSchema'
+import { parseQuizText } from '../../entities/quiz/lib/quizSchema'
 
 export default function QuizImporter({ onQuizLoaded }) {
   const fileInputRef = useRef(null)

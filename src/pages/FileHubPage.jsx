@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, FileText, FolderOpen, Pencil, Play, Search, Tags, Timer, Trash2, UserCircle2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import QuizImporter from '../components/QuizImporter'
-import { getQuizScoreBreakdown } from '../boundaries/quizSchema'
-import { buildPaperId } from '../utils/storage'
-import { useAppContext } from '../context/AppContext'
-import { deleteLibraryEntry, listLibraryEntries, updateLibraryEntry, upsertLibraryEntry } from '../boundaries/storageFacade'
-import { getSubjectMetaByRouteParam } from '../config/subjects'
+import QuizImporter from '../widgets/quiz-importer/QuizImporter'
+import { getQuizScoreBreakdown } from '../entities/quiz/lib/quizSchema'
+import { buildPaperId } from '../entities/quiz/lib/paperId'
+import { useAppContext } from '../app/providers/AppContext'
+import { deleteLibraryEntry, listLibraryEntries, updateLibraryEntry, upsertLibraryEntry } from '../shared/lib/storage/storageFacade'
+import { getSubjectMetaByRouteParam } from '../entities/subject/model/subjects'
 
 export default function FileHubPage() {
   const { subjectParam = 'english' } = useParams()

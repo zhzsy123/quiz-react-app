@@ -25,7 +25,7 @@ import {
   loadFavoriteEntries,
   toggleFavoriteEntry,
   removeFavoriteEntry,
-} from '../services/storage/indexedDb'
+} from '../../storage/indexedDb'
 
 const ACTIVE_PROFILE_KEY = 'vorin:activeProfileId'
 

@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw, Star } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import CleanQuizView from '../components/CleanQuizView'
-import { useAppContext } from '../context/AppContext'
-import { getQuizScoreBreakdown, parseQuizText } from '../boundaries/quizSchema'
+import CleanQuizView from '../widgets/quiz/CleanQuizView'
+import { useAppContext } from '../app/providers/AppContext'
+import { getQuizScoreBreakdown, parseQuizText } from '../entities/quiz/lib/quizSchema'
 import {
   auditQuizQuestionCompliance,
   explainQuizQuestionWithMode,
   generateSimilarQuestions,
   gradeSubjectiveAttempt,
-} from '../services/ai/reviewService'
+} from '../features/ai/reviewService'
 import {
   clearProgressRecord,
   listLibraryEntries,
@@ -22,8 +22,8 @@ import {
   toggleFavoriteEntry,
   upsertWrongBookEntries,
   updateAttemptRecord,
-} from '../boundaries/storageFacade'
-import { getSubjectMetaByRouteParam } from '../config/subjects'
+} from '../shared/lib/storage/storageFacade'
+import { getSubjectMetaByRouteParam } from '../entities/subject/model/subjects'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'

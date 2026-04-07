@@ -13,9 +13,9 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAppContext } from '../context/AppContext'
-import { deleteAttemptRecord, listAttempts, updateAttemptRecord } from '../boundaries/storageFacade'
-import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
+import { useAppContext } from '../app/providers/AppContext'
+import { deleteAttemptRecord, listAttempts, updateAttemptRecord } from '../shared/lib/storage/storageFacade'
+import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
 
 function Sparkline({ values }) {
   if (!values.length) return <div className="sparkline-empty">暂无历史成绩</div>

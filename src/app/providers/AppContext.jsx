@@ -6,7 +6,7 @@ import {
   listProfiles,
   renameProfile,
   setActiveProfileId,
-} from '../boundaries/storageFacade'
+} from '../../shared/lib/storage/storageFacade'
 
 const AppContext = createContext(null)
 

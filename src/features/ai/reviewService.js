@@ -1,4 +1,4 @@
-import { callDeepSeekJson } from './deepseekClient'
+import { callDeepSeekJson } from '../../shared/api/deepseekClient'
 
 function subjectiveQuestionPayload(item, response) {
   return {

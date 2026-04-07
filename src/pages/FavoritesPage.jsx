@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Play, Search, Star, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAppContext } from '../context/AppContext'
-import { loadFavoriteEntries, removeFavoriteEntry } from '../boundaries/storageFacade'
-import { SUBJECT_REGISTRY, getSubjectMeta } from '../config/subjects'
+import { useAppContext } from '../app/providers/AppContext'
+import { loadFavoriteEntries, removeFavoriteEntry } from '../shared/lib/storage/storageFacade'
+import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
 
 function formatType(entry) {
   if (entry.itemType === 'reading') return '阅读理解'

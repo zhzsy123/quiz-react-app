@@ -1,11 +1,11 @@
 import React from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import DashboardSplitPage from '../pages/DashboardSplitPage'
-import FileHubPage from '../pages/FileHubPage'
-import SubjectWorkspacePage from '../pages/SubjectWorkspacePage'
-import HistoryPage from '../pages/HistoryPage'
-import WrongBookPage from '../pages/WrongBookPage'
-import FavoritesPage from '../pages/FavoritesPage'
+import DashboardSplitPage from '../../pages/DashboardSplitPage'
+import FileHubPage from '../../pages/FileHubPage'
+import SubjectWorkspacePage from '../../pages/SubjectWorkspacePage'
+import HistoryPage from '../../pages/HistoryPage'
+import WrongBookPage from '../../pages/WrongBookPage'
+import FavoritesPage from '../../pages/FavoritesPage'
 
 const AppRouter = () => (
   <Routes>
