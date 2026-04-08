@@ -99,8 +99,8 @@ export function useDashboardSplitPageState() {
     : 0
 
   const spotlightStats = [
-    { label: '鍘嗗彶鑰冭瘯', value: `${dashboardState.attempts.length} 娆 },
-    { label: '骞冲潎姝ｇ‘鐜?, value: `${overallAverageRate}%` },
+    { label: '鍘嗗彶鑰冭瘯', value: `${dashboardState.attempts.length} 娆�` },
+    { label: '骞冲潎姝ｇ‘鐜�', value: `${overallAverageRate}%` },
     { label: '閿欓', value: `${dashboardState.totalWrong}` },
     { label: '鏀惰棌', value: `${favoriteCount}` },
   ]
@@ -120,7 +120,7 @@ export function useDashboardSplitPageState() {
 
   const handleUpdateApiKey = () => {
     const currentConfig = getDeepSeekConfig()
-    const nextKey = window.prompt('璇疯緭鍏ユ柊鐨?DeepSeek API Key锛岀暀绌哄垯鍙栨秷銆?, currentConfig.apiKey || '')
+    const nextKey = window.prompt('璇疯緭鍏ユ柊鐨� DeepSeek API Key锛岀暀绌哄垯鍙栨秷銆�', currentConfig.apiKey || '')
     if (nextKey === null) return
     updateDeepSeekConfig({ apiKey: nextKey })
   }
