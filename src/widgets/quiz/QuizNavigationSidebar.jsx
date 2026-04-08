@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Clock3, Pause, Play } from 'lucide-react'
 import { isObjectiveWrong } from '../../entities/quiz/lib/objectiveAnswers'
-import { formatRemainingSeconds, getNavGroupMeta, isAnswered } from './quizViewUtils.jsx'
+import {
+  formatRemainingSeconds,
+  getNavGroupMeta,
+  getReadingQuestionDisplayLabel,
+  isAnswered,
+} from './quizViewUtils.jsx'
 
 export default function QuizNavigationSidebar({
   quizItems,
@@ -216,7 +221,7 @@ export default function QuizNavigationSidebar({
                             }}
                             disabled={disabled}
                           >
-                            {index + 1}-{subIndex + 1}
+                            {getReadingQuestionDisplayLabel(item, subIndex, index)}
                           </button>
                         )
                       })

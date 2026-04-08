@@ -141,9 +141,13 @@ export function useAiQuestionGenerator({
       let completed = false
       let receivedViaCallback = false
 
-      const handleQuestion = (question) => {
+      const handleQuestion = (question, context = {}) => {
         receivedViaCallback = true
-        const normalizedEntry = ingestQuestion(question, { config: nextConfig, meta: nextMeta })
+        const normalizedEntry = ingestQuestion(question, {
+          ...context,
+          config: context.config || nextConfig,
+          meta: context.meta || nextMeta,
+        })
         setSessionMeta((current) => ({
           ...current,
           validCount: (current.validCount || 0) + (normalizedEntry.status === 'valid' ? 1 : 0),

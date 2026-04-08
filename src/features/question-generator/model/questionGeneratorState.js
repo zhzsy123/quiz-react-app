@@ -49,8 +49,10 @@ export function normalizeGeneratedQuestion(question, config = {}, meta = {}) {
 
   try {
     const normalized = normalizeQuizPayload(payload)
-    const normalizedQuestion = normalized.items?.[0] || null
-    const scoreBreakdown = getQuizScoreBreakdown(normalized.items || [])
+    const normalizedItems = normalized.items || []
+    const normalizedQuestion = normalizedItems.length === 1 ? normalizedItems[0] : question
+    const previewSource = normalizedItems.length === 1 ? normalizedItems[0] : question
+    const scoreBreakdown = getQuizScoreBreakdown(normalizedItems)
     const draftStatus =
       validation.warnings.length > 0 || (normalized.compatibility?.skippedCount || 0) > 0 ? 'warning' : 'valid'
 
@@ -58,8 +60,9 @@ export function normalizeGeneratedQuestion(question, config = {}, meta = {}) {
       status: draftStatus,
       rawQuestion: question,
       normalizedQuestion,
+      normalizedItems,
       validation,
-      preview: buildQuestionPreview(normalizedQuestion, validation, previewMeta),
+      preview: buildQuestionPreview(previewSource, validation, previewMeta),
       scoreBreakdown,
       error: '',
       receivedAt: Date.now(),
@@ -70,6 +73,7 @@ export function normalizeGeneratedQuestion(question, config = {}, meta = {}) {
       status: 'invalid',
       rawQuestion: question,
       normalizedQuestion: null,
+      normalizedItems: [],
       validation,
       preview: buildQuestionPreview(question, validation, previewMeta),
       scoreBreakdown: null,

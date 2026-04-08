@@ -96,4 +96,67 @@ describe('buildDraftPaper', () => {
     expect(normalized.quiz.items[0].type).toBe('single_choice')
     expect(normalized.quiz.items[0].prompt).toBe('Choose the correct conjunction.')
   })
+
+  it('expands generated cloze drafts from normalizedItems when composing the saved paper', () => {
+    const draft = buildDraftPaper({
+      subject: 'english',
+      title: 'Generated Cloze Draft',
+      durationMinutes: 90,
+      requestId: 'req-generated-cloze',
+      questionDrafts: [
+        {
+          status: 'valid',
+          rawQuestion: {
+            id: 'q_cloze_001',
+            type: 'cloze',
+            prompt: 'Complete the passage.',
+          },
+          normalizedQuestion: {
+            id: 'q_cloze_001',
+            type: 'cloze',
+            prompt: 'Complete the passage.',
+          },
+          normalizedItems: [
+            {
+              id: 'q_cloze_001_blank_1',
+              type: 'single_choice',
+              source_type: 'cloze',
+              prompt: 'Complete the passage (1).',
+              score: 2,
+              options: [
+                { key: 'A', text: 'go' },
+                { key: 'B', text: 'goes' },
+              ],
+              answer: {
+                type: 'objective',
+                correct: 'B',
+                rationale: 'Third-person singular.',
+              },
+            },
+            {
+              id: 'q_cloze_001_blank_2',
+              type: 'single_choice',
+              source_type: 'cloze',
+              prompt: 'Complete the passage (2).',
+              score: 2,
+              options: [
+                { key: 'A', text: 'study' },
+                { key: 'B', text: 'studies' },
+              ],
+              answer: {
+                type: 'objective',
+                correct: 'A',
+                rationale: 'Plural subject.',
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(draft.questions).toHaveLength(2)
+    expect(draft.questions[0].source_type).toBe('cloze')
+    expect(draft.questions[1].id).toBe('q_cloze_001_blank_2')
+    expect(draft.scoreBreakdown.paperTotal).toBe(4)
+  })
 })

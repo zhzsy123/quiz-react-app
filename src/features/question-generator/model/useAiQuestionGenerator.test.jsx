@@ -54,11 +54,31 @@ describe('useAiQuestionGenerator', () => {
         options: ['A. One', 'B. Two'],
         answer: { correct: 'B' },
       })
-      onQuestion({
-        id: 'q2',
-        type: 'unknown_type',
-        prompt: 'Broken question',
-      })
+      onQuestion(
+        {
+          id: 'q2',
+          type: 'unknown_type',
+          prompt: 'Broken question',
+        },
+        {
+          entry: {
+            status: 'invalid',
+            rawQuestion: {
+              id: 'q2',
+              type: 'unknown_type',
+              prompt: 'Broken question',
+            },
+            normalizedQuestion: null,
+            normalizedItems: [],
+            preview: {
+              id: 'q2',
+              type: 'unknown_type',
+              subject: 'english',
+            },
+            error: 'invalid generated question',
+          },
+        }
+      )
       onComplete({ status: 'ready' })
     })
 
@@ -90,7 +110,7 @@ describe('useAiQuestionGenerator', () => {
     expect(stateRef.current.draftQuestions[1]).toEqual(
       expect.objectContaining({
         status: 'invalid',
-        error: expect.any(String),
+        error: 'invalid generated question',
       })
     )
     expect(stateRef.current.summary).toEqual({

@@ -89,6 +89,11 @@ export default function CleanQuizView({
     return <InvalidQuizFallback />
   }
 
+  const renderObjectiveBlock =
+    currentItem.type !== 'reading' &&
+    currentItem.type !== 'composite' &&
+    (currentItem.answer?.type === 'objective' || currentItem.type === 'fill_blank')
+
   const prompt = currentItem.prompt || currentItem.passage?.title || currentItem.title || '未命名题目'
 
   return (
@@ -157,7 +162,7 @@ export default function CleanQuizView({
             disabled={isPaused || submitted}
           />
 
-          {currentItem.answer?.type === 'objective' || currentItem.type === 'fill_blank' ? (
+          {renderObjectiveBlock ? (
             <QuizObjectiveBlock
               item={currentItem}
               userResponse={answers[currentItem.id]}

@@ -308,6 +308,7 @@ function buildDraftEntry(rawQuestion, { requestId, subjectKey, paperTitle, durat
       status: 'invalid',
       rawQuestion: null,
       normalizedQuestion: null,
+      normalizedItems: [],
       validation: { errors: [errorMessage || '生成题目为空'], warnings: [] },
       warnings: [],
       errors: [errorMessage || '生成题目为空'],
@@ -327,28 +328,35 @@ function buildDraftEntry(rawQuestion, { requestId, subjectKey, paperTitle, durat
 
   try {
     const normalizedDocument = normalizeQuizDocument(payload)
-    const [normalizedQuestion] = normalizedDocument.quiz.items || []
+    const normalizedItems = normalizedDocument.quiz.items || []
+    const normalizedQuestion = normalizedItems.length === 1 ? normalizedItems[0] : rawQuestion
+    const previewSource = normalizedItems.length === 1 ? normalizedItems[0] : rawQuestion
     const warnings = normalizedDocument.validation?.skippedCount
       ? [`兼容层跳过了 ${normalizedDocument.validation.skippedCount} 个片段`]
       : []
+    const draftWarnings = [
+      ...(normalizedDocument.validation?.warnings || []),
+      ...warnings,
+    ]
     const validation = {
-      warnings: [...(normalizedDocument.validation?.warnings || []), ...warnings],
+      warnings: draftWarnings,
       errors: normalizedDocument.validation?.errors || [],
     }
-    const scoreBreakdown = getQuizScoreBreakdown(normalizedDocument.quiz.items || [])
+    const scoreBreakdown = getQuizScoreBreakdown(normalizedItems)
 
     return {
       tempId: normalizedQuestion?.id || rawQuestion.id || `temp_${streamIndex}`,
       streamIndex,
-      status: warnings.length ? 'warning' : 'valid',
+      status: draftWarnings.length ? 'warning' : 'valid',
       rawQuestion,
       normalizedQuestion: normalizedQuestion || rawQuestion,
+      normalizedItems,
       validation,
-      warnings,
+      warnings: draftWarnings,
       errors: [],
       error: '',
       previewText: rawQuestion.prompt || rawQuestion.title || '',
-      preview: buildQuestionPreview(normalizedQuestion || rawQuestion, streamIndex - 1, { subject: subjectKey }),
+      preview: buildQuestionPreview(previewSource, streamIndex - 1, { subject: subjectKey }),
       scoreBreakdown,
     }
   } catch (error) {
@@ -402,6 +410,15 @@ function buildScoreBreakdownFromQuestions(questions = [], meta = {}) {
   }
 }
 
+function getDraftQuestionList(entry) {
+  if (Array.isArray(entry?.normalizedItems) && entry.normalizedItems.length > 0) {
+    return entry.normalizedItems
+  }
+
+  const question = entry?.normalizedQuestion || entry?.rawQuestion
+  return question ? [question] : []
+}
+
 export function buildDraftPaper({
   config = {},
   meta = {},
@@ -413,7 +430,7 @@ export function buildDraftPaper({
     (entry) => entry?.status === 'valid' || entry?.status === 'warning'
   )
   const normalizedQuestions = acceptedDraftQuestions
-    .map((entry) => entry?.normalizedQuestion || entry?.rawQuestion)
+    .flatMap((entry) => getDraftQuestionList(entry))
     .filter(Boolean)
 
   const draftPaper = buildModelDraftPaper({

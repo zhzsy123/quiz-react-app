@@ -220,6 +220,64 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[0].normalizedQuestion.questions[0].answer.correct).toBe('B')
   })
 
+  it('preserves cloze questions as multiple normalized draft items for english generation', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        id: 'cq1',
+        type: 'cloze',
+        prompt: 'Complete the passage with the best choices.',
+        score: 20,
+        article: 'He [[1]] to school every day and [[2]] hard.',
+        blanks: [
+          {
+            blank_id: 1,
+            score: 2,
+            options: [
+              { key: 'A', text: 'go' },
+              { key: 'B', text: 'goes' },
+              { key: 'C', text: 'went' },
+              { key: 'D', text: 'gone' },
+            ],
+            correct: 'B',
+            rationale: 'Third-person singular.',
+          },
+          {
+            blank_id: 2,
+            score: 2,
+            options: [
+              { key: 'A', text: 'studies' },
+              { key: 'B', text: 'study' },
+              { key: 'C', text: 'studied' },
+              { key: 'D', text: 'studying' },
+            ],
+            correct: 'A',
+            rationale: 'Subject matches third-person singular.',
+          },
+        ],
+      },
+    })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      meta: {
+        requestId: 'gen_cloze_001',
+      },
+    })
+
+    expect(result.draftQuestions).toHaveLength(1)
+    expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].normalizedItems).toHaveLength(2)
+    expect(result.draftPaper.questions).toHaveLength(2)
+    expect(result.draftPaper.questions[0].source_type).toBe('cloze')
+    expect(result.draftPaper.scoreBreakdown.totalScore).toBe(4)
+  })
+
   it('retries duplicate generated questions within the same batch', async () => {
     requestAiJsonMock
       .mockResolvedValueOnce({

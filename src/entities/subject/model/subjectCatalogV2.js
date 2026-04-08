@@ -55,9 +55,9 @@ export const SUBJECT_REGISTRY = [
     workspaceRoute: '/workspace/english',
     expectedPaperTotal: 150,
     defaultDurationMinutes: 90,
-    questionTypeKeys: ['single_choice', 'reading', 'translation', 'essay'],
+    questionTypeKeys: ['single_choice', 'cloze', 'reading', 'translation', 'essay'],
     generation: createGenerationConfig({
-      supportedQuestionTypes: ['single_choice', 'reading', 'translation', 'essay'],
+      supportedQuestionTypes: ['single_choice', 'cloze', 'reading', 'translation', 'essay'],
       defaultPaperTotal: 150,
       defaultDurationMinutes: 90,
       promptProfile: 'english',

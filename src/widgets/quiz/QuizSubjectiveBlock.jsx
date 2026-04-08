@@ -2,7 +2,13 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Bot, CheckCircle2, FileText, Languages, LoaderCircle, Maximize2, Minimize2, XCircle } from 'lucide-react'
 import { normalizeChoiceArray, renderOptionLabel } from '../../entities/quiz/lib/objectiveAnswers'
 import { AiExplainPanel } from './QuizAiPanels.jsx'
-import { countWords, getNavGroupMeta, getSubjectiveText, renderFormattedMaterial } from './quizViewUtils.jsx'
+import {
+  countWords,
+  getNavGroupMeta,
+  getReadingQuestionDisplayLabel,
+  getSubjectiveText,
+  renderFormattedMaterial,
+} from './quizViewUtils.jsx'
 
 function TranslationBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   return (
@@ -174,7 +180,7 @@ function ReadingBlock({
                 className={`reading-question-item ${isFocused ? 'focused' : ''}`}
               >
                 <div className="reading-question-title">
-                  <span className="tag">{subIndex + 1}</span>
+                  <span className="tag">{getReadingQuestionDisplayLabel(item, subIndex)}</span>
                   <span>{subQuestion.prompt}</span>
                 </div>
 

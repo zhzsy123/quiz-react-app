@@ -66,12 +66,45 @@ export function getSpoilerTags(item) {
 }
 
 export function getNavGroupMeta(item) {
-  const normalizedType = item.type === 'fill_blank' && item.source_type === 'cloze' ? 'cloze' : item.type
+  const normalizedType = item.source_type === 'cloze' ? 'cloze' : item.type
   const meta = getQuestionTypeMeta(normalizedType)
   return {
     key: meta.key,
     label: meta.label,
   }
+}
+
+function extractReadingSectionLabel(item, fallbackIndex = 0) {
+  const rawCandidates = [
+    item?.section_label,
+    item?.sectionLabel,
+    item?.passage?.title,
+    item?.title,
+    item?.id,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value))
+
+  for (const candidate of rawCandidates) {
+    const explicitMatch = candidate.match(/\b([A-D])\b/i)
+    if (explicitMatch) return explicitMatch[1].toUpperCase()
+
+    const suffixMatch = candidate.match(/(?:_|-)([A-D])$/i)
+    if (suffixMatch) return suffixMatch[1].toUpperCase()
+
+    const readingMatch = candidate.match(/reading[_-]?([A-D])/i)
+    if (readingMatch) return readingMatch[1].toUpperCase()
+
+    const passageMatch = candidate.match(/passage\s*([A-D])/i)
+    if (passageMatch) return passageMatch[1].toUpperCase()
+  }
+
+  return String.fromCharCode(65 + Math.max(0, fallbackIndex))
+}
+
+export function getReadingQuestionDisplayLabel(item, subIndex, fallbackIndex = 0) {
+  const sectionLabel = extractReadingSectionLabel(item, fallbackIndex)
+  return `${sectionLabel}-${subIndex + 1}`
 }
 
 export function formatRemainingSeconds(totalSeconds) {

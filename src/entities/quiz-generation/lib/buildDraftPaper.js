@@ -9,6 +9,15 @@ function pickDraftQuestion(draft) {
   return draft?.normalizedQuestion || draft?.rawQuestion || draft?.question || null
 }
 
+function getDraftQuestionList(draft) {
+  if (Array.isArray(draft?.normalizedItems) && draft.normalizedItems.length > 0) {
+    return draft.normalizedItems
+  }
+
+  const singleQuestion = pickDraftQuestion(draft)
+  return singleQuestion ? [singleQuestion] : []
+}
+
 function isDraftQuestionUsable(draft) {
   return draft?.status === 'valid' || draft?.status === 'warning'
 }
@@ -28,16 +37,17 @@ export function buildDraftPaper({
   const acceptedDrafts = questionDrafts.filter(isDraftQuestionUsable)
   const rejectedDrafts = questionDrafts.filter((draft) => draft?.status === 'invalid')
   const questions = acceptedDrafts
-    .map((draft, index) => {
-      const question = pickDraftQuestion(draft)
-      if (!question) return null
-
-      const cloned = cloneQuestion(question)
-      cloned.generation_preview = buildQuestionPreview(cloned, index)
-      cloned.generation_status = draft.status || 'valid'
-      cloned.generation_source = draft.streamIndex || index + 1
-      return cloned
-    })
+    .flatMap((draft, index) =>
+      getDraftQuestionList(draft).map((question, questionIndex) => {
+        const cloned = cloneQuestion(question)
+        const previewSource = draft?.rawQuestion?.type === 'cloze' ? draft.rawQuestion : cloned
+        cloned.generation_preview = buildQuestionPreview(previewSource, index)
+        cloned.generation_status = draft.status || 'valid'
+        cloned.generation_source = draft.streamIndex || index + 1
+        cloned.generation_source_index = questionIndex + 1
+        return cloned
+      })
+    )
     .filter(Boolean)
 
   const scoreBreakdown = getQuizScoreBreakdown(questions)
