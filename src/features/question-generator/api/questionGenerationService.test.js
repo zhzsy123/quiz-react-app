@@ -178,6 +178,72 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[0].normalizedQuestion.questions[0].answer.correct).toBe('B')
   })
 
+  it('retries duplicate generated questions within the same batch', async () => {
+    requestAiJsonMock
+      .mockResolvedValueOnce({
+        content: {
+          id: 'q1',
+          type: 'case_analysis',
+          prompt: '根据案例判断卖方是否违约。',
+          context: '某出口合同约定装运期为 6 月 30 日。',
+          score: 10,
+          answer: {
+            type: 'subjective',
+            reference_answer: '应先判断迟延装运是否构成违约。',
+            scoring_points: ['识别争议点', '判断是否违约'],
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        content: {
+          id: 'q2',
+          type: 'case_analysis',
+          prompt: '根据案例判断卖方是否违约。',
+          context: '某出口合同约定装运期为 6 月 30 日。',
+          score: 10,
+          answer: {
+            type: 'subjective',
+            reference_answer: '应先判断迟延装运是否构成违约。',
+            scoring_points: ['识别争议点', '判断是否违约'],
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        content: {
+          id: 'q3',
+          type: 'case_analysis',
+          prompt: '分析买方拒收货物是否成立。',
+          context: '某合同约定以信用证支付，卖方迟延提交单据。',
+          score: 10,
+          answer: {
+            type: 'subjective',
+            reference_answer: '应结合单据迟延与拒收依据综合判断。',
+            scoring_points: ['识别拒收依据', '判断是否有权拒收'],
+          },
+        },
+      })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'international_trade',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 2,
+        questionTypes: ['case_analysis'],
+      },
+      meta: {
+        requestId: 'gen_005',
+      },
+    })
+
+    expect(requestAiJsonMock.mock.calls.length).toBeGreaterThanOrEqual(3)
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions).toHaveLength(2)
+    expect(result.draftQuestions[0].normalizedQuestion.prompt).toBe('根据案例判断卖方是否违约。')
+    expect(result.draftQuestions[1].normalizedQuestion.prompt).toBe('分析买方拒收货物是否成立。')
+    expect(requestAiJsonMock.mock.calls[2][0].userPrompt).toContain('"avoid_question_signatures"')
+  })
+
   it('returns diagnostic invalid entries when generation fails', async () => {
     requestAiJsonMock.mockRejectedValueOnce(new Error('network error'))
 

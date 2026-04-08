@@ -60,8 +60,8 @@ export function validateQuizPayload(payload) {
     }
   }
 
-  const usesLegacyItems = Array.isArray(payload.items)
   const usesQuestions = Array.isArray(payload.questions)
+  const usesLegacyItems = Array.isArray(payload.items) && !usesQuestions
 
   if (!usesLegacyItems && !usesQuestions) {
     errors.push('题库必须包含 questions 或 items 数组。')

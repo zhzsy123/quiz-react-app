@@ -40,7 +40,7 @@ describe('buildGenerationPrompt', () => {
     })
   })
 
-  it('builds a single-question json prompt instead of ndjson stream prompt', () => {
+  it('builds a single-question json prompt with duplicate-avoidance hints', () => {
     const result = buildGenerationPrompt({
       subjectKey: 'english',
       requestId: 'req_001',
@@ -57,6 +57,7 @@ describe('buildGenerationPrompt', () => {
       },
       questionIndex: 1,
       totalQuestions: 5,
+      avoidQuestionSignatures: ['grammar question about conjunctions'],
     })
 
     expect(result.systemPrompt).toContain('只生成 1 道题')
@@ -64,5 +65,6 @@ describe('buildGenerationPrompt', () => {
     expect(result.userPrompt).toContain('"target_question_type":"single_choice"')
     expect(result.userPrompt).toContain('"target_score":2')
     expect(result.userPrompt).toContain('偏重语法和连词辨析')
+    expect(result.userPrompt).toContain('"avoid_question_signatures":["grammar question about conjunctions"]')
   })
 })

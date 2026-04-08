@@ -92,7 +92,7 @@ const QUESTION_NORMALIZERS = {
 }
 
 export function normalizeQuizPayload(data) {
-  if (Array.isArray(data?.items)) {
+  if (!Array.isArray(data?.questions) && Array.isArray(data?.items)) {
     return normalizeLegacyPayload(data)
   }
 

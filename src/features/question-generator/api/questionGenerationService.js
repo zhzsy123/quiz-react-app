@@ -32,6 +32,14 @@ function compactText(value) {
   return String(value ?? '').trim()
 }
 
+function normalizeSignatureText(value) {
+  return compactText(value)
+    .toLowerCase()
+    .replace(/[`~!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?，。！？、；：（）【】《》“”‘’\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function normalizeOptionList(options) {
   if (Array.isArray(options)) {
     return options.map((option, index) => {
@@ -238,6 +246,41 @@ function sanitizeGeneratedQuestion(rawQuestion, planItem) {
   return question
 }
 
+function buildQuestionSignature(question) {
+  if (!question || typeof question !== 'object') return ''
+
+  const segments = [
+    question.type,
+    question.prompt,
+    question.material,
+    question.context,
+    question.source_text,
+    question.passage?.title,
+    question.passage?.content,
+    Array.isArray(question.options) ? question.options.map((option) => option?.text || option?.label || '').join(' | ') : '',
+    Array.isArray(question.questions)
+      ? question.questions.map((child) => `${child?.type || ''}:${child?.prompt || ''}`).join(' || ')
+      : '',
+  ]
+
+  return normalizeSignatureText(segments.filter(Boolean).join(' || ')).slice(0, 320)
+}
+
+function getRecentSignatures(signatureMap, typeKey) {
+  return [...(signatureMap.get(typeKey) || [])].slice(-5)
+}
+
+function hasDuplicateSignature(signatureMap, typeKey, signature) {
+  if (!signature) return false
+  return (signatureMap.get(typeKey) || []).includes(signature)
+}
+
+function rememberSignature(signatureMap, typeKey, signature) {
+  if (!signature) return
+  const current = signatureMap.get(typeKey) || []
+  signatureMap.set(typeKey, [...current, signature])
+}
+
 function buildDraftEntry(rawQuestion, { requestId, subjectKey, paperTitle, durationMinutes, streamIndex, errorMessage = '' }) {
   const payload = {
     schema_version: 'generated-v1',
@@ -422,6 +465,7 @@ export async function startQuestionGeneration({
   const generationMeta = createGenerationMeta(subjectMeta, normalized, requestId, generationPlan)
   const draftQuestions = new Array(generationPlan.length)
   const warnings = []
+  const signatureMap = new Map()
 
   if (!generationPlan.length) {
     const emptyError = new Error('未配置可生成的题型计划。')
@@ -453,26 +497,46 @@ export async function startQuestionGeneration({
         }
 
         try {
-          const { systemPrompt, userPrompt } = buildGenerationPrompt({
-            subjectKey,
-            params: config,
-            requestId,
-            planItem,
-            questionIndex: planIndex + 1,
-            totalQuestions: generationPlan.length,
-          })
+          let sanitizedQuestion = null
+          let duplicateError = null
 
-          const response = await requestAiJson({
-            provider: 'deepseek',
-            systemPrompt,
-            userPrompt,
-            temperature: 0.2,
-          })
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            const { systemPrompt, userPrompt } = buildGenerationPrompt({
+              subjectKey,
+              params: config,
+              requestId,
+              planItem,
+              questionIndex: planIndex + 1,
+              totalQuestions: generationPlan.length,
+              avoidQuestionSignatures: getRecentSignatures(signatureMap, planItem.typeKey),
+            })
 
-          const sanitizedQuestion = sanitizeGeneratedQuestion(response.content, {
-            ...planItem,
-            index: planIndex + 1,
-          })
+            const response = await requestAiJson({
+              provider: 'deepseek',
+              systemPrompt,
+              userPrompt,
+              temperature: attempt === 0 ? 0.2 : 0.35,
+            })
+
+            const candidate = sanitizeGeneratedQuestion(response.content, {
+              ...planItem,
+              index: planIndex + 1,
+            })
+            const signature = buildQuestionSignature(candidate)
+
+            if (hasDuplicateSignature(signatureMap, planItem.typeKey, signature)) {
+              duplicateError = new Error('生成题目与同批已生成内容重复度过高，请重试')
+              continue
+            }
+
+            rememberSignature(signatureMap, planItem.typeKey, signature)
+            sanitizedQuestion = candidate
+            break
+          }
+
+          if (!sanitizedQuestion) {
+            throw duplicateError || new Error('AI 生成失败')
+          }
 
           const entry = buildDraftEntry(sanitizedQuestion, {
             requestId,

@@ -399,6 +399,7 @@ export function useSubjectWorkspaceState() {
   const [remainingSeconds, setRemainingSeconds] = useState(() => (subjectMeta.defaultDurationMinutes || 90) * 60)
   const [isPaused, setIsPaused] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [readyToPersist, setReadyToPersist] = useState(false)
   const [favoriteEntries, setFavoriteEntries] = useState([])
 
@@ -425,66 +426,76 @@ export function useSubjectWorkspaceState() {
         setLoading(false)
         return
       }
+      setLoadError('')
 
-      const favoriteRows = await listFavoriteEntriesBySubject(activeProfile.id, subjectKey)
-      if (cancelled) return
-      setFavoriteEntries(favoriteRows)
+      try {
+        const favoriteRows = await listFavoriteEntriesBySubject(activeProfile.id, subjectKey)
+        if (cancelled) return
+        setFavoriteEntries(favoriteRows)
 
-      let resolvedEntry = null
-      let resolvedQuiz = null
-      let resolvedDurationSeconds = (subjectMeta.defaultDurationMinutes || 90) * 60
+        let resolvedEntry = null
+        let resolvedQuiz = null
 
-      const snapshot = await loadWorkspaceSnapshotModel({
-        activeProfileId: activeProfile.id,
-        subjectKey,
-        subjectMeta,
-        source,
-        paperId,
-        sessionPaperId,
-        favoriteRows,
-        listLibraryEntries,
-        loadSessionProgress,
-      })
+        const snapshot = await loadWorkspaceSnapshotModel({
+          activeProfileId: activeProfile.id,
+          subjectKey,
+          subjectMeta,
+          source,
+          paperId,
+          sessionPaperId,
+          favoriteRows,
+          listLibraryEntries,
+          loadSessionProgress,
+        })
 
-      if (!snapshot || cancelled) {
-        setLoading(false)
-        return
+        if (!snapshot || cancelled) {
+          setLoading(false)
+          return
+        }
+
+        const { entry: nextEntry, quiz: nextQuiz, progress, resolvedDurationSeconds: nextDurationSeconds } = snapshot
+
+        resolvedEntry = nextEntry
+        resolvedQuiz = nextQuiz
+        if (cancelled) return
+
+        setEntry(resolvedEntry)
+        setQuiz(resolvedQuiz)
+        setAnswers(progress?.answers || {})
+        setRevealedMap(progress?.revealedMap || {})
+        setSubmitted(Boolean(progress?.submitted))
+        setScore(progress?.score || 0)
+        setAttemptId(progress?.attemptId || '')
+        setAiReview(progress?.aiReview || null)
+        setAiExplainMap(progress?.aiExplainMap || {})
+        setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, (resolvedQuiz.items?.length || 1) - 1)))
+        setRemainingSeconds(
+          typeof progress?.timerSecondsRemaining === 'number'
+            ? progress.timerSecondsRemaining
+            : nextDurationSeconds
+        )
+        setIsPaused(Boolean(progress?.isPaused))
+        setPracticeWritesWrongBook(
+          typeof progress?.practiceWritesWrongBook === 'boolean'
+            ? progress.practiceWritesWrongBook
+            : DEFAULT_PRACTICE_WRONG_BOOK
+        )
+        setExamWritesWrongBook(
+          typeof progress?.examWritesWrongBook === 'boolean'
+            ? progress.examWritesWrongBook
+            : DEFAULT_EXAM_WRONG_BOOK
+        )
+        setReadyToPersist(true)
+      } catch (error) {
+        console.error('Failed to load workspace.', error)
+        if (!cancelled) {
+          setLoadError(error?.message || '试卷加载失败')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
-
-      const { entry: nextEntry, quiz: nextQuiz, progress, resolvedDurationSeconds: nextDurationSeconds } = snapshot
-
-      resolvedEntry = nextEntry
-      resolvedQuiz = nextQuiz
-      if (cancelled) return
-
-      setEntry(resolvedEntry)
-      setQuiz(resolvedQuiz)
-      setAnswers(progress?.answers || {})
-      setRevealedMap(progress?.revealedMap || {})
-      setSubmitted(Boolean(progress?.submitted))
-      setScore(progress?.score || 0)
-      setAttemptId(progress?.attemptId || '')
-      setAiReview(progress?.aiReview || null)
-      setAiExplainMap(progress?.aiExplainMap || {})
-      setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, (resolvedQuiz.items?.length || 1) - 1)))
-      setRemainingSeconds(
-        typeof progress?.timerSecondsRemaining === 'number'
-          ? progress.timerSecondsRemaining
-          : nextDurationSeconds
-      )
-      setIsPaused(Boolean(progress?.isPaused))
-      setPracticeWritesWrongBook(
-        typeof progress?.practiceWritesWrongBook === 'boolean'
-          ? progress.practiceWritesWrongBook
-          : DEFAULT_PRACTICE_WRONG_BOOK
-      )
-      setExamWritesWrongBook(
-        typeof progress?.examWritesWrongBook === 'boolean'
-          ? progress.examWritesWrongBook
-          : DEFAULT_EXAM_WRONG_BOOK
-      )
-      setReadyToPersist(true)
-      setLoading(false)
     }
 
     loadWorkspace()
@@ -1162,6 +1173,7 @@ export function useSubjectWorkspaceState() {
 
   return {
     loading,
+    loadError,
     entry,
     quiz,
     source,

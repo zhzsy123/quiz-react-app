@@ -154,6 +154,7 @@ export function buildGenerationPrompt({
   planItem,
   questionIndex = 1,
   totalQuestions = 1,
+  avoidQuestionSignatures = [],
 } = {}) {
   const { subjectMeta, generation, normalized } = normalizeGenerationParams(subjectKey, params)
   const profile = generation.promptProfile || 'generic'
@@ -164,10 +165,11 @@ export function buildGenerationPrompt({
   const systemPrompt = [
     '你是题库出题助手。',
     '这次只生成 1 道题，并且只返回 1 个 JSON 对象。',
-    '不要输出 markdown、解释文字、代码块、数组外壳、前后缀或注释。',
+    '不要输出 markdown、解释性文字、代码块、数组外壳、前后缀或注释。',
     '返回内容必须能被 JSON.parse 直接解析。',
     '字段要紧凑，不要 pretty print，不要额外换行。',
     '题目必须符合指定科目和指定题型，答案、解析、评分点必须自洽。',
+    '新题必须和同批已生成题目明显不同，不得只换数字、顺序或个别表述。',
     guidance,
   ].join(' ')
 
@@ -187,6 +189,7 @@ export function buildGenerationPrompt({
     target_paper_total: normalized.targetPaperTotal,
     allowed_question_types: allowedQuestionTypes,
     question_type_contract: getContractPayload(questionTypeMeta),
+    avoid_question_signatures: avoidQuestionSignatures,
     extra_prompt: normalized.extraPrompt,
     rules: [
       '客观题的 answer.type 必须是 objective，主观题的 answer.type 必须是 subjective。',

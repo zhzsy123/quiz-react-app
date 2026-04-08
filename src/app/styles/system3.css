@@ -205,24 +205,29 @@
 }
 
 .dashboard-quick-panel {
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
 }
 
 .dashboard-quick-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  min-height: 72px;
   padding: 14px 16px;
   border-radius: 18px;
   color: #e2e8f0;
+  background: rgba(11, 18, 32, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.12);
   text-decoration: none;
   transition: background 0.18s ease, transform 0.18s ease;
 }
 
 .dashboard-quick-link:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   transform: translateX(2px);
 }
 
@@ -327,6 +332,9 @@
   align-items: center;
   gap: 18px;
   padding: 22px 26px;
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 22%),
+    rgba(15, 23, 42, 0.58);
 }
 
 .dashboard-band-copy {
@@ -372,6 +380,31 @@
 
 .download-dialog-card-shell {
   width: min(760px, 100%);
+}
+
+.download-dialog-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.download-dialog-group {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(11, 18, 32, 0.36);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.download-dialog-group-head strong {
+  color: #f8fafc;
+  font-size: 1.02rem;
+}
+
+.download-dialog-group-head p {
+  margin: 6px 0 0;
+  color: #93c5fd;
+  line-height: 1.6;
 }
 
 .download-dialog-copy {
@@ -485,6 +518,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .dashboard-quick-panel {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-band-card {
     grid-template-columns: 1fr;
     align-items: start;
@@ -511,6 +548,10 @@
   .dashboard-stat-strip,
   .dashboard-module-grid,
   .dashboard-summary-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-quick-panel {
     grid-template-columns: 1fr;
   }
 

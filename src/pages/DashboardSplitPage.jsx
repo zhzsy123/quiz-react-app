@@ -20,8 +20,8 @@ function WorkflowBand({ onOpenDownloads }) {
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
         <span className="dashboard-eyebrow">JSON Workflow</span>
-        <h2>按科目下载 JSON 规范，再配合 AI 清洗试卷</h2>
-        <p>把 PDF / DOCX 和对应科目的 JSON 解析规范一起发给 AI，让它输出可导入本站的标准 JSON。</p>
+        <h2>按科目下载规范，交给 AI 清洗成可导入 JSON</h2>
+        <p>把试卷原文和对应科目的 JSON 解析规范一起交给 AI，再把结果导入本站，减少手工整理成本。</p>
       </div>
 
       <div className="dashboard-band-steps">
@@ -51,8 +51,8 @@ function DownloadDialog({ open, onClose, groups }) {
         <div className="ai-modal-head">
           <div className="download-dialog-copy">
             <span className="dashboard-eyebrow">Downloads</span>
-            <h3>按科目选择下载资料</h3>
-            <p>每个科目都映射自己的 JSON 解析规范或示例文件，方便直接交给 AI 清洗。</p>
+            <h3>选择下载资料</h3>
+            <p>每个科目都对应自己的 JSON 解析规范，国际贸易额外提供混合样卷示例。</p>
           </div>
 
           <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭下载对话框">
@@ -67,7 +67,7 @@ function DownloadDialog({ open, onClose, groups }) {
               <div className="download-dialog-group-head">
                 <div>
                   <strong>{group.subjectLabel}</strong>
-                  <p>{group.description}</p>
+                  <p>{group.questionTypeSummary}</p>
                 </div>
               </div>
 
@@ -144,7 +144,7 @@ export default function DashboardSplitPage() {
           <div className="dashboard-showcase-copy">
             <span className="dashboard-eyebrow">Study Workspace</span>
             <h1>智能在线模考系统 V2.0</h1>
-            <p>极速刷题、快速巩固、智能模考、错题本支持。</p>
+            <p>统一管理题库导入、刷题、模考、错题复习和 AI 辅助，让常用入口始终保持在首页。</p>
 
             <div className="dashboard-showcase-actions">
               <Link className="primary-btn" to="/exam/english">
@@ -184,7 +184,7 @@ export default function DashboardSplitPage() {
               </div>
 
               <strong>{activeProfile?.name || '未命名档案'}</strong>
-              <p>档案切换按多角色分离，暂不支持跨设备同步。</p>
+              <p>档案切换按用户角色隔离，暂不支持跨设备同步。</p>
 
               <label className="form-field">
                 <span>切换档案</span>
@@ -213,7 +213,7 @@ export default function DashboardSplitPage() {
                   </label>
                   <button className="primary-btn profile-create-btn" onClick={handleCreateProfile}>
                     <Plus size={16} />
-                    新建并切换
+                    创建并切换
                   </button>
                 </div>
               )}

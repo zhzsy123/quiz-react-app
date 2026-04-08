@@ -106,9 +106,12 @@ export function useDashboardSplitPageState() {
 
   const handleUpdateApiKey = () => {
     const currentConfig = getDeepSeekConfig()
-    const nextKey = window.prompt('请输入新的 DeepSeek API Key，留空则取消。', currentConfig.apiKey || '')
+    const nextKey = window.prompt(
+      '请输入新的 DeepSeek API Key。点取消则不修改，留空则清空当前 Key。',
+      currentConfig.apiKey || ''
+    )
     if (nextKey === null) return
-    updateDeepSeekConfig({ apiKey: nextKey })
+    updateDeepSeekConfig({ apiKey: nextKey.trim() })
   }
 
   return {

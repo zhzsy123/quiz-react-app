@@ -7,6 +7,7 @@ import { useSubjectWorkspaceState } from '../features/workspace/model/useSubject
 export default function SubjectWorkspacePage() {
   const {
     loading,
+    loadError,
     entry,
     quiz,
     mode,
@@ -63,6 +64,29 @@ export default function SubjectWorkspacePage() {
         <div className="container">
           <section className="hero-card">
             <h1>加载中...</h1>
+          </section>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="app-shell">
+        <div className="container">
+          <section className="hero-card workspace-empty-state">
+            <h1>试卷加载失败</h1>
+            <p>{loadError}</p>
+            <div className="workspace-header-actions">
+              <Link className="secondary-btn small-btn" to="/">
+                <Home size={14} />
+                返回首页
+              </Link>
+              <Link className="secondary-btn small-btn" to={backLink}>
+                <ArrowLeft size={14} />
+                返回
+              </Link>
+            </div>
           </section>
         </div>
       </div>

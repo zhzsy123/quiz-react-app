@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildQuizDocumentFromText } from '../../quiz/lib/quizPipeline.js'
 import { buildDraftPaper } from './buildDraftPaper.js'
 
 describe('buildDraftPaper', () => {
@@ -57,5 +58,42 @@ describe('buildDraftPaper', () => {
     expect(draft.questions[0].generation_preview.previewText).toBe('Question 1')
     expect(draft.questions[1].generation_status).toBe('warning')
   })
-})
 
+  it('round-trips generated draft papers through quizPipeline using questions as the primary source', () => {
+    const draft = buildDraftPaper({
+      subject: 'english',
+      title: 'Generated English Draft',
+      durationMinutes: 90,
+      requestId: 'req-generated-1',
+      questionDrafts: [
+        {
+          status: 'valid',
+          normalizedQuestion: {
+            id: 'q1',
+            type: 'single_choice',
+            prompt: 'Choose the correct conjunction.',
+            score: 2,
+            options: [
+              { key: 'A', text: 'because' },
+              { key: 'B', text: 'that' },
+              { key: 'C', text: 'for' },
+              { key: 'D', text: 'as' },
+            ],
+            answer: {
+              type: 'objective',
+              correct: 'B',
+              rationale: 'that 引导表语从句。',
+            },
+          },
+        },
+      ],
+    })
+
+    const normalized = buildQuizDocumentFromText(JSON.stringify(draft))
+
+    expect(normalized.quiz.title).toBe('Generated English Draft')
+    expect(normalized.quiz.items).toHaveLength(1)
+    expect(normalized.quiz.items[0].type).toBe('single_choice')
+    expect(normalized.quiz.items[0].prompt).toBe('Choose the correct conjunction.')
+  })
+})
