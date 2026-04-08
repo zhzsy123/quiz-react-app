@@ -1,5 +1,37 @@
 import { ensureQuestionBase, getDefaultScoreByType } from './helpers'
 
+function appendSubjectiveMeta(question, normalizedQuestion) {
+  return {
+    ...normalizedQuestion,
+    context_title:
+      normalizedQuestion.context_title ||
+      question.context_title ||
+      question.case_title ||
+      question.material_title ||
+      '',
+    context:
+      normalizedQuestion.context ??
+      (question.context ||
+        question.case_material ||
+        question.material ||
+        question.background ||
+        question.body ||
+        ''),
+    context_format:
+      question.context_format ||
+      question.material_format ||
+      question.presentation ||
+      'plain',
+    presentation:
+      question.presentation ||
+      question.context_format ||
+      question.material_format ||
+      'plain',
+    deliverable_type: question.deliverable_type || '',
+    response_format: question.response_format || '',
+  }
+}
+
 export function normalizeTranslationQuestion(question) {
   const sourceText =
     question.source_text ||
@@ -18,7 +50,7 @@ export function normalizeTranslationQuestion(question) {
       ? question.prompt || '请完成翻译'
       : '请完成翻译')
 
-  return {
+  return appendSubjectiveMeta(question, {
     ...ensureQuestionBase(question, 'translation', getDefaultScoreByType('translation')),
     prompt,
     direction: question.direction || 'en_to_zh',
@@ -30,11 +62,11 @@ export function normalizeTranslationQuestion(question) {
       scoring_points: question.answer?.scoring_points || [],
       ai_scoring: question.answer?.ai_scoring || { enabled: false },
     },
-  }
+  })
 }
 
 export function normalizeEssayQuestion(question) {
-  return {
+  return appendSubjectiveMeta(question, {
     ...ensureQuestionBase(question, 'essay', getDefaultScoreByType('essay')),
     essay_type: question.essay_type || 'writing',
     requirements: question.requirements || {},
@@ -46,14 +78,14 @@ export function normalizeEssayQuestion(question) {
       common_errors: question.answer?.common_errors || [],
       ai_scoring: question.answer?.ai_scoring || { enabled: false },
     },
-  }
+  })
 }
 
 export function normalizeGenericSubjectiveQuestion(question, fallbackType) {
   const prompt = question.prompt || question.title || '请完成作答'
   if (!prompt) return null
 
-  return {
+  return appendSubjectiveMeta(question, {
     ...ensureQuestionBase(question, fallbackType, getDefaultScoreByType(fallbackType)),
     prompt,
     context_title: question.context_title || question.case_title || question.material_title || '',
@@ -74,5 +106,5 @@ export function normalizeGenericSubjectiveQuestion(question, fallbackType) {
       common_errors: question.answer?.common_errors || [],
       ai_scoring: question.answer?.ai_scoring || { enabled: false },
     },
-  }
+  })
 }

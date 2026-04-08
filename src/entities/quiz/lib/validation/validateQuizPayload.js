@@ -1,3 +1,41 @@
+const SUPPORTED_TOP_LEVEL_TYPES = new Set([
+  'single_choice',
+  'multiple_choice',
+  'true_false',
+  'fill_blank',
+  'cloze',
+  'reading',
+  'translation',
+  'essay',
+  'short_answer',
+  'case_analysis',
+  'calculation',
+  'operation',
+  'composite',
+])
+
+const SUPPORTED_COMPOSITE_CHILD_TYPES = new Set([
+  'single_choice',
+  'multiple_choice',
+  'true_false',
+  'fill_blank',
+  'translation',
+  'essay',
+  'short_answer',
+  'case_analysis',
+  'calculation',
+  'operation',
+])
+
+function parseScoreValue(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function sumCompositeChildScores(questions = []) {
+  return questions.reduce((sum, question) => sum + parseScoreValue(question?.score), 0)
+}
+
 export function validateQuizPayload(payload) {
   const errors = []
   const warnings = []
@@ -35,6 +73,55 @@ export function validateQuizPayload(payload) {
 
   if (usesQuestions && !payload.schema_version) {
     warnings.push('缺少 schema_version，将按默认 JSON schema 处理。')
+  }
+
+  if (usesQuestions) {
+    payload.questions.forEach((question, index) => {
+      const questionLabel = question?.id || `questions[${index}]`
+      const questionType = question?.type || 'unknown'
+
+      if (!SUPPORTED_TOP_LEVEL_TYPES.has(questionType)) {
+        warnings.push(`${questionLabel} 使用了当前未支持的题型 ${questionType}，normalize 阶段可能跳过。`)
+        return
+      }
+
+      if (questionType !== 'composite') return
+
+      if (!Array.isArray(question.questions) || question.questions.length === 0) {
+        errors.push(`${questionLabel} 是 composite，但缺少非空 questions 子题数组。`)
+        return
+      }
+
+      const supportedChildren = question.questions.filter((childQuestion) =>
+        SUPPORTED_COMPOSITE_CHILD_TYPES.has(childQuestion?.type)
+      )
+
+      if (!supportedChildren.length) {
+        errors.push(`${questionLabel} 的 composite 子题中没有可用的受支持题型。`)
+      }
+
+      question.questions.forEach((childQuestion, childIndex) => {
+        const childLabel = childQuestion?.id || `${questionLabel}.questions[${childIndex}]`
+        const childType = childQuestion?.type || 'unknown'
+
+        if (childType === 'composite') {
+          errors.push(`${childLabel} 不支持嵌套 composite。`)
+          return
+        }
+
+        if (!SUPPORTED_COMPOSITE_CHILD_TYPES.has(childType)) {
+          warnings.push(`${childLabel} 使用了 composite 当前未支持的子题类型 ${childType}，normalize 阶段可能跳过。`)
+        }
+      })
+
+      if (question.score != null) {
+        const declaredScore = parseScoreValue(question.score)
+        const computedScore = sumCompositeChildScores(question.questions)
+        if (declaredScore !== computedScore) {
+          warnings.push(`${questionLabel} 的 score 与子题分值总和不一致，normalize 阶段将以子题总分为准。`)
+        }
+      }
+    })
   }
 
   const sourceSchema = usesLegacyItems ? 'legacy_items' : payload.schema_version || 'json-schema'

@@ -1,4 +1,5 @@
 import { normalizeLegacyPayload } from './legacyNormalizer'
+import { normalizeCompositeQuestion } from './compoundNormalizers'
 import {
   normalizeClozeQuestion,
   normalizeFillBlankQuestion,
@@ -39,7 +40,10 @@ const QUESTION_NORMALIZERS = {
     const converted = normalizeTranslationQuestion(question)
     return converted ? [converted] : []
   },
-  essay: (question) => [normalizeEssayQuestion(question)],
+  essay: (question) => {
+    const converted = normalizeEssayQuestion(question)
+    return converted ? [converted] : []
+  },
   short_answer: (question) => {
     const converted = normalizeGenericSubjectiveQuestion(question, 'short_answer')
     return converted ? [converted] : []
@@ -54,6 +58,10 @@ const QUESTION_NORMALIZERS = {
   },
   operation: (question) => {
     const converted = normalizeGenericSubjectiveQuestion(question, 'operation')
+    return converted ? [converted] : []
+  },
+  composite: (question) => {
+    const converted = normalizeCompositeQuestion(question)
     return converted ? [converted] : []
   },
 }
@@ -91,7 +99,7 @@ export function normalizeQuizPayload(data) {
 
   if (!items.length) {
     throw new Error(
-      '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation。'
+      '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation、composite。'
     )
   }
 

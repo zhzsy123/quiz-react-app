@@ -64,6 +64,87 @@ const quizFixture = {
   ],
 }
 
+const defaultQuizFixture = JSON.parse(JSON.stringify(quizFixture))
+
+function setQuizFixture(nextQuiz) {
+  const cloned = JSON.parse(JSON.stringify(nextQuiz))
+  Object.keys(quizFixture).forEach((key) => {
+    delete quizFixture[key]
+  })
+  Object.assign(quizFixture, cloned)
+}
+
+function createCompositeQuizFixture() {
+  return {
+    title: '数据结构综合题',
+    subject: 'english',
+    duration_minutes: 90,
+    items: [
+      {
+        id: 'composite_1',
+        type: 'composite',
+        prompt: '阅读下列代码与 SQL 片段后完成子题。',
+        material_title: '综合材料',
+        material: 'SELECT * FROM tree WHERE height > 3;',
+        material_format: 'sql',
+        presentation: 'code',
+        deliverable_type: 'analysis',
+        tags: ['database', 'tree'],
+        assets: [{ type: 'image', url: '/assets/er-diagram.png' }],
+        score: 14,
+        questions: [
+          {
+            id: 'sub_single',
+            type: 'single_choice',
+            prompt: '该查询最适合使用哪类索引？',
+            options: [
+              { key: 'A', text: '聚簇索引' },
+              { key: 'B', text: 'B+ 树索引' },
+            ],
+            answer: {
+              type: 'objective',
+              correct: 'B',
+              rationale: '范围查询通常更适合 B+ 树索引。',
+            },
+            score: 4,
+            tags: ['index'],
+          },
+          {
+            id: 'sub_blank',
+            type: 'fill_blank',
+            prompt: '写出该查询使用的关键字。',
+            blanks: [
+              {
+                blank_id: 'blank_1',
+                accepted_answers: ['SELECT'],
+                score: 4,
+              },
+            ],
+            answer: {
+              type: 'objective',
+              correct: 'SELECT',
+              rationale: '查询语句以 SELECT 关键字开头。',
+            },
+            score: 4,
+            tags: ['sql'],
+          },
+          {
+            id: 'sub_subjective',
+            type: 'short_answer',
+            prompt: '简述该 SQL 在树结构查询中的潜在优化方向。',
+            answer: {
+              type: 'subjective',
+            },
+            score: 6,
+            response_format: 'plain_text',
+            tags: ['optimization'],
+          },
+        ],
+      },
+    ],
+  }
+}
+
 vi.mock('../../../app/providers/AppContext', () => ({
   useAppContext: () => ({
     activeProfile: { id: 'profile-1' },
@@ -185,6 +266,7 @@ async function mountWorkspace() {
 
 describe('useSubjectWorkspaceState practice persistence', () => {
   beforeEach(() => {
+    setQuizFixture(defaultQuizFixture)
     createHistoryEntryMock.mockResolvedValue({ id: 'attempt-1' })
     updateHistoryEntryMock.mockResolvedValue(undefined)
     listFavoriteEntriesBySubjectMock.mockResolvedValue([])
@@ -279,6 +361,186 @@ describe('useSubjectWorkspaceState practice persistence', () => {
           prompt: 'Question 1',
           userAnswer: 'B',
           correctAnswer: 'A',
+        }),
+      ])
+    )
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('stores composite child answers and reveal state using canonical keys', async () => {
+    setQuizFixture(createCompositeQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    expect(stateRef.current.quiz.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'composite_1',
+        type: 'composite',
+        material_title: '综合材料',
+        material: 'SELECT * FROM tree WHERE height > 3;',
+        material_format: 'sql',
+      })
+    )
+
+    await act(async () => {
+      stateRef.current.handleSelectCompositeOption('composite_1', 'sub_single', 'A')
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleCompositeFillBlankChange('composite_1', 'sub_blank', 'blank_1', 'SELECT')
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleCompositeTextChange(
+        'composite_1',
+        'sub_subjective',
+        '可以增加针对 height 字段的索引并减少全表扫描。'
+      )
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.answers).toEqual(
+      expect.objectContaining({
+        composite_1: expect.objectContaining({
+          sub_single: 'A',
+          sub_blank: expect.objectContaining({
+            blank_1: 'SELECT',
+          }),
+          sub_subjective: expect.objectContaining({
+            text: '可以增加针对 height 字段的索引并减少全表扫描。',
+          }),
+        }),
+      })
+    )
+    expect(stateRef.current.revealedMap).toEqual(
+      expect.objectContaining({
+        'composite_1:sub_single': true,
+        'composite_1:sub_blank': true,
+      })
+    )
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('emits canonical itemsSnapshot in progress payload for composite questions', async () => {
+    setQuizFixture(createCompositeQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleSelectCompositeOption('composite_1', 'sub_single', 'B')
+      await flushAsyncWork()
+    })
+
+    const latestPayload =
+      saveSessionProgressMock.mock.calls[saveSessionProgressMock.mock.calls.length - 1]?.[3]
+
+    expect(latestPayload).toEqual(
+      expect.objectContaining({
+        itemsSnapshot: [
+          expect.objectContaining({
+            id: 'composite_1',
+            type: 'composite',
+            questions: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'sub_single',
+                questionKey: 'composite_1:sub_single',
+                composite_context: expect.objectContaining({
+                  composite_id: 'composite_1',
+                  composite_prompt: '阅读下列代码与 SQL 片段后完成子题。',
+                  material_title: '综合材料',
+                  material: 'SELECT * FROM tree WHERE height > 3;',
+                  material_format: 'sql',
+                  presentation: 'code',
+                  deliverable_type: 'analysis',
+                  tags: ['database', 'tree'],
+                  assets: [{ type: 'image', url: '/assets/er-diagram.png' }],
+                }),
+              }),
+              expect.objectContaining({
+                id: 'sub_blank',
+                questionKey: 'composite_1:sub_blank',
+                composite_context: expect.objectContaining({
+                  composite_id: 'composite_1',
+                }),
+              }),
+              expect.objectContaining({
+                id: 'sub_subjective',
+                questionKey: 'composite_1:sub_subjective',
+                composite_context: expect.objectContaining({
+                  composite_id: 'composite_1',
+                }),
+              }),
+            ]),
+          }),
+        ],
+      })
+    )
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('writes composite wrongItems at child-question level with canonical context', async () => {
+    setQuizFixture(createCompositeQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleSelectCompositeOption('composite_1', 'sub_single', 'A')
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleCompositeFillBlankChange('composite_1', 'sub_blank', 'blank_1', 'SELECT')
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleCompositeTextChange(
+        'composite_1',
+        'sub_subjective',
+        '建议补充覆盖索引并优化查询条件。'
+      )
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      await stateRef.current.handleFinish()
+    })
+
+    expect(upsertWrongbookEntriesMock).toHaveBeenCalledTimes(1)
+    expect(upsertWrongbookEntriesMock).toHaveBeenCalledWith(
+      'profile-1',
+      'english',
+      expect.arrayContaining([
+        expect.objectContaining({
+          questionKey: 'composite_1:sub_single',
+          questionId: 'composite_1',
+          subQuestionId: 'sub_single',
+          prompt: '该查询最适合使用哪类索引？',
+          parentType: 'composite',
+          userAnswer: 'A',
+          correctAnswer: 'B',
+          composite_context: expect.objectContaining({
+            composite_id: 'composite_1',
+            composite_prompt: '阅读下列代码与 SQL 片段后完成子题。',
+            material_title: '综合材料',
+            material: 'SELECT * FROM tree WHERE height > 3;',
+            material_format: 'sql',
+            presentation: 'code',
+            deliverable_type: 'analysis',
+            tags: ['database', 'tree'],
+            assets: [{ type: 'image', url: '/assets/er-diagram.png' }],
+          }),
         }),
       ])
     )

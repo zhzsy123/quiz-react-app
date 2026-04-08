@@ -1,10 +1,19 @@
 import { generateId, openDb, requestToPromise, waitForTransaction } from './db'
+import {
+  buildCompositeAnswerSnapshotMap,
+  buildCompositeQuestionSnapshotMap,
+  decorateCompositeItems,
+} from './compositePersistence'
 
 export async function saveAttemptRecord(record) {
   const now = record.submittedAt || Date.now()
+  const itemsSnapshot = decorateCompositeItems(record.itemsSnapshot || [])
   const entry = {
     id: generateId('attempt'),
     ...record,
+    itemsSnapshot,
+    compositeQuestionSnapshotMap: buildCompositeQuestionSnapshotMap(itemsSnapshot),
+    compositeAnswerSnapshotMap: buildCompositeAnswerSnapshotMap(itemsSnapshot, record.answersSnapshot || {}),
     submittedAt: now,
     createdAt: now,
   }
@@ -36,6 +45,15 @@ export async function updateAttemptRecord(attemptId, patch) {
     ...existing,
     ...patch,
     updatedAt: Date.now(),
+  }
+
+  if (Array.isArray(next.itemsSnapshot)) {
+    next.itemsSnapshot = decorateCompositeItems(next.itemsSnapshot)
+    next.compositeQuestionSnapshotMap = buildCompositeQuestionSnapshotMap(next.itemsSnapshot)
+    next.compositeAnswerSnapshotMap = buildCompositeAnswerSnapshotMap(
+      next.itemsSnapshot,
+      next.answersSnapshot || existing.answersSnapshot || {}
+    )
   }
 
   if (typeof next.customTitle === 'string') {
