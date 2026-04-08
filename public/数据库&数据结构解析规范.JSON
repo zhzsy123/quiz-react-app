@@ -1,0 +1,512 @@
+﻿{
+  "document_type": "quiz_import_spec",
+  "document_version": "2026-04-v1",
+  "title": "数据库&数据结构解析规范",
+  "scope": {
+    "subjects": [
+      "database",
+      "data_structure"
+    ],
+    "purpose": "将数据库与数据结构试卷解析为可导入 quiz-react-app 的合法 JSON"
+  },
+  "sample_insights": {
+    "observed_question_types": [
+      "single_choice",
+      "fill_blank",
+      "true_false",
+      "short_answer",
+      "calculation",
+      "operation",
+      "case_analysis",
+      "composite"
+    ],
+    "common_database_scenarios": [
+      "SQL 填空",
+      "SQL / 关系代数分析",
+      "事务与并发分析",
+      "E-R 图与关系模式设计",
+      "规范化分析",
+      "综合材料题"
+    ],
+    "common_data_structure_scenarios": [
+      "单选与判断基础概念题",
+      "填空题",
+      "算法过程题",
+      "树 / 图遍历题",
+      "哈夫曼树 / 最小生成树 / 拓扑序列",
+      "综合应用题"
+    ]
+  },
+  "top_level_schema": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "title",
+      "subject",
+      "questions"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "2026-04"
+      },
+      "title": {
+        "type": "string",
+        "description": "试卷标题"
+      },
+      "subject": {
+        "type": "string",
+        "enum": [
+          "database",
+          "data_structure"
+        ]
+      },
+      "questions": {
+        "type": "array",
+        "description": "题目数组"
+      }
+    }
+  },
+  "allowed_types": [
+    "single_choice",
+    "multiple_choice",
+    "true_false",
+    "fill_blank",
+    "short_answer",
+    "calculation",
+    "operation",
+    "case_analysis",
+    "composite"
+  ],
+  "type_mapping_rules": [
+    {
+      "source_pattern": "单选题",
+      "target_type": "single_choice"
+    },
+    {
+      "source_pattern": "多选题",
+      "target_type": "multiple_choice"
+    },
+    {
+      "source_pattern": "判断题",
+      "target_type": "true_false"
+    },
+    {
+      "source_pattern": "填空题 / SQL 填空 / 代码填空",
+      "target_type": "fill_blank"
+    },
+    {
+      "source_pattern": "简答题 / 解释题",
+      "target_type": "short_answer"
+    },
+    {
+      "source_pattern": "算法过程题 / 计算题 / 推导题",
+      "target_type": "calculation"
+    },
+    {
+      "source_pattern": "E-R 图 / 关系模式设计 / 模式分解",
+      "target_type": "operation"
+    },
+    {
+      "source_pattern": "事务分析 / 并发分析 / 规范化分析 / 关系代数分析",
+      "target_type": "case_analysis"
+    },
+    {
+      "source_pattern": "共享材料 + 多个子题",
+      "target_type": "composite"
+    }
+  ],
+  "general_question_fields": {
+    "required": [
+      "id",
+      "type",
+      "prompt",
+      "score"
+    ],
+    "optional": [
+      "context",
+      "context_title",
+      "context_format",
+      "material",
+      "material_title",
+      "material_format",
+      "presentation",
+      "deliverable_type",
+      "response_format",
+      "tags",
+      "assets"
+    ]
+  },
+  "format_guidelines": {
+    "context_format": [
+      "plain",
+      "markdown",
+      "code",
+      "sql"
+    ],
+    "material_format": [
+      "plain",
+      "markdown",
+      "code",
+      "sql"
+    ],
+    "presentation": [
+      "plain",
+      "code",
+      "sql"
+    ],
+    "deliverable_type_examples": [
+      "er_diagram",
+      "relation_schema",
+      "normalization_result",
+      "transaction_analysis",
+      "algorithm_trace"
+    ],
+    "response_format_examples": [
+      "plain_text",
+      "steps",
+      "schema",
+      "analysis"
+    ]
+  },
+  "type_specs": {
+    "single_choice": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "options",
+        "answer.correct"
+      ],
+      "example": {
+        "id": "q1",
+        "type": "single_choice",
+        "prompt": "关系数据库中，主键的作用是？",
+        "score": 2,
+        "options": [
+          "A. 唯一标识元组",
+          "B. 存储事务日志",
+          "C. 表示外键依赖",
+          "D. 控制并发"
+        ],
+        "answer": {
+          "correct": "A"
+        }
+      }
+    },
+    "multiple_choice": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "options",
+        "answer.correct"
+      ],
+      "example": {
+        "id": "q2",
+        "type": "multiple_choice",
+        "prompt": "下列哪些属于关系数据库特性？",
+        "score": 3,
+        "options": [
+          "A. 数据独立性",
+          "B. 事务一致性",
+          "C. 仅支持顺序文件",
+          "D. 完全没有约束"
+        ],
+        "answer": {
+          "correct": [
+            "A",
+            "B"
+          ]
+        }
+      }
+    },
+    "true_false": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "answer.correct"
+      ],
+      "example": {
+        "id": "q3",
+        "type": "true_false",
+        "prompt": "B+ 树的叶子节点通常按照关键字有序链接。",
+        "score": 1,
+        "answer": {
+          "correct": "T"
+        }
+      }
+    },
+    "fill_blank": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "answer.correct"
+      ],
+      "example": {
+        "id": "q4",
+        "type": "fill_blank",
+        "prompt": "补全 SQL 语句。",
+        "score": 3,
+        "context_title": "SQL 片段",
+        "context": "SELECT ____ FROM student WHERE score > 90;",
+        "context_format": "sql",
+        "presentation": "sql",
+        "answer": {
+          "correct": [
+            "name"
+          ]
+        }
+      }
+    },
+    "short_answer": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "answer.reference_answer"
+      ],
+      "example": {
+        "id": "q5",
+        "type": "short_answer",
+        "prompt": "简述第二范式与第三范式的区别。",
+        "score": 6,
+        "response_format": "plain_text",
+        "answer": {
+          "reference_answer": "第二范式要求非主属性完全函数依赖于候选键，第三范式进一步要求不存在非主属性对候选键的传递依赖。",
+          "scoring_points": [
+            "说明第二范式核心要求",
+            "说明第三范式核心要求",
+            "指出第三范式比第二范式更严格"
+          ]
+        }
+      }
+    },
+    "calculation": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score"
+      ],
+      "example": {
+        "id": "q6",
+        "type": "calculation",
+        "prompt": "写出冒泡排序第一趟结束后的结果，并说明交换过程。",
+        "score": 8,
+        "deliverable_type": "algorithm_trace",
+        "response_format": "steps",
+        "answer": {
+          "reference_answer": "第一趟后结果为 ...，交换过程为 ...",
+          "scoring_points": [
+            "第一趟结果正确",
+            "关键交换步骤正确",
+            "过程说明完整"
+          ]
+        }
+      }
+    },
+    "operation": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score"
+      ],
+      "example": {
+        "id": "q7",
+        "type": "operation",
+        "prompt": "根据业务描述设计该系统的关系模式。",
+        "score": 10,
+        "deliverable_type": "relation_schema",
+        "response_format": "schema",
+        "answer": {
+          "reference_answer": "Student(sid, name, class_id), Class(class_id, class_name)",
+          "scoring_points": [
+            "实体识别正确",
+            "主键设计合理",
+            "关系模式完整"
+          ]
+        }
+      }
+    },
+    "case_analysis": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score"
+      ],
+      "example": {
+        "id": "q8",
+        "type": "case_analysis",
+        "prompt": "分析下列调度是否冲突可串行化，并说明理由。",
+        "score": 8,
+        "presentation": "sql",
+        "response_format": "analysis",
+        "answer": {
+          "reference_answer": "根据冲突图判断，该调度不可串行化。",
+          "scoring_points": [
+            "识别冲突操作",
+            "构造冲突图或等价分析",
+            "给出正确结论"
+          ]
+        }
+      }
+    },
+    "composite": {
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "questions"
+      ],
+      "constraints": [
+        "composite 是唯一新增顶层结构",
+        "composite 不允许嵌套",
+        "reading / cloze 不允许作为 composite 子题",
+        "composite 子题只允许 single_choice / multiple_choice / true_false / fill_blank / short_answer / calculation / operation / case_analysis",
+        "composite.score 必须等于所有子题 score 之和"
+      ],
+      "example": {
+        "id": "comp_1",
+        "type": "composite",
+        "prompt": "阅读下列事务调度并回答问题。",
+        "material_title": "Transaction schedule",
+        "material": "T1: read(A); T2: write(A);",
+        "material_format": "sql",
+        "presentation": "code",
+        "deliverable_type": "transaction_analysis",
+        "score": 8,
+        "tags": [
+          "transaction",
+          "concurrency"
+        ],
+        "assets": [],
+        "questions": [
+          {
+            "id": "q1",
+            "type": "true_false",
+            "prompt": "该调度是冲突可串行化的。",
+            "score": 2,
+            "answer": {
+              "correct": "F"
+            }
+          },
+          {
+            "id": "q2",
+            "type": "short_answer",
+            "prompt": "说明理由。",
+            "score": 6,
+            "response_format": "analysis",
+            "answer": {
+              "reference_answer": "根据冲突图存在环，因此不可串行化。",
+              "scoring_points": [
+                "指出冲突关系",
+                "说明存在环",
+                "得出不可串行化结论"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "frozen_contracts": {
+    "canonical_fields": [
+      "composite_context",
+      "questionKey",
+      "itemsSnapshot",
+      "answers[compositeId][subQuestionId]",
+      "revealedMap[`${compositeId}:${subQuestionId}`]"
+    ],
+    "question_key_rules": {
+      "regular_question": "沿用题目自身 questionId / 原规则",
+      "composite_sub_question": "${compositeId}:${subQuestionId}"
+    },
+    "notes": [
+      "DeepSeek 只需要生成导入 JSON，不需要生成 composite_context。",
+      "composite_context 是系统内部 normalize / workspace / persistence 使用的 canonical 契约。"
+    ]
+  },
+  "hard_constraints": [
+    "只输出单个 JSON 对象",
+    "不要输出 Markdown",
+    "不要输出代码围栏",
+    "不要输出解释文字",
+    "不要输出注释",
+    "不要发明新的 type",
+    "不要输出嵌套 composite",
+    "不要把 reading / cloze 放进 composite.questions",
+    "所有 id 必须唯一",
+    "所有 score 必须是数字",
+    "JSON 必须可解析"
+  ],
+  "minimal_payload_example": {
+    "schema_version": "2026-04",
+    "title": "数据库练习卷 1",
+    "subject": "database",
+    "questions": [
+      {
+        "id": "q1",
+        "type": "single_choice",
+        "prompt": "关系数据库中，主键的作用是？",
+        "score": 2,
+        "options": [
+          "A. 唯一标识元组",
+          "B. 存储事务日志",
+          "C. 表示外键依赖",
+          "D. 控制并发"
+        ],
+        "answer": {
+          "correct": "A"
+        }
+      },
+      {
+        "id": "comp_1",
+        "type": "composite",
+        "prompt": "阅读下列事务调度并回答问题。",
+        "material_title": "Transaction schedule",
+        "material": "T1: read(A); T2: write(A);",
+        "material_format": "sql",
+        "presentation": "code",
+        "deliverable_type": "transaction_analysis",
+        "score": 8,
+        "questions": [
+          {
+            "id": "q1",
+            "type": "true_false",
+            "prompt": "该调度是冲突可串行化的。",
+            "score": 2,
+            "answer": {
+              "correct": "F"
+            }
+          },
+          {
+            "id": "q2",
+            "type": "short_answer",
+            "prompt": "说明理由。",
+            "score": 6,
+            "response_format": "analysis",
+            "answer": {
+              "reference_answer": "根据冲突图存在环，因此不可串行化。",
+              "scoring_points": [
+                "指出冲突关系",
+                "说明存在环",
+                "得出不可串行化结论"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "deepseek_prompt_template": "你现在的任务是：把我提供的试卷内容，转换为可导入 quiz-react-app 的 JSON。你必须严格遵守以下规则：1. 只输出单个 JSON 对象；不要输出 Markdown、代码围栏、解释文字、注释。2. 顶层结构必须包含 schema_version、title、subject、questions，其中 schema_version 固定为 2026-04，subject 只能是 database 或 data_structure。3. 只能使用以下 type：single_choice、multiple_choice、true_false、fill_blank、short_answer、calculation、operation、case_analysis、composite。禁止发明新 type。4. 每道题必须有 id、type、prompt、score。5. 如果题目是共享材料 + 多个子题，必须使用 composite；composite 不允许嵌套；其子题不能是 reading 或 cloze；子题只允许 single_choice、multiple_choice、true_false、fill_blank、short_answer、calculation、operation、case_analysis；composite.score 必须等于子题 score 总和。6. 代码 / SQL / 材料题可使用 context、context_title、context_format、material、material_title、material_format、presentation、deliverable_type、response_format、tags、assets。7. 代码阅读 / SQL 材料 + 多个小题用 composite；单个代码填空 / SQL 填空用 fill_blank；算法过程题优先用 calculation；E-R 图 / 关系模式设计用 operation；事务 / 并发 / 规范化分析优先用 case_analysis；如果拿不准题型，优先用 short_answer。8. 所有 id 必须唯一，所有 score 必须是数字，JSON 必须可解析。9. 不要杜撰原卷没有的信息；信息不足时尽量保留题干并输出合法 JSON。现在开始转换下面这份试卷，直接输出 JSON，不要输出任何解释。"
+}
