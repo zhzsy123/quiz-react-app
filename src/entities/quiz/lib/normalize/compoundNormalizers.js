@@ -16,12 +16,20 @@ const COMPOSITE_CHILD_NORMALIZERS = {
   multiple_choice: (question) => normalizeMultipleChoiceQuestion(question),
   true_false: (question) => normalizeTrueFalseQuestion(question),
   fill_blank: (question) => normalizeFillBlankQuestion(question),
+  function_fill_blank: (question) =>
+    normalizeFillBlankQuestion({ ...question, type: 'function_fill_blank' }, {
+      normalizedType: 'fill_blank',
+      baseType: 'function_fill_blank',
+    }),
   translation: (question) => normalizeTranslationQuestion(question),
   essay: (question) => normalizeEssayQuestion(question),
   short_answer: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),
   case_analysis: (question) => normalizeGenericSubjectiveQuestion(question, 'case_analysis'),
   calculation: (question) => normalizeGenericSubjectiveQuestion(question, 'calculation'),
   operation: (question) => normalizeGenericSubjectiveQuestion(question, 'operation'),
+  programming: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),
+  sql: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),
+  er_diagram: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),
 }
 
 function normalizeCompositeMaterialMeta(question) {

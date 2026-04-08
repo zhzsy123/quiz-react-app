@@ -22,8 +22,8 @@ export default function GeneratedQuestionList({ draftQuestions = [], onRemoveQue
     <div className="generator-list">
       {draftQuestions.map((entry, index) => {
         const preview = entry.preview || {}
-        const warnings = entry.validation?.warnings || []
-        const errors = entry.validation?.errors || (entry.error ? [entry.error] : [])
+        const warnings = entry.validation?.warnings || entry.warnings || []
+        const errors = entry.validation?.errors || entry.errors || (entry.error ? [entry.error] : [])
 
         return (
           <article key={`${preview.questionId || 'draft'}-${index}`} className={`generator-item ${entry.status}`}>

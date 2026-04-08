@@ -1,5 +1,21 @@
 import { ensureQuestionBase, getDefaultScoreByType } from './helpers'
 
+function normalizeScoringPoints(answer = {}) {
+  if (Array.isArray(answer.scoring_points)) return answer.scoring_points
+  if (Array.isArray(answer.points)) return answer.points
+  return []
+}
+
+function resolveReferenceAnswer(question) {
+  return (
+    question?.answer?.reference_answer ||
+    question?.answer?.correct ||
+    question?.reference_answer ||
+    question?.sample_answer ||
+    ''
+  )
+}
+
 function appendSubjectiveMeta(question, normalizedQuestion) {
   return {
     ...normalizedQuestion,
@@ -57,10 +73,10 @@ export function normalizeTranslationQuestion(question) {
     source_text: sourceText,
     answer: {
       type: 'subjective',
-      reference_answer: question.answer?.reference_answer || question.answer?.correct || '',
-      alternate_answers: question.answer?.alternate_answers || [],
-      scoring_points: question.answer?.scoring_points || [],
-      ai_scoring: question.answer?.ai_scoring || { enabled: false },
+      reference_answer: resolveReferenceAnswer(question),
+      alternate_answers: question?.answer?.alternate_answers || [],
+      scoring_points: normalizeScoringPoints(question?.answer || {}),
+      ai_scoring: question?.answer?.ai_scoring || { enabled: false },
     },
   })
 }
@@ -72,11 +88,11 @@ export function normalizeEssayQuestion(question) {
     requirements: question.requirements || {},
     answer: {
       type: 'subjective',
-      reference_answer: question.answer?.reference_answer || '',
-      outline: question.answer?.outline || [],
-      scoring_rubric: question.answer?.scoring_rubric || null,
-      common_errors: question.answer?.common_errors || [],
-      ai_scoring: question.answer?.ai_scoring || { enabled: false },
+      reference_answer: resolveReferenceAnswer(question),
+      outline: question?.answer?.outline || [],
+      scoring_rubric: question?.answer?.scoring_rubric || null,
+      common_errors: question?.answer?.common_errors || [],
+      ai_scoring: question?.answer?.ai_scoring || { enabled: false },
     },
   })
 }
@@ -99,12 +115,12 @@ export function normalizeGenericSubjectiveQuestion(question, fallbackType) {
     requirements: question.requirements || {},
     answer: {
       type: 'subjective',
-      reference_answer: question.answer?.reference_answer || question.answer?.correct || '',
-      outline: question.answer?.outline || [],
-      scoring_points: question.answer?.scoring_points || [],
-      scoring_rubric: question.answer?.scoring_rubric || null,
-      common_errors: question.answer?.common_errors || [],
-      ai_scoring: question.answer?.ai_scoring || { enabled: false },
+      reference_answer: resolveReferenceAnswer(question),
+      outline: question?.answer?.outline || [],
+      scoring_points: normalizeScoringPoints(question?.answer || {}),
+      scoring_rubric: question?.answer?.scoring_rubric || null,
+      common_errors: question?.answer?.common_errors || [],
+      ai_scoring: question?.answer?.ai_scoring || { enabled: false },
     },
   })
 }

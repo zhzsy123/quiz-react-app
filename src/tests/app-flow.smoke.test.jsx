@@ -214,8 +214,35 @@ vi.mock('../entities/subject/model/subjects', () => {
         label: 'Single Choice',
         shortLabel: 'Single',
         family: 'objective',
+        mockExamDefaultCount: 5,
+        mockExamDefaultScore: 2,
       },
     ],
+    buildQuestionPlan: (typeKeys = [], options = []) =>
+      typeKeys.reduce((plan, typeKey) => {
+        const meta = options.find((item) => item.key === typeKey) || {
+          mockExamDefaultCount: 1,
+          mockExamDefaultScore: 1,
+        }
+        plan[typeKey] = {
+          count: meta.mockExamDefaultCount || 1,
+          score: meta.mockExamDefaultScore || 1,
+        }
+        return plan
+      }, {}),
+    normalizeQuestionPlan: (typeKeys = [], questionPlan = {}, options = []) =>
+      typeKeys.reduce((plan, typeKey) => {
+        const meta = options.find((item) => item.key === typeKey) || {
+          mockExamDefaultCount: 1,
+          mockExamDefaultScore: 1,
+        }
+        const current = questionPlan[typeKey] || {}
+        plan[typeKey] = {
+          count: Number(current.count) || meta.mockExamDefaultCount || 1,
+          score: Number(current.score) || meta.mockExamDefaultScore || 1,
+        }
+        return plan
+      }, {}),
   }
 })
 

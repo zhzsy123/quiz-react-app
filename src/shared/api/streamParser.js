@@ -21,7 +21,12 @@ function emitGeneratedObject(candidate, onEvent, onError) {
 function extractStreamTextChunk(line, onError) {
   const trimmed = String(line || '').trim()
   if (!trimmed || trimmed.startsWith(':')) return { content: '', done: false }
-  if (!trimmed.startsWith('data:')) return { content: '', done: false }
+  if (!trimmed.startsWith('data:')) {
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      return { content: trimmed, done: false }
+    }
+    return { content: '', done: false }
+  }
 
   const payload = trimmed.slice(5).trim()
   if (!payload) return { content: '', done: false }
@@ -108,7 +113,10 @@ function drainGeneratedBuffer(buffer, { onEvent, onError, final = false }) {
   }
 
   if (final && nextBuffer.trim()) {
-    emitParseError(nextBuffer, onError)
+    const trimmed = nextBuffer.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      emitParseError(nextBuffer, onError)
+    }
     return ''
   }
 

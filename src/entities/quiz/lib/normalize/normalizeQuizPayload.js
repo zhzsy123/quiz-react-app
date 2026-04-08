@@ -31,6 +31,13 @@ const QUESTION_NORMALIZERS = {
     const converted = normalizeFillBlankQuestion(question)
     return converted ? [converted] : []
   },
+  function_fill_blank: (question) => {
+    const converted = normalizeFillBlankQuestion(
+      { ...question, type: 'function_fill_blank' },
+      { normalizedType: 'function_fill_blank', baseType: 'function_fill_blank' }
+    )
+    return converted ? [converted] : []
+  },
   reading: (question) => {
     const converted = normalizeReadingQuestion(question)
     return converted ? [converted] : []
@@ -58,6 +65,24 @@ const QUESTION_NORMALIZERS = {
   },
   operation: (question) => {
     const converted = normalizeGenericSubjectiveQuestion(question, 'operation')
+    return converted ? [converted] : []
+  },
+  programming: (question) => {
+    const converted = normalizeGenericSubjectiveQuestion(
+      { ...question, response_format: question.response_format || 'code' },
+      'programming'
+    )
+    return converted ? [converted] : []
+  },
+  sql: (question) => {
+    const converted = normalizeGenericSubjectiveQuestion(
+      { ...question, response_format: question.response_format || 'sql' },
+      'sql'
+    )
+    return converted ? [converted] : []
+  },
+  er_diagram: (question) => {
+    const converted = normalizeGenericSubjectiveQuestion(question, 'er_diagram')
     return converted ? [converted] : []
   },
   composite: (question) => {
@@ -99,7 +124,7 @@ export function normalizeQuizPayload(data) {
 
   if (!items.length) {
     throw new Error(
-      '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation、composite。'
+      '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、function_fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation、programming、sql、er_diagram、composite。'
     )
   }
 

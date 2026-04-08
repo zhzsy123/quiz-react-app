@@ -1,4 +1,4 @@
-﻿export function normalizeChoiceArray(value) {
+export function normalizeChoiceArray(value) {
   if (!Array.isArray(value)) return []
   return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
 }
@@ -20,14 +20,25 @@ export function formatOptionLabel(options = [], key = '', unansweredLabel = '未
   return getOptionText(options, key, unansweredLabel)
 }
 
+function isFillBlankLike(item) {
+  return item?.type === 'fill_blank' || item?.type === 'function_fill_blank'
+}
+
 export function formatObjectiveAnswerLabel(item, response, unansweredLabel = '未作答') {
   if (item.type === 'multiple_choice') {
     const values = normalizeChoiceArray(response)
-    return values.length ? values.map((value) => getOptionText(item.options || [], value, unansweredLabel)).join(' / ') : unansweredLabel
+    return values.length
+      ? values.map((value) => getOptionText(item.options || [], value, unansweredLabel)).join(' / ')
+      : unansweredLabel
   }
-  if (item.type === 'fill_blank') {
+  if (isFillBlankLike(item)) {
     if (!response || typeof response !== 'object') return unansweredLabel
-    return item.blanks.map((blank) => String(response[blank.blank_id] || '').trim()).filter(Boolean).join(' / ') || unansweredLabel
+    return (
+      item.blanks
+        .map((blank) => String(response[blank.blank_id] || '').trim())
+        .filter(Boolean)
+        .join(' / ') || unansweredLabel
+    )
   }
   return getOptionText(item.options || [], response || '', unansweredLabel)
 }
@@ -37,7 +48,7 @@ export function getObjectiveAnswerLabel(item, response, unansweredLabel = '未�
 }
 
 export function formatObjectiveCorrectAnswerLabel(item, unansweredLabel = '未作答') {
-  if (item.type === 'fill_blank') {
+  if (isFillBlankLike(item)) {
     return item.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
   }
   return formatObjectiveAnswerLabel(item, item.answer?.correct, unansweredLabel)
@@ -52,9 +63,11 @@ export function isObjectiveAnswered(item, response) {
   if (item.type === 'multiple_choice') {
     return normalizeChoiceArray(response).length > 0
   }
-  if (item.type === 'fill_blank') {
+  if (isFillBlankLike(item)) {
     if (!response || typeof response !== 'object') return false
-    return item.blanks.every((blank) => typeof response[blank.blank_id] === 'string' && response[blank.blank_id].trim().length > 0)
+    return item.blanks.every(
+      (blank) => typeof response[blank.blank_id] === 'string' && response[blank.blank_id].trim().length > 0
+    )
   }
   return typeof response === 'string' && response.trim().length > 0
 }
@@ -66,7 +79,7 @@ export function isObjectiveCorrect(item, response) {
     const expected = normalizeChoiceArray(item.answer?.correct)
     return actual.length > 0 && actual.length === expected.length && actual.every((value, index) => value === expected[index])
   }
-  if (item.type === 'fill_blank') {
+  if (isFillBlankLike(item)) {
     if (!response || typeof response !== 'object') return false
     return item.blanks.every((blank) => {
       const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()

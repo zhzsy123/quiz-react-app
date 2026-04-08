@@ -3,11 +3,15 @@ const SUPPORTED_TOP_LEVEL_TYPES = new Set([
   'multiple_choice',
   'true_false',
   'fill_blank',
+  'function_fill_blank',
   'cloze',
   'reading',
   'translation',
   'essay',
   'short_answer',
+  'programming',
+  'sql',
+  'er_diagram',
   'case_analysis',
   'calculation',
   'operation',
@@ -19,9 +23,13 @@ const SUPPORTED_COMPOSITE_CHILD_TYPES = new Set([
   'multiple_choice',
   'true_false',
   'fill_blank',
+  'function_fill_blank',
   'translation',
   'essay',
   'short_answer',
+  'programming',
+  'sql',
+  'er_diagram',
   'case_analysis',
   'calculation',
   'operation',
@@ -81,7 +89,7 @@ export function validateQuizPayload(payload) {
       const questionType = question?.type || 'unknown'
 
       if (!SUPPORTED_TOP_LEVEL_TYPES.has(questionType)) {
-        warnings.push(`${questionLabel} 使用了当前未支持的题型 ${questionType}，normalize 阶段可能跳过。`)
+        warnings.push(`${questionLabel} 使用了当前未支持的题型 ${questionType}，标准化阶段可能会跳过。`)
         return
       }
 
@@ -110,7 +118,7 @@ export function validateQuizPayload(payload) {
         }
 
         if (!SUPPORTED_COMPOSITE_CHILD_TYPES.has(childType)) {
-          warnings.push(`${childLabel} 使用了 composite 当前未支持的子题类型 ${childType}，normalize 阶段可能跳过。`)
+          warnings.push(`${childLabel} 使用了 composite 当前未支持的子题类型 ${childType}，标准化阶段可能会跳过。`)
         }
       })
 
@@ -118,7 +126,7 @@ export function validateQuizPayload(payload) {
         const declaredScore = parseScoreValue(question.score)
         const computedScore = sumCompositeChildScores(question.questions)
         if (declaredScore !== computedScore) {
-          warnings.push(`${questionLabel} 的 score 与子题分值总和不一致，normalize 阶段将以子题总分为准。`)
+          warnings.push(`${questionLabel} 的 score 与子题分值总和不一致，标准化阶段将以子题总分为准。`)
         }
       }
     })

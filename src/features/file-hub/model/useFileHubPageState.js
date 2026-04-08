@@ -8,7 +8,12 @@ import {
   upsertLibraryEntry,
 } from '../../../entities/library/api/libraryRepository'
 import { buildPaperId } from '../../../entities/quiz/lib/paperId'
-import { getSubjectMetaByRouteParam, getSubjectQuestionTypeOptions } from '../../../entities/subject/model/subjects'
+import {
+  buildQuestionPlan,
+  getSubjectMetaByRouteParam,
+  getSubjectQuestionTypeOptions,
+  normalizeQuestionPlan,
+} from '../../../entities/subject/model/subjects'
 import { startQuestionGeneration } from '../../question-generator/api/questionGenerationService'
 import { useAiQuestionGenerator } from '../../question-generator/model/useAiQuestionGenerator'
 
@@ -50,17 +55,19 @@ export function useFileHubPageState() {
 
   const generationDefaults = useMemo(() => {
     const generation = subjectMeta.generation || {}
+    const supportedQuestionTypes = generation.supportedQuestionTypes || subjectMeta.questionTypeKeys || []
     return {
       subject: subjectKey,
       mode: generation.supportedModes?.[0] || 'practice',
       difficulty: generation.defaultDifficulty || 'medium',
       count: generation.defaultCounts?.[0] || 5,
-      questionTypes: generation.supportedQuestionTypes || subjectMeta.questionTypeKeys || [],
+      questionTypes: supportedQuestionTypes,
+      questionPlan: buildQuestionPlan(supportedQuestionTypes, questionTypeOptions),
       durationMinutes: generation.defaultDurationMinutes || subjectMeta.defaultDurationMinutes || 90,
       targetPaperTotal: generation.defaultPaperTotal || subjectMeta.expectedPaperTotal || 0,
       title: `${subjectMeta.shortLabel} AI 生成题目`,
     }
-  }, [subjectKey, subjectMeta])
+  }, [questionTypeOptions, subjectKey, subjectMeta])
 
   const refreshEntries = async () => {
     if (!activeProfileId) return
@@ -94,6 +101,7 @@ export function useFileHubPageState() {
       difficulty: generationDefaults.difficulty,
       count: generationDefaults.count,
       questionTypes: generationDefaults.questionTypes,
+      questionPlan: generationDefaults.questionPlan,
       durationMinutes: generationDefaults.durationMinutes,
       targetPaperTotal: generationDefaults.targetPaperTotal,
     },
@@ -138,6 +146,11 @@ export function useFileHubPageState() {
         difficulty: generationDefaults.difficulty,
         count: generationDefaults.count,
         questionTypes: generationDefaults.questionTypes,
+        questionPlan: normalizeQuestionPlan(
+          generationDefaults.questionTypes,
+          current.questionPlan || generationDefaults.questionPlan,
+          questionTypeOptions
+        ),
         durationMinutes: generationDefaults.durationMinutes,
         targetPaperTotal: generationDefaults.targetPaperTotal,
       }
@@ -149,7 +162,8 @@ export function useFileHubPageState() {
         current.count === nextConfig.count &&
         current.durationMinutes === nextConfig.durationMinutes &&
         current.targetPaperTotal === nextConfig.targetPaperTotal &&
-        areQuestionTypesEqual(current.questionTypes, nextConfig.questionTypes)
+        areQuestionTypesEqual(current.questionTypes, nextConfig.questionTypes) &&
+        JSON.stringify(current.questionPlan || {}) === JSON.stringify(nextConfig.questionPlan || {})
       ) {
         return current
       }
@@ -176,9 +190,11 @@ export function useFileHubPageState() {
     generationDefaults.difficulty,
     generationDefaults.count,
     generationDefaults.questionTypes,
+    generationDefaults.questionPlan,
     generationDefaults.durationMinutes,
     generationDefaults.targetPaperTotal,
     generationDefaults.title,
+    questionTypeOptions,
   ])
 
   const handleQuizLoaded = async ({ parsed, rawText, quizDocument }) => {

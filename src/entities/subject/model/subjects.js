@@ -1,12 +1,15 @@
 export {
   SUBJECT_REGISTRY,
+  QUESTION_TYPE_CATALOG,
   buildQuestionTypeSummary,
+  buildQuestionPlan,
   getQuestionTypeMeta,
   getSubjectDownloadGroups,
+  getSubjectGenerationConfig,
   getSubjectMeta,
   getSubjectMetaByRouteParam,
   getSubjectQuestionTypeKeys,
   getSubjectQuestionTypeOptions,
+  normalizeQuestionPlan,
   normalizeQuestionTypeKey,
-} from './subjectCatalog'
-
+} from './subjectCatalogV2'

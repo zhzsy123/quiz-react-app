@@ -1,4 +1,4 @@
-import { getQuestionTypeMeta } from '../../subject/model/subjectCatalog.js'
+import { getQuestionTypeMeta } from '../../subject/model/subjects.js'
 
 function clipText(text = '', maxLength = 120) {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim()
@@ -26,7 +26,8 @@ function resolveMeta(indexOrValidation, meta) {
 }
 
 export function buildQuestionPreview(question, indexOrValidation = 0, meta) {
-  const typeMeta = getQuestionTypeMeta(question?.type)
+  const displayTypeKey = question?.source_type || question?.type
+  const typeMeta = getQuestionTypeMeta(displayTypeKey)
   const prompt = clipText(question?.prompt || question?.material_title || question?.title || '')
   const score = Number(question?.score) || 0
   const answerType = question?.answer?.type || (question?.type === 'composite' ? 'compound' : 'objective')
@@ -35,7 +36,7 @@ export function buildQuestionPreview(question, indexOrValidation = 0, meta) {
 
   return {
     id: question?.id || `question_${index + 1}`,
-    type: question?.type || typeMeta.key,
+    type: displayTypeKey || typeMeta.key,
     subject: previewMeta?.subject || '',
     questionId: question?.id || `question_${index + 1}`,
     index: index + 1,

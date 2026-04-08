@@ -89,7 +89,7 @@ export function useAiQuestionGenerator({
 
   const ingestQuestion = useCallback(
     (question, context = {}) => {
-      const normalizedEntry = normalizeGeneratedQuestion(question, context.config || config, context.meta || meta)
+      const normalizedEntry = context.entry || normalizeGeneratedQuestion(question, context.config || config, context.meta || meta)
       setDraftQuestions((current) => [...current, normalizedEntry])
       setSessionMeta((current) => ({
         receivedCount: (current.receivedCount || 0) + 1,
