@@ -5,6 +5,7 @@ import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
 import QuizAiToolbar from './QuizAiToolbar.jsx'
 import { AiExplainPanel, AiQuestionReviewPanel } from './QuizAiPanels.jsx'
 import QuizAiPracticeModal from './QuizAiPracticeModal.jsx'
+import { difficultyClass } from './quizViewUtils.jsx'
 
 function getCurrentItem(quiz, currentIndex) {
   if (!quiz?.items?.length) return null
@@ -30,11 +31,9 @@ export default function CleanQuizView({
   autoAdvance,
   remainingSeconds,
   isPaused,
-  spoilerExpanded,
   revealedMap,
   isFavorite,
   onToggleFavorite,
-  onToggleSpoiler,
   onToggleAutoAdvance,
   onTogglePracticeWrongBook,
   onToggleExamWrongBook,
@@ -71,11 +70,12 @@ export default function CleanQuizView({
   const showPracticeAiToolbar = mode === 'practice'
   const showExamAuditToolbar = mode === 'exam'
   const showWrongFollowups = false
+  const prompt = currentItem?.prompt || currentItem?.passage?.title || currentItem?.title || '未命名题目'
 
   if (!quiz?.items?.length || !currentItem) return null
 
   return (
-    <div className="quiz-workspace-layout">
+    <div className="quiz-layout">
       <QuizNavigationSidebar
         quizItems={quiz.items}
         currentItem={currentItem}
@@ -95,38 +95,51 @@ export default function CleanQuizView({
         onJump={onJump}
       />
 
-      <main className="quiz-workspace-main">
-        <div className="quiz-top-toolbar">
-          <button type="button" className={`secondary-btn small-btn ${isFavorite ? 'active' : ''}`} onClick={onToggleFavorite}>
-            {isFavorite ? '已收藏' : '收藏'}
-          </button>
-          <button type="button" className="secondary-btn small-btn" onClick={onToggleSpoiler}>
-            {spoilerExpanded ? '隐藏答案' : '显示答案'}
-          </button>
-          <button type="button" className="secondary-btn small-btn" onClick={onPrev} disabled={currentIndex <= 0}>
-            上一题
-          </button>
-          <button type="button" className="secondary-btn small-btn" onClick={onNext} disabled={currentIndex >= quiz.items.length - 1}>
-            下一题
-          </button>
-        </div>
+      <main className="question-list">
+        <section className="question-card current">
+          <div className="question-top">
+            <div>
+              <div className="question-meta">
+                <span className="tag blue">第 {currentIndex + 1} 题</span>
+                {currentItem.difficulty ? (
+                  <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>
+                ) : null}
+              </div>
+              <div className="progress-text">
+                进度：{currentIndex + 1} / {quiz.items.length}
+              </div>
+            </div>
 
-        <QuizAiToolbar
-          currentItem={currentItem}
-          currentExplainEntry={currentExplainEntry}
-          mode={mode}
-          showPracticeAiToolbar={showPracticeAiToolbar}
-          showExamAuditToolbar={showExamAuditToolbar}
-          showWrongFollowups={showWrongFollowups}
-          aiExplainMode={aiExplainMode}
-          onChangeAiExplainMode={onChangeAiExplainMode}
-          onExplainQuestion={onExplainQuestion}
-          onExplainWhyWrong={onExplainWhyWrong}
-          onGenerateSimilarQuestions={onGenerateSimilarQuestions}
-          disabled={isPaused || submitted}
-        />
+            <div className="question-top-actions">
+              <button
+                type="button"
+                className={`favorite-toggle ${isFavorite ? 'active' : ''}`}
+                onClick={onToggleFavorite}
+                aria-label={isFavorite ? '取消收藏' : '收藏题目'}
+                title={isFavorite ? '取消收藏' : '收藏题目'}
+              >
+                ★
+              </button>
+            </div>
+          </div>
 
-        <section className="quiz-item-card">
+          <h3>{prompt}</h3>
+
+          <QuizAiToolbar
+            currentItem={currentItem}
+            currentExplainEntry={currentExplainEntry}
+            mode={mode}
+            showPracticeAiToolbar={showPracticeAiToolbar}
+            showExamAuditToolbar={showExamAuditToolbar}
+            showWrongFollowups={showWrongFollowups}
+            aiExplainMode={aiExplainMode}
+            onChangeAiExplainMode={onChangeAiExplainMode}
+            onExplainQuestion={onExplainQuestion}
+            onExplainWhyWrong={onExplainWhyWrong}
+            onGenerateSimilarQuestions={onGenerateSimilarQuestions}
+            disabled={isPaused || submitted}
+          />
+
           {currentItem.answer?.type === 'objective' || currentItem.type === 'fill_blank' ? (
             <QuizObjectiveBlock
               item={currentItem}
@@ -159,10 +172,24 @@ export default function CleanQuizView({
               onTextChange={onTextChange}
             />
           )}
-        </section>
 
-        {currentExplainEntry && <AiExplainPanel entry={currentExplainEntry} />}
-        {currentQuestionReview && <AiQuestionReviewPanel review={currentQuestionReview} />}
+          {currentExplainEntry && <AiExplainPanel entry={currentExplainEntry} />}
+          {currentQuestionReview && <AiQuestionReviewPanel review={currentQuestionReview} />}
+
+          <div className="question-actions">
+            <button type="button" className="secondary-btn" onClick={onPrev} disabled={currentIndex <= 0}>
+              上一题
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={onNext}
+              disabled={currentIndex >= quiz.items.length - 1}
+            >
+              下一题
+            </button>
+          </div>
+        </section>
 
         <div className="quiz-submit-row">
           <button type="button" className="primary-btn" onClick={onSubmit}>
