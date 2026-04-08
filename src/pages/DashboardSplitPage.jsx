@@ -1,4 +1,4 @@
-import React from 'react'
+﻿import React from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -20,7 +20,7 @@ function WorkflowBand({ onOpenDownloads }) {
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
         <span className="dashboard-eyebrow">JSON Workflow</span>
-        <h2>使用说明，推荐使用 AI 清洗试卷</h2>
+        <h2>使用解析规范，配合 AI 清洗试卷</h2>
         <p>把 PDF / DOCX 和 JSON 规范一起发给 AI，让它直接输出可导入本站的标准 JSON。</p>
       </div>
 
@@ -283,3 +283,4 @@ export default function DashboardSplitPage() {
     </div>
   )
 }
+

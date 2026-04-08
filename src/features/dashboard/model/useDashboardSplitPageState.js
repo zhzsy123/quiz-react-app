@@ -15,8 +15,8 @@ export const DASHBOARD_DOWNLOAD_OPTIONS = [
   },
   {
     key: 'trade-sample',
-    title: '鍥介檯璐告槗娣峰悎鏍峰嵎',
-    description: '鍗曚釜 JSON 娣峰悎澶氱鍥介檯璐告槗棰樺瀷锛屾瘡绫婚淇濈暀 3 涓牱渚嬨€?',
+    title: '国际贸易混合样卷',
+    description: '单个 JSON 混合多种国际贸易题型，每类题保留 3 个示例。',
     href: './sample-international-trade.json',
     filename: 'sample-international-trade.json',
   },
@@ -99,10 +99,10 @@ export function useDashboardSplitPageState() {
     : 0
 
   const spotlightStats = [
-    { label: '鍘嗗彶鑰冭瘯', value: `${dashboardState.attempts.length} 娆�` },
-    { label: '骞冲潎姝ｇ‘鐜�', value: `${overallAverageRate}%` },
-    { label: '閿欓', value: `${dashboardState.totalWrong}` },
-    { label: '鏀惰棌', value: `${favoriteCount}` },
+    { label: '历史考试', value: `${dashboardState.attempts.length} 次` },
+    { label: '平均正确率', value: `${overallAverageRate}%` },
+    { label: '错题', value: `${dashboardState.totalWrong}` },
+    { label: '收藏', value: `${favoriteCount}` },
   ]
 
   const handleCreateProfile = async () => {
@@ -120,7 +120,7 @@ export function useDashboardSplitPageState() {
 
   const handleUpdateApiKey = () => {
     const currentConfig = getDeepSeekConfig()
-    const nextKey = window.prompt('璇疯緭鍏ユ柊鐨� DeepSeek API Key锛岀暀绌哄垯鍙栨秷銆�', currentConfig.apiKey || '')
+    const nextKey = window.prompt('请输入新的 DeepSeek API Key，留空则取消。', currentConfig.apiKey || '')
     if (nextKey === null) return
     updateDeepSeekConfig({ apiKey: nextKey })
   }
