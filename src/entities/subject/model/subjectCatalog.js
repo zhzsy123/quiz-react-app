@@ -32,7 +32,7 @@ function createDownloadDoc(config) {
   }
 }
 
-function createGenerationConfig(config) {
+function createGenerationConfig(config = {}) {
   return {
     enabled: true,
     supportedModes: ['practice', 'mock_exam'],
@@ -51,7 +51,7 @@ function createSubjectMeta(config) {
     expectedPaperTotal: null,
     defaultDurationMinutes: 90,
     isAvailable: true,
-    questionTypeKeys: COMMON_QUESTION_TYPE_KEYS,
+    questionTypeKeys: [...COMMON_QUESTION_TYPE_KEYS],
     downloadDocs: [],
     generation: createGenerationConfig(),
     ...config,
@@ -103,8 +103,8 @@ export const SUBJECT_REGISTRY = [
     description: '支持本地题库导入、刷题模式、考试模式、历史记录与综合题练习。',
     route: '/exam/data-structure',
     workspaceRoute: '/workspace/data-structure',
+    expectedPaperTotal: 100,
     defaultDurationMinutes: 90,
-    defaultPaperTotal: 100,
     questionTypeKeys: [
       'single_choice',
       'multiple_choice',
@@ -152,8 +152,8 @@ export const SUBJECT_REGISTRY = [
     description: '支持本地题库导入、刷题模式、考试模式、历史记录与综合题练习。',
     route: '/exam/database-principles',
     workspaceRoute: '/workspace/database-principles',
+    expectedPaperTotal: 100,
     defaultDurationMinutes: 90,
-    defaultPaperTotal: 100,
     questionTypeKeys: [
       'single_choice',
       'multiple_choice',
@@ -285,12 +285,14 @@ export function normalizeQuestionTypeKey(value) {
 
 export function getQuestionTypeMeta(typeKey) {
   const normalizedKey = normalizeQuestionTypeKey(typeKey)
-  return QUESTION_TYPE_LOOKUP.get(normalizedKey) || {
-    key: normalizedKey || 'unknown',
-    label: '其他题型',
-    shortLabel: '其他',
-    family: 'other',
-  }
+  return (
+    QUESTION_TYPE_LOOKUP.get(normalizedKey) || {
+      key: normalizedKey || 'unknown',
+      label: '其他题型',
+      shortLabel: '其他',
+      family: 'other',
+    }
+  )
 }
 
 export function getSubjectMeta(subjectKey) {

@@ -18,7 +18,7 @@ export function createInitialGeneratorState(initialOpen = false) {
 export function createQuestionPayload(question, config = {}, meta = {}) {
   return {
     schema_version: config.schema_version || meta.schema_version || 'draft',
-    title: config.title || meta.title || 'Untitled draft paper',
+    title: config.title || meta.title || '未命名草稿试卷',
     subject: config.subject || meta.subject || '',
     description: config.description || meta.description || '',
     duration_minutes: Number(config.duration_minutes || meta.duration_minutes || 0) || 0,
@@ -42,7 +42,7 @@ export function normalizeGeneratedQuestion(question, config = {}, meta = {}) {
       validation,
       preview: buildQuestionPreview(question, validation, previewMeta),
       scoreBreakdown: null,
-      error: validation.errors[0] || 'Invalid generated question',
+      error: validation.errors[0] || '生成题目无效',
       receivedAt: Date.now(),
     }
   }
@@ -73,7 +73,7 @@ export function normalizeGeneratedQuestion(question, config = {}, meta = {}) {
       validation,
       preview: buildQuestionPreview(question, validation, previewMeta),
       scoreBreakdown: null,
-      error: error?.message || 'Failed to normalize generated question',
+      error: error?.message || '生成题目标准化失败',
       receivedAt: Date.now(),
     }
   }

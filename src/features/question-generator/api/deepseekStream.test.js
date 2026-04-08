@@ -66,4 +66,30 @@ describe('deepseek stream client', () => {
     expect(result.events).toHaveLength(4)
     expect(result.events[1].type).toBe('question')
   })
+
+  it('parses pretty-printed multi-line JSON objects from streamed content', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      createStreamResponse([
+        'data: {"choices":[{"delta":{"content":"{\\n  \\"type\\": \\"meta\\",\\n  \\"request_id\\": \\"g2\\",\\n  \\"subject\\": \\"english\\"\\n}\\n{\\n  \\"type\\": \\"question\\",\\n  \\"index\\": 1,\\n  \\"question\\": {\\n    \\"id\\": \\"q1\\",\\n    \\"type\\": \\"single_choice\\",\\n    \\"prompt\\": \\"Q1\\",\\n    \\"score\\": 2,\\n    \\"options\\": [{\\"key\\": \\"A\\", \\"text\\": \\"A\\"}],\\n    \\"answer\\": {\\"type\\": \\"objective\\", \\"correct\\": \\"A\\"}\\n  }\\n}\\n"}}]}\n',
+        'data: {"choices":[{"delta":{"content":"{\\n  \\"type\\": \\"done\\",\\n  \\"generated_count\\": 1\\n}\\n"}}]}\n',
+        'data: [DONE]\n',
+      ])
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = []
+    const errors = []
+    const result = await callDeepSeekStream({
+      systemPrompt: 'system',
+      userPrompt: 'user',
+      onEvent: (event) => events.push(event),
+      onError: (error) => errors.push(error),
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(errors).toHaveLength(0)
+    expect(events.map((event) => event.type)).toEqual(['meta', 'question', 'done', 'done'])
+    expect(result.events[1].question.prompt).toBe('Q1')
+  })
 })

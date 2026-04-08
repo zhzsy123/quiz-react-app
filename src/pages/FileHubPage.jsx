@@ -13,9 +13,9 @@ import {
   UserCircle2,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useFileHubPageState } from '../features/file-hub/model/useFileHubPageState'
 import QuizImporter from '../widgets/quiz-importer/QuizImporter'
 import AiQuestionGeneratorDialog from '../widgets/question-generator/AiQuestionGeneratorDialog.jsx'
-import { useFileHubPageState } from '../features/file-hub/model/useFileHubPageState'
 
 export default function FileHubPage() {
   const {
@@ -33,6 +33,8 @@ export default function FileHubPage() {
     generator,
     openGeneratorDialog,
     startGenerator,
+    saveGeneratedPaper,
+    startPracticeWithGeneratedPaper,
   } = useFileHubPageState()
 
   return (
@@ -99,7 +101,7 @@ export default function FileHubPage() {
           {loading ? (
             <div className="local-library-empty">正在加载...</div>
           ) : filteredEntries.length === 0 ? (
-            <div className="local-library-empty">当前还没有已加载的 {subjectMeta.shortLabel} 考试或练习文件。</div>
+            <div className="local-library-empty">当前还没有已加载的 {subjectMeta.shortLabel} 试卷或练习文件。</div>
           ) : (
             <div className="local-library-list">
               {filteredEntries.map((entry, index) => (
@@ -166,7 +168,8 @@ export default function FileHubPage() {
         onStartGeneration={startGenerator}
         onStopGeneration={generator.stopGeneration}
         onResetGenerator={generator.resetGenerator}
-        onSaveGeneratedPaper={generator.saveGeneratedPaper}
+        onSaveGeneratedPaper={saveGeneratedPaper}
+        onStartPracticeWithGeneratedPaper={startPracticeWithGeneratedPaper}
         onRemoveQuestion={generator.removeQuestion}
       />
     </div>

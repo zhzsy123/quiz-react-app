@@ -106,7 +106,7 @@ export function useAiQuestionGenerator({
       const nextMeta = request.meta ? { ...meta, ...request.meta } : meta
       const generate = request.generateQuestions || generateQuestions
       if (typeof generate !== 'function') {
-        setError('Missing generateQuestions service')
+        setError('未提供题目生成服务')
         setStatus('error')
         return null
       }
@@ -167,7 +167,7 @@ export function useAiQuestionGenerator({
       const handleError = (nextError) => {
         completed = true
         generationRef.current.settled = true
-        const message = nextError?.message || 'Question generation failed'
+        const message = nextError?.message || '题目生成失败'
         setError(message)
         setStatus('error')
         setSessionMeta({ completedAt: Date.now(), errorAt: Date.now() })
@@ -242,7 +242,7 @@ export function useAiQuestionGenerator({
         setSessionMeta({ savedAt: Date.now() })
         return result
       } catch (nextError) {
-        const message = nextError?.message || 'Failed to save generated paper'
+        const message = nextError?.message || '保存生成试卷失败'
         setError(message)
         setStatus('error')
         setSessionMeta({ saveErrorAt: Date.now() })

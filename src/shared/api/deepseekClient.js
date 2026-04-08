@@ -15,7 +15,7 @@ function cleanBaseUrl(baseUrl) {
 
 function parseJsonContent(content) {
   const text = String(content || '').trim()
-  if (!text) throw new Error('AI return is empty')
+  if (!text) throw new Error('AI 返回为空')
 
   try {
     return JSON.parse(text)
@@ -31,16 +31,7 @@ function parseJsonContent(content) {
       return JSON.parse(text.slice(firstBrace, lastBrace + 1))
     }
 
-    throw new Error('AI return is not valid JSON')
-  }
-}
-
-async function readResponseError(response) {
-  try {
-    const text = await response.text()
-    return text || response.statusText || 'Unknown error'
-  } catch {
-    return response.statusText || 'Unknown error'
+    throw new Error('AI 返回内容不是合法 JSON')
   }
 }
 

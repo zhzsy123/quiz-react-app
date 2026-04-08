@@ -256,6 +256,22 @@ export function useFileHubPageState() {
       },
     })
 
+  const saveGeneratedPaper = () => generator.saveGeneratedPaper()
+
+  const startPracticeWithGeneratedPaper = async () => {
+    const result =
+      generator.saveResult && generator.saveResult.paperId
+        ? generator.saveResult
+        : await generator.saveGeneratedPaper()
+
+    if (result?.paperId) {
+      generator.setOpen(false)
+      navigate(`/workspace/${subjectMeta.routeSlug}?paper=${encodeURIComponent(result.paperId)}&mode=practice`)
+    }
+
+    return result
+  }
+
   return {
     activeProfile,
     subjectMeta: {
@@ -274,5 +290,7 @@ export function useFileHubPageState() {
     generator,
     openGeneratorDialog,
     startGenerator,
+    saveGeneratedPaper,
+    startPracticeWithGeneratedPaper,
   }
 }

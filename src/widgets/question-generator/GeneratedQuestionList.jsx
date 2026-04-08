@@ -37,17 +37,13 @@ export default function GeneratedQuestionList({ draftQuestions = [], onRemoveQue
               </div>
               <div className="generator-item-side">
                 <span>{preview.score || entry.scoreBreakdown?.paperTotal || 0} 分</span>
-                <button
-                  type="button"
-                  className="secondary-btn small-btn"
-                  onClick={() => onRemoveQuestion?.(index)}
-                >
+                <button type="button" className="secondary-btn small-btn" onClick={() => onRemoveQuestion?.(index)}>
                   移除
                 </button>
               </div>
             </div>
 
-            <div className="generator-item-prompt">{preview.previewText || preview.title || '未生成题干摘要'}</div>
+            <div className="generator-item-prompt">{preview.previewText || preview.title || '暂无题目摘要'}</div>
 
             {warnings.length > 0 && (
               <div className="generator-item-notes warning">

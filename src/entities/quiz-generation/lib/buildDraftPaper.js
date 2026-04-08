@@ -5,7 +5,7 @@ function cloneQuestion(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
-function pickQuestionDraftQuestion(draft) {
+function pickDraftQuestion(draft) {
   return draft?.normalizedQuestion || draft?.rawQuestion || draft?.question || null
 }
 
@@ -29,8 +29,9 @@ export function buildDraftPaper({
   const rejectedDrafts = questionDrafts.filter((draft) => draft?.status === 'invalid')
   const questions = acceptedDrafts
     .map((draft, index) => {
-      const question = pickQuestionDraftQuestion(draft)
+      const question = pickDraftQuestion(draft)
       if (!question) return null
+
       const cloned = cloneQuestion(question)
       cloned.generation_preview = buildQuestionPreview(cloned, index)
       cloned.generation_status = draft.status || 'valid'

@@ -32,6 +32,7 @@ export default function AiQuestionGeneratorDialog({
   onStopGeneration,
   onResetGenerator,
   onSaveGeneratedPaper,
+  onStartPracticeWithGeneratedPaper,
   onRemoveQuestion,
 }) {
   if (!open) return null
@@ -39,7 +40,7 @@ export default function AiQuestionGeneratorDialog({
   const generation = subjectMeta?.generation || {}
   const questionTypeOptions = subjectMeta?.questionTypeOptions || []
   const canStart = status !== 'generating'
-  const canSave = (summary?.valid || 0) + (summary?.warning || 0) > 0 && status !== 'saving'
+  const canPersist = (summary?.valid || 0) + (summary?.warning || 0) > 0 && status !== 'saving'
 
   return (
     <div className="ai-modal-backdrop" onClick={onClose}>
@@ -48,7 +49,7 @@ export default function AiQuestionGeneratorDialog({
           <div className="download-dialog-copy">
             <span className="dashboard-eyebrow">AI Generator</span>
             <h3>{subjectMeta?.shortLabel || '当前科目'} AI 生成题目</h3>
-            <p>按当前科目协议流式生成题目，逐题校验后再保存到题库。</p>
+            <p>按当前科目的协议流式生成题目，逐题校验后再保存到题库或直接开始练习。</p>
           </div>
 
           <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭生成器">
@@ -157,8 +158,11 @@ export default function AiQuestionGeneratorDialog({
           <button type="button" className="secondary-btn" onClick={onResetGenerator}>
             清空结果
           </button>
-          <button type="button" className="secondary-btn" onClick={onSaveGeneratedPaper} disabled={!canSave}>
+          <button type="button" className="secondary-btn" onClick={onSaveGeneratedPaper} disabled={!canPersist}>
             保存到题库
+          </button>
+          <button type="button" className="primary-btn" onClick={onStartPracticeWithGeneratedPaper} disabled={!canPersist}>
+            立即开始练习
           </button>
         </div>
       </div>

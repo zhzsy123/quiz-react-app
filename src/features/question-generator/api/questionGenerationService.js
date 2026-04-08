@@ -185,7 +185,7 @@ export async function startQuestionGeneration({
         }
 
         if (event.type === 'error') {
-          throw new Error(event.message || 'AI generation error')
+          throw new Error(event.message || 'AI 生成失败')
         }
 
         if (event.type !== 'question' || !event.question) return
@@ -232,7 +232,7 @@ export async function startQuestionGeneration({
 
     onComplete?.(result)
     return result
-  } catch (error) {
+    } catch (error) {
     const draftPaper = buildDraftPaper({
       config: {
         ...normalized,
