@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
 import { listAllFavoriteEntries } from '../../../entities/favorite/api/favoriteRepository'
 import { listHistoryEntries } from '../../../entities/history/api/historyRepository'
@@ -7,16 +7,16 @@ import { getDeepSeekConfig, updateDeepSeekConfig } from '../../../shared/api/dee
 
 export const DASHBOARD_DOWNLOAD_OPTIONS = [
   {
-    key: 'schema',
-    title: 'JSON 规范',
-    description: '适合直接发给 AI 清洗试卷，包含字段说明和推荐提示词。',
-    href: './json-schema.md',
-    filename: 'json-schema.md',
+    key: 'ds-db-schema',
+    title: '数据库&数据结构解析规范',
+    description: '适用于数据库 / 数据结构试卷解析，包含题型映射、composite 规则、JSON 示例和 DeepSeek 提示模板。',
+    href: './数据库&数据结构解析规范.JSON',
+    filename: '数据库&数据结构解析规范.JSON',
   },
   {
     key: 'trade-sample',
-    title: '国际贸易混合样卷',
-    description: '单个 JSON 混合多种国际贸易题型，每类题保留 3 个样例。',
+    title: '鍥介檯璐告槗娣峰悎鏍峰嵎',
+    description: '鍗曚釜 JSON 娣峰悎澶氱鍥介檯璐告槗棰樺瀷锛屾瘡绫婚淇濈暀 3 涓牱渚嬨€?',
     href: './sample-international-trade.json',
     filename: 'sample-international-trade.json',
   },
@@ -99,10 +99,10 @@ export function useDashboardSplitPageState() {
     : 0
 
   const spotlightStats = [
-    { label: '历史考试', value: `${dashboardState.attempts.length} 次` },
-    { label: '平均正确率', value: `${overallAverageRate}%` },
-    { label: '错题', value: `${dashboardState.totalWrong}` },
-    { label: '收藏', value: `${favoriteCount}` },
+    { label: '鍘嗗彶鑰冭瘯', value: `${dashboardState.attempts.length} 娆 },
+    { label: '骞冲潎姝ｇ‘鐜?, value: `${overallAverageRate}%` },
+    { label: '閿欓', value: `${dashboardState.totalWrong}` },
+    { label: '鏀惰棌', value: `${favoriteCount}` },
   ]
 
   const handleCreateProfile = async () => {
@@ -113,14 +113,14 @@ export function useDashboardSplitPageState() {
 
   const handleRenameProfile = async () => {
     if (!activeProfile) return
-    const nextName = window.prompt('请输入新的本地档案名称：', activeProfile.name)
+    const nextName = window.prompt('璇疯緭鍏ユ柊鐨勬湰鍦版。妗堝悕绉帮細', activeProfile.name)
     if (!nextName) return
     await renameLocalProfile(activeProfile.id, nextName)
   }
 
   const handleUpdateApiKey = () => {
     const currentConfig = getDeepSeekConfig()
-    const nextKey = window.prompt('请输入新的 DeepSeek API Key，留空则取消。', currentConfig.apiKey || '')
+    const nextKey = window.prompt('璇疯緭鍏ユ柊鐨?DeepSeek API Key锛岀暀绌哄垯鍙栨秷銆?, currentConfig.apiKey || '')
     if (nextKey === null) return
     updateDeepSeekConfig({ apiKey: nextKey })
   }
@@ -147,3 +147,4 @@ export function useDashboardSplitPageState() {
     handleUpdateApiKey,
   }
 }
+
