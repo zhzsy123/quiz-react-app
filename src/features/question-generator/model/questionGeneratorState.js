@@ -1,0 +1,103 @@
+import { normalizeQuizPayload } from '../../../entities/quiz/lib/normalize/normalizeQuizPayload'
+import { validateQuizPayload } from '../../../entities/quiz/lib/validation/validateQuizPayload'
+import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/scoring/getQuizScoreBreakdown'
+import { buildQuestionPreview } from './questionGeneratorPreview'
+
+export function createInitialGeneratorState(initialOpen = false) {
+  return {
+    open: initialOpen,
+    status: 'idle',
+    config: {},
+    meta: {},
+    draftQuestions: [],
+    error: '',
+    saveResult: null,
+  }
+}
+
+export function createQuestionPayload(question, config = {}, meta = {}) {
+  return {
+    schema_version: config.schema_version || meta.schema_version || 'draft',
+    title: config.title || meta.title || 'Untitled draft paper',
+    subject: config.subject || meta.subject || '',
+    description: config.description || meta.description || '',
+    duration_minutes: Number(config.duration_minutes || meta.duration_minutes || 0) || 0,
+    questions: [question],
+  }
+}
+
+export function normalizeGeneratedQuestion(question, config = {}, meta = {}) {
+  const previewMeta = {
+    ...meta,
+    ...config,
+  }
+  const payload = createQuestionPayload(question, config, meta)
+  const validation = validateQuizPayload(payload)
+
+  if (!validation.isValid) {
+    return {
+      status: 'invalid',
+      rawQuestion: question,
+      normalizedQuestion: null,
+      validation,
+      preview: buildQuestionPreview(question, validation, previewMeta),
+      scoreBreakdown: null,
+      error: validation.errors[0] || 'Invalid generated question',
+      receivedAt: Date.now(),
+    }
+  }
+
+  try {
+    const normalized = normalizeQuizPayload(payload)
+    const normalizedQuestion = normalized.items?.[0] || null
+    const scoreBreakdown = getQuizScoreBreakdown(normalized.items || [])
+    const draftStatus =
+      validation.warnings.length > 0 || (normalized.compatibility?.skippedCount || 0) > 0 ? 'warning' : 'valid'
+
+    return {
+      status: draftStatus,
+      rawQuestion: question,
+      normalizedQuestion,
+      validation,
+      preview: buildQuestionPreview(normalizedQuestion, validation, previewMeta),
+      scoreBreakdown,
+      error: '',
+      receivedAt: Date.now(),
+      normalizedPaper: normalized,
+    }
+  } catch (error) {
+    return {
+      status: 'invalid',
+      rawQuestion: question,
+      normalizedQuestion: null,
+      validation,
+      preview: buildQuestionPreview(question, validation, previewMeta),
+      scoreBreakdown: null,
+      error: error?.message || 'Failed to normalize generated question',
+      receivedAt: Date.now(),
+    }
+  }
+}
+
+export function mergeGeneratorMeta(baseMeta = {}, patch = {}) {
+  return {
+    ...baseMeta,
+    ...patch,
+  }
+}
+
+export function summarizeDraftQuestions(draftQuestions = []) {
+  return draftQuestions.reduce(
+    (summary, entry) => {
+      summary.total += 1
+      summary[entry.status] += 1
+      return summary
+    },
+    {
+      total: 0,
+      valid: 0,
+      warning: 0,
+      invalid: 0,
+    }
+  )
+}

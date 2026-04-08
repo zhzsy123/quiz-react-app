@@ -1,5 +1,6 @@
 import { getPreference, setPreference } from '../lib/preferences/preferenceRepository'
-import { postJson } from './httpClient'
+import { postJson, postStream } from './httpClient'
+import { createNdjsonStreamParser } from './streamParser'
 
 const API_KEY_PREF = 'ai:deepseekApiKey'
 const BASE_URL_PREF = 'ai:deepseekBaseUrl'
@@ -14,7 +15,7 @@ function cleanBaseUrl(baseUrl) {
 
 function parseJsonContent(content) {
   const text = String(content || '').trim()
-  if (!text) throw new Error('AI 返回为空')
+  if (!text) throw new Error('AI return is empty')
 
   try {
     return JSON.parse(text)
@@ -23,12 +24,23 @@ function parseJsonContent(content) {
     if (fencedMatch?.[1]) {
       return JSON.parse(fencedMatch[1].trim())
     }
+
     const firstBrace = text.indexOf('{')
     const lastBrace = text.lastIndexOf('}')
     if (firstBrace >= 0 && lastBrace > firstBrace) {
       return JSON.parse(text.slice(firstBrace, lastBrace + 1))
     }
-    throw new Error('AI 返回不是有效 JSON')
+
+    throw new Error('AI return is not valid JSON')
+  }
+}
+
+async function readResponseError(response) {
+  try {
+    const text = await response.text()
+    return text || response.statusText || 'Unknown error'
+  } catch {
+    return response.statusText || 'Unknown error'
   }
 }
 
@@ -74,7 +86,7 @@ export function ensureDeepSeekConfigInteractive() {
   }
 }
 
-export async function callDeepSeekJson({ systemPrompt, userPrompt, temperature = 0.2 }) {
+export async function callDeepSeekJson({ systemPrompt, userPrompt, temperature = 0.2, signal } = {}) {
   const config = ensureDeepSeekConfigInteractive()
   if (!config?.apiKey) {
     throw new Error('未配置 DeepSeek API Key')
@@ -94,6 +106,7 @@ export async function callDeepSeekJson({ systemPrompt, userPrompt, temperature =
           { role: 'user', content: userPrompt },
         ],
       },
+      signal,
     })
 
     const content = payload?.choices?.[0]?.message?.content
@@ -102,6 +115,78 @@ export async function callDeepSeekJson({ systemPrompt, userPrompt, temperature =
       model: payload?.model || config.model || DEFAULT_MODEL,
     }
   } catch (error) {
-    throw new Error(`DeepSeek 请求失败：${error.message}`)
+    throw new Error(`DeepSeek 请求失败: ${error.message}`)
+  }
+}
+
+export async function callDeepSeekStream({
+  systemPrompt,
+  userPrompt,
+  temperature = 0.7,
+  onEvent,
+  onError,
+  signal,
+} = {}) {
+  const config = ensureDeepSeekConfigInteractive()
+  if (!config?.apiKey) {
+    throw new Error('未配置 DeepSeek API Key')
+  }
+
+  const response = await postStream(`${cleanBaseUrl(config.baseUrl)}/chat/completions`, {
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      Accept: 'text/event-stream',
+    },
+    body: {
+      model: config.model || DEFAULT_MODEL,
+      temperature,
+      stream: true,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    },
+    signal,
+  })
+
+  const events = []
+  const parser = createNdjsonStreamParser({
+    onEvent: (event) => {
+      events.push(event)
+      onEvent?.(event)
+    },
+    onError: (error) => {
+      onError?.(error)
+    },
+  })
+
+  if (!response.body) {
+    const fallbackText = await response.text()
+    parser.pushTransportChunk(fallbackText)
+    parser.flush()
+    return {
+      events,
+      model: config.model || DEFAULT_MODEL,
+    }
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      parser.pushTransportChunk(decoder.decode(value, { stream: true }))
+    }
+    parser.pushTransportChunk(decoder.decode())
+    parser.flush()
+  } finally {
+    reader.releaseLock()
+  }
+
+  return {
+    events,
+    model: config.model || DEFAULT_MODEL,
   }
 }

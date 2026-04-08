@@ -1,4 +1,4 @@
-import { callDeepSeekJson } from './deepseekClient'
+import { callDeepSeekJson, callDeepSeekStream } from './deepseekClient'
 
 export const AVAILABLE_AI_PROVIDERS = ['deepseek']
 
@@ -16,6 +16,35 @@ export async function requestAiJson({
         temperature,
       })
     default:
-      throw new Error(`不支持的 AI provider: ${provider}`)
+      throw new Error(`Unsupported AI provider: ${provider}`)
+  }
+}
+
+export async function requestAiStream({
+  provider = 'deepseek',
+  systemPrompt,
+  userPrompt,
+  onEvent,
+  onError,
+  signal,
+  temperature = 0.7,
+}) {
+  try {
+    switch (provider) {
+      case 'deepseek':
+        return callDeepSeekStream({
+          systemPrompt,
+          userPrompt,
+          onEvent,
+          onError,
+          signal,
+          temperature,
+        })
+      default:
+        throw new Error(`Unsupported AI provider: ${provider}`)
+    }
+  } catch (error) {
+    onError?.(error)
+    throw error
   }
 }

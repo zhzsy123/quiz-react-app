@@ -32,6 +32,20 @@ function createDownloadDoc(config) {
   }
 }
 
+function createGenerationConfig(config) {
+  return {
+    enabled: true,
+    supportedModes: ['practice', 'mock_exam'],
+    supportedQuestionTypes: [...COMMON_QUESTION_TYPE_KEYS],
+    defaultCounts: [5, 10, 20],
+    defaultDifficulty: 'medium',
+    defaultDurationMinutes: 90,
+    defaultPaperTotal: 0,
+    promptProfile: 'generic',
+    ...config,
+  }
+}
+
 function createSubjectMeta(config) {
   return {
     expectedPaperTotal: null,
@@ -39,6 +53,7 @@ function createSubjectMeta(config) {
     isAvailable: true,
     questionTypeKeys: COMMON_QUESTION_TYPE_KEYS,
     downloadDocs: [],
+    generation: createGenerationConfig(),
     ...config,
   }
 }
@@ -64,13 +79,19 @@ export const SUBJECT_REGISTRY = [
       'translation',
       'essay',
     ],
+    generation: createGenerationConfig({
+      supportedQuestionTypes: ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'reading', 'cloze', 'translation', 'essay'],
+      defaultPaperTotal: 150,
+      defaultDurationMinutes: 90,
+      promptProfile: 'english',
+    }),
     downloadDocs: [
       createDownloadDoc({
         key: 'english-json-spec',
         title: '英语试题 JSON 解析规范文档',
         href: './json-schema.md',
         filename: '英语试题 JSON 解析规范文档.md',
-        description: '适用于英语试卷清洗，涵盖选择题、完形、阅读、翻译、作文等题型。',
+        description: '支持单选、多选、判断、填空、阅读、完形、翻译和作文。',
       }),
     ],
   }),
@@ -82,6 +103,8 @@ export const SUBJECT_REGISTRY = [
     description: '支持本地题库导入、刷题模式、考试模式、历史记录与综合题练习。',
     route: '/exam/data-structure',
     workspaceRoute: '/workspace/data-structure',
+    defaultDurationMinutes: 90,
+    defaultPaperTotal: 100,
     questionTypeKeys: [
       'single_choice',
       'multiple_choice',
@@ -94,13 +117,30 @@ export const SUBJECT_REGISTRY = [
       'calculation',
       'operation',
     ],
+    generation: createGenerationConfig({
+      supportedQuestionTypes: [
+        'single_choice',
+        'multiple_choice',
+        'true_false',
+        'fill_blank',
+        'reading',
+        'composite',
+        'short_answer',
+        'case_analysis',
+        'calculation',
+        'operation',
+      ],
+      defaultPaperTotal: 100,
+      defaultDurationMinutes: 90,
+      promptProfile: 'data_structure',
+    }),
     downloadDocs: [
       createDownloadDoc({
         key: 'data-structure-json-spec',
         title: '数据结构试题 JSON 解析规范文档',
-        href: './数据库&数据结构解析规范.JSON',
-        filename: '数据结构试题 JSON 解析规范文档.JSON',
-        description: '适用于数据结构试卷清洗，支持选择题、综合题、简答题、计算题与操作题。',
+        href: './json-schema.md',
+        filename: '数据结构试题 JSON 解析规范文档.md',
+        description: '支持选择题、综合题、简答题、计算题与操作题。',
       }),
     ],
   }),
@@ -112,6 +152,8 @@ export const SUBJECT_REGISTRY = [
     description: '支持本地题库导入、刷题模式、考试模式、历史记录与综合题练习。',
     route: '/exam/database-principles',
     workspaceRoute: '/workspace/database-principles',
+    defaultDurationMinutes: 90,
+    defaultPaperTotal: 100,
     questionTypeKeys: [
       'single_choice',
       'multiple_choice',
@@ -124,13 +166,30 @@ export const SUBJECT_REGISTRY = [
       'calculation',
       'operation',
     ],
+    generation: createGenerationConfig({
+      supportedQuestionTypes: [
+        'single_choice',
+        'multiple_choice',
+        'true_false',
+        'fill_blank',
+        'reading',
+        'composite',
+        'short_answer',
+        'case_analysis',
+        'calculation',
+        'operation',
+      ],
+      defaultPaperTotal: 100,
+      defaultDurationMinutes: 90,
+      promptProfile: 'database_principles',
+    }),
     downloadDocs: [
       createDownloadDoc({
         key: 'database-principles-json-spec',
         title: '数据库原理试题 JSON 解析规范文档',
-        href: './数据库&数据结构解析规范.JSON',
-        filename: '数据库原理试题 JSON 解析规范文档.JSON',
-        description: '适用于数据库原理试卷清洗，支持选择题、综合题、简答题、计算题与操作题。',
+        href: './json-schema.md',
+        filename: '数据库原理试题 JSON 解析规范文档.md',
+        description: '支持选择题、综合题、简答题、计算题与操作题。',
       }),
     ],
   }),
@@ -157,20 +216,38 @@ export const SUBJECT_REGISTRY = [
       'operation',
       'essay',
     ],
+    generation: createGenerationConfig({
+      supportedQuestionTypes: [
+        'single_choice',
+        'multiple_choice',
+        'true_false',
+        'fill_blank',
+        'reading',
+        'translation',
+        'short_answer',
+        'case_analysis',
+        'calculation',
+        'operation',
+        'essay',
+      ],
+      defaultPaperTotal: 200,
+      defaultDurationMinutes: 150,
+      promptProfile: 'international_trade',
+    }),
     downloadDocs: [
       createDownloadDoc({
         key: 'international-trade-json-spec',
         title: '国际贸易试题 JSON 解析规范文档',
         href: './json-schema.md',
         filename: '国际贸易试题 JSON 解析规范文档.md',
-        description: '适用于国际贸易试卷清洗，支持客观题、简答题、案例分析、计算题、操作题与作文。',
+        description: '支持单选、多选、判断、填空、阅读、翻译、简答、案例、计算、操作和作文。',
       }),
       createDownloadDoc({
         key: 'international-trade-sample',
         title: '国际贸易混合样卷示例 JSON',
         href: './sample-international-trade.json',
         filename: '国际贸易混合样卷示例.json',
-        description: '单个 JSON 混合多类国际贸易题型，每类题保留少量示例，适合直接交给 AI 参考。',
+        description: '一个 JSON 混合展示多题型样例，适合直接发给 AI 参考。',
       }),
     ],
   }),
@@ -189,6 +266,16 @@ const SUBJECT_FALLBACK = {
   isAvailable: false,
   questionTypeKeys: [],
   downloadDocs: [],
+  generation: createGenerationConfig({
+    enabled: false,
+    supportedModes: [],
+    supportedQuestionTypes: [],
+    defaultCounts: [5],
+    defaultDifficulty: 'medium',
+    defaultDurationMinutes: 90,
+    defaultPaperTotal: 0,
+    promptProfile: 'generic',
+  }),
 }
 
 export function normalizeQuestionTypeKey(value) {
@@ -207,7 +294,10 @@ export function getQuestionTypeMeta(typeKey) {
 }
 
 export function getSubjectMeta(subjectKey) {
-  return SUBJECT_REGISTRY.find((item) => item.key === subjectKey) || {
+  const found = SUBJECT_REGISTRY.find((item) => item.key === subjectKey)
+  if (found) return found
+
+  return {
     ...SUBJECT_FALLBACK,
     key: subjectKey,
     routeSlug: subjectKey,
@@ -224,7 +314,6 @@ export function getSubjectQuestionTypeKeys(subjectKey) {
   if (!subjectKey || subjectKey === 'all') {
     return [...new Set(SUBJECT_REGISTRY.flatMap((subject) => subject.questionTypeKeys || []))]
   }
-
   return getSubjectMeta(subjectKey).questionTypeKeys || []
 }
 
@@ -253,6 +342,7 @@ export function getSubjectDownloadGroups() {
     shortLabel: subject.shortLabel,
     description: subject.description,
     questionTypeSummary: buildQuestionTypeSummary(subject.questionTypeKeys, { short: false }),
+    generation: subject.generation,
     items: (subject.downloadDocs || []).map((doc) => ({
       ...doc,
       subjectKey: subject.key,
@@ -260,4 +350,8 @@ export function getSubjectDownloadGroups() {
       questionTypeSummary: buildQuestionTypeSummary(subject.questionTypeKeys, { short: false }),
     })),
   })).filter((group) => group.items.length > 0)
+}
+
+export function getSubjectGenerationConfig(subjectKey) {
+  return getSubjectMeta(subjectKey).generation || SUBJECT_FALLBACK.generation
 }

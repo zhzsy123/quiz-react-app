@@ -174,34 +174,8 @@ vi.mock('../entities/library/api/libraryRepository', () => ({
   deleteLibraryEntry: deleteLibraryEntryMock,
 }))
 
-vi.mock('../entities/subject/model/subjects', () => ({
-  SUBJECT_REGISTRY: [
-    {
-      key: 'english',
-      routeSlug: 'english',
-      label: 'English Mock Exam System V2.0',
-      shortLabel: 'English',
-      description: 'English paper library and mock exam.',
-      route: '/exam/english',
-      workspaceRoute: '/workspace/english',
-      expectedPaperTotal: 5,
-      defaultDurationMinutes: 90,
-      isAvailable: true,
-    },
-  ],
-  getSubjectMeta: (subjectKey) => ({
-    key: subjectKey,
-    routeSlug: subjectKey,
-    label: 'English Mock Exam System V2.0',
-    shortLabel: 'English',
-    description: 'English paper library and mock exam.',
-    route: '/exam/english',
-    workspaceRoute: '/workspace/english',
-    expectedPaperTotal: 5,
-    defaultDurationMinutes: 90,
-    isAvailable: true,
-  }),
-  getSubjectMetaByRouteParam: () => ({
+vi.mock('../entities/subject/model/subjects', () => {
+  const subjectMeta = {
     key: 'english',
     routeSlug: 'english',
     label: 'English Mock Exam System V2.0',
@@ -212,8 +186,38 @@ vi.mock('../entities/subject/model/subjects', () => ({
     expectedPaperTotal: 5,
     defaultDurationMinutes: 90,
     isAvailable: true,
-  }),
-}))
+    questionTypeKeys: ['single_choice'],
+    generation: {
+      enabled: true,
+      supportedModes: ['practice', 'mock_exam'],
+      supportedQuestionTypes: ['single_choice'],
+      defaultCounts: [5],
+      defaultDifficulty: 'medium',
+      defaultDurationMinutes: 90,
+      defaultPaperTotal: 5,
+      promptProfile: 'english',
+    },
+    downloadDocs: [],
+  }
+
+  return {
+    SUBJECT_REGISTRY: [subjectMeta],
+    getSubjectMeta: (subjectKey) => ({
+      ...subjectMeta,
+      key: subjectKey,
+      routeSlug: subjectKey,
+    }),
+    getSubjectMetaByRouteParam: () => subjectMeta,
+    getSubjectQuestionTypeOptions: () => [
+      {
+        key: 'single_choice',
+        label: 'Single Choice',
+        shortLabel: 'Single',
+        family: 'objective',
+      },
+    ],
+  }
+})
 
 vi.mock('../entities/session/api/sessionRepository', () => ({
   loadSessionProgress: loadSessionProgressMock,

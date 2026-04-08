@@ -3,7 +3,7 @@ async function readErrorBody(response) {
   return text || response.statusText || 'Unknown error'
 }
 
-export async function postJson(url, { headers = {}, body } = {}) {
+export async function postJson(url, { headers = {}, body, signal } = {}) {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -11,6 +11,7 @@ export async function postJson(url, { headers = {}, body } = {}) {
       ...headers,
     },
     body: JSON.stringify(body ?? {}),
+    signal,
   })
 
   if (!response.ok) {
@@ -19,4 +20,23 @@ export async function postJson(url, { headers = {}, body } = {}) {
   }
 
   return response.json()
+}
+
+export async function postStream(url, { headers = {}, body, signal } = {}) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    body: JSON.stringify(body ?? {}),
+    signal,
+  })
+
+  if (!response.ok) {
+    const errorText = await readErrorBody(response)
+    throw new Error(`HTTP ${response.status}: ${errorText}`)
+  }
+
+  return response
 }

@@ -1,7 +1,20 @@
 import React from 'react'
-import { ArrowLeft, FileText, FolderOpen, Pencil, Play, Search, Tags, Timer, Trash2, UserCircle2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  FileText,
+  FolderOpen,
+  Pencil,
+  Play,
+  Search,
+  Sparkles,
+  Tags,
+  Timer,
+  Trash2,
+  UserCircle2,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import QuizImporter from '../widgets/quiz-importer/QuizImporter'
+import AiQuestionGeneratorDialog from '../widgets/question-generator/AiQuestionGeneratorDialog.jsx'
 import { useFileHubPageState } from '../features/file-hub/model/useFileHubPageState'
 
 export default function FileHubPage() {
@@ -17,6 +30,9 @@ export default function FileHubPage() {
     handleTags,
     handleDelete,
     openWorkspace,
+    generator,
+    openGeneratorDialog,
+    startGenerator,
   } = useFileHubPageState()
 
   return (
@@ -24,29 +40,48 @@ export default function FileHubPage() {
       <div className="container dashboard-page">
         <section className="dashboard-hero left-hero compact-page-hero">
           <div className="section-header-row no-margin">
-            <h1 className="page-title-inline"><FileText size={28} /> {subjectMeta.shortLabel}本地题库</h1>
+            <h1 className="page-title-inline">
+              <FileText size={28} />
+              {subjectMeta.shortLabel}本地题库
+            </h1>
             <div className="dashboard-action-row">
-              <Link className="secondary-btn small-btn" to="/"><ArrowLeft size={16} /> 返回首页</Link>
+              <button type="button" className="secondary-btn small-btn" onClick={openGeneratorDialog}>
+                <Sparkles size={14} />
+                AI 生成题目
+              </button>
+              <Link className="secondary-btn small-btn" to="/">
+                <ArrowLeft size={16} />
+                返回首页
+              </Link>
             </div>
           </div>
+
           <div className="hub-topbar-meta">
-            <div className="profile-inline-badge"><UserCircle2 size={16} /> {activeProfile?.name || '未命名档案'}</div>
+            <div className="profile-inline-badge">
+              <UserCircle2 size={16} />
+              {activeProfile?.name || '未命名档案'}
+            </div>
             <div className="hub-mode-pill">{subjectMeta.label}</div>
           </div>
+
           <QuizImporter onQuizLoaded={handleQuizLoaded} />
         </section>
 
         <section className="profile-card compact-card">
           <div className="section-header-row">
-            <h2><Search size={18} /> 文件检索</h2>
+            <h2>
+              <Search size={18} />
+              文件检索
+            </h2>
             <span className="section-header-tip">{filteredEntries.length} 份文件</span>
           </div>
+
           <div className="library-filters-grid single-search-grid">
             <label className="form-field grow">
               <span>关键词</span>
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(event) => setQuery(event.target.value)}
                 placeholder={`搜索${subjectMeta.shortLabel}文件名称、标签或 schema 版本`}
               />
             </label>
@@ -54,36 +89,62 @@ export default function FileHubPage() {
         </section>
 
         <section className="local-library-panel">
-          <div className="section-header-row"><h2><FolderOpen size={18} /> 文件列表</h2></div>
+          <div className="section-header-row">
+            <h2>
+              <FolderOpen size={18} />
+              文件列表
+            </h2>
+          </div>
+
           {loading ? (
             <div className="local-library-empty">正在加载...</div>
           ) : filteredEntries.length === 0 ? (
             <div className="local-library-empty">当前还没有已加载的 {subjectMeta.shortLabel} 考试或练习文件。</div>
           ) : (
             <div className="local-library-list">
-              {filteredEntries.map((entry) => (
-                <article key={entry.id} className="local-library-item hub-file-item">
+              {filteredEntries.map((entry, index) => (
+                <article key={entry.id || `${entry.paperId}-${index}`} className="local-library-item hub-file-item">
                   <div className="local-library-main">
                     <div className="record-title-row">
                       <div className="local-library-title">{entry.title}</div>
                       <span className="tag blue">{entry.questionCount || '--'} 题</span>
                     </div>
                     <div className="local-library-meta">
-                      <span>更新时间：{new Date(entry.updatedAt).toLocaleString()}</span>
+                      <span>更新时间：{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : '--'}</span>
                       <span>Schema：{entry.schemaVersion || 'unknown'}</span>
                     </div>
                     {Array.isArray(entry.tags) && entry.tags.length > 0 && (
                       <div className="local-library-tags">
-                        {entry.tags.map((tag) => <span key={tag} className="tag blue">{tag}</span>)}
+                        {entry.tags.map((tag) => (
+                          <span key={tag} className="tag blue">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>
+
                   <div className="local-library-actions hub-file-actions">
-                    <button className="primary-btn small-btn" onClick={() => openWorkspace(entry, 'practice')}><Play size={14} /> 刷题模式</button>
-                    <button className="primary-btn small-btn" onClick={() => openWorkspace(entry, 'exam')}><Timer size={14} /> 考试模式</button>
-                    <button className="secondary-btn small-btn" onClick={() => handleRename(entry)}><Pencil size={14} /> 重命名</button>
-                    <button className="secondary-btn small-btn" onClick={() => handleTags(entry)}><Tags size={14} /> 标签</button>
-                    <button className="danger-btn small-btn" onClick={() => handleDelete(entry)}><Trash2 size={14} /> 删除</button>
+                    <button className="primary-btn small-btn" onClick={() => openWorkspace(entry, 'practice')}>
+                      <Play size={14} />
+                      刷题模式
+                    </button>
+                    <button className="primary-btn small-btn" onClick={() => openWorkspace(entry, 'exam')}>
+                      <Timer size={14} />
+                      考试模式
+                    </button>
+                    <button className="secondary-btn small-btn" onClick={() => handleRename(entry)}>
+                      <Pencil size={14} />
+                      重命名
+                    </button>
+                    <button className="secondary-btn small-btn" onClick={() => handleTags(entry)}>
+                      <Tags size={14} />
+                      标签
+                    </button>
+                    <button className="danger-btn small-btn" onClick={() => handleDelete(entry)}>
+                      <Trash2 size={14} />
+                      删除
+                    </button>
                   </div>
                 </article>
               ))}
@@ -91,6 +152,23 @@ export default function FileHubPage() {
           )}
         </section>
       </div>
+
+      <AiQuestionGeneratorDialog
+        open={generator.open}
+        subjectMeta={subjectMeta}
+        config={generator.config}
+        status={generator.status}
+        error={generator.error}
+        summary={generator.summary}
+        draftQuestions={generator.draftQuestions}
+        onClose={() => generator.setOpen(false)}
+        onConfigChange={(patch) => generator.setConfig((current) => ({ ...current, ...patch }))}
+        onStartGeneration={startGenerator}
+        onStopGeneration={generator.stopGeneration}
+        onResetGenerator={generator.resetGenerator}
+        onSaveGeneratedPaper={generator.saveGeneratedPaper}
+        onRemoveQuestion={generator.removeQuestion}
+      />
     </div>
   )
 }
