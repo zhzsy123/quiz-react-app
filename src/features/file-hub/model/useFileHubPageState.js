@@ -18,6 +18,10 @@ import { startQuestionGeneration } from '../../question-generator/api/questionGe
 import { useAiQuestionGenerator } from '../../question-generator/model/useAiQuestionGenerator'
 
 function buildGeneratedPaperPayload({ draftPaper, subjectKey, profileId }) {
+  const questionCount = draftPaper.questions?.length || draftPaper.items?.length || 0
+  if (questionCount <= 0) {
+    throw new Error('当前没有可保存的有效题目，请重新生成后再试。')
+  }
   const rawText = JSON.stringify(draftPaper, null, 2)
   return {
     rawText,
@@ -26,7 +30,7 @@ function buildGeneratedPaperPayload({ draftPaper, subjectKey, profileId }) {
     profileId,
     title: draftPaper.title || 'AI 生成题库',
     schemaVersion: draftPaper.schema_version || 'quiz-generation-draft-v1',
-    questionCount: draftPaper.questions?.length || draftPaper.items?.length || 0,
+    questionCount,
     tags: ['AI生成'],
   }
 }
@@ -275,10 +279,15 @@ export function useFileHubPageState() {
   const saveGeneratedPaper = () => generator.saveGeneratedPaper()
 
   const startPracticeWithGeneratedPaper = async () => {
-    const result =
-      generator.saveResult && generator.saveResult.paperId
-        ? generator.saveResult
-        : await generator.saveGeneratedPaper()
+    let result = null
+    try {
+      result =
+        generator.saveResult && generator.saveResult.paperId
+          ? generator.saveResult
+          : await generator.saveGeneratedPaper()
+    } catch {
+      return null
+    }
 
     if (result?.paperId) {
       generator.setOpen(false)

@@ -41,7 +41,7 @@ describe('useAiQuestionGenerator', () => {
     vi.clearAllMocks()
   })
 
-  afterEach(async () => {
+  afterEach(() => {
     document.body.innerHTML = ''
   })
 
@@ -106,18 +106,24 @@ describe('useAiQuestionGenerator', () => {
     container.remove()
   })
 
-  it('removes questions, stops generation, and saves draft paper through injected callback', async () => {
+  it('blocks saving when no valid generated question remains, then saves once a valid question exists', async () => {
     const onSaveGeneratedPaper = vi.fn(async (draftPaper) => ({
       saved: true,
       draftPaper,
       id: 'paper-1',
     }))
+    const buildDraftPaper = vi.fn(({ draftQuestions = [] }) => ({
+      questions: draftQuestions.filter((entry) => entry?.status === 'valid').map((entry) => entry.rawQuestion),
+      items: draftQuestions.filter((entry) => entry?.status === 'valid').map((entry) => entry.rawQuestion),
+      title: 'Generated paper',
+    }))
     const generateQuestions = vi.fn(async ({ onQuestion, onComplete }) => {
       onQuestion({
         id: 'q1',
-        type: 'translation',
-        prompt: 'Translate',
-        answer: { correct: '答案' },
+        type: 'single_choice',
+        prompt: 'Pick the correct option',
+        options: ['A. One', 'B. Two'],
+        answer: { correct: 'B' },
       })
       onComplete({ status: 'ready' })
     })
@@ -125,6 +131,7 @@ describe('useAiQuestionGenerator', () => {
     const { root, container, stateRef } = await mountHarness({
       generateQuestions,
       onSaveGeneratedPaper,
+      buildDraftPaper,
     })
 
     await act(async () => {
@@ -139,16 +146,39 @@ describe('useAiQuestionGenerator', () => {
 
     expect(stateRef.current.draftQuestions).toHaveLength(0)
 
+    let emptySaveError = null
+    try {
+      await stateRef.current.saveGeneratedPaper()
+    } catch (error) {
+      emptySaveError = error
+    }
+
+    expect(emptySaveError).toBeTruthy()
+    expect(emptySaveError.message).toContain('当前没有可保存的有效题目')
+    expect(onSaveGeneratedPaper).toHaveBeenCalledTimes(0)
+    expect(buildDraftPaper).toHaveBeenCalled()
+
     await act(async () => {
-      const result = await stateRef.current.saveGeneratedPaper()
-      expect(result).toEqual(
-        expect.objectContaining({
-          saved: true,
-          id: 'paper-1',
-        })
-      )
+      await stateRef.current.startGeneration({
+        config: { title: 'Paper', subject: 'english' },
+      })
     })
 
+    await flushAsyncWork()
+    expect(stateRef.current.draftQuestions).toHaveLength(1)
+
+    let saveResult = null
+    await act(async () => {
+      saveResult = await stateRef.current.saveGeneratedPaper()
+    })
+
+    expect(saveResult).toEqual(
+      expect.objectContaining({
+        saved: true,
+        id: 'paper-1',
+      })
+    )
+    expect(buildDraftPaper).toHaveBeenCalledTimes(2)
     expect(onSaveGeneratedPaper).toHaveBeenCalledTimes(1)
     expect(stateRef.current.status).toBe('saved')
     expect(stateRef.current.saveResult).toEqual(

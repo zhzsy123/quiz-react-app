@@ -121,6 +121,7 @@ function ReadingBlock({
 }) {
   const [immersiveReading, setImmersiveReading] = useState(false)
   const readingResponse = response || {}
+  const readingQuestions = Array.isArray(item.questions) ? item.questions : []
   const questionRefs = useRef({})
 
   useEffect(() => {
@@ -153,7 +154,7 @@ function ReadingBlock({
 
       <section className={`reading-questions-card ${immersiveReading ? 'immersive' : ''}`}>
         <div className="reading-question-list">
-          {item.questions.map((subQuestion, subIndex) => {
+          {readingQuestions.map((subQuestion, subIndex) => {
             const userAnswer = readingResponse[subQuestion.id]
             const revealKey = `${item.id}:${subQuestion.id}`
             const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
@@ -241,6 +242,11 @@ function ReadingBlock({
               </div>
             )
           })}
+          {!readingQuestions.length && (
+            <div className="analysis-box compact-analysis-box">
+              <div>当前阅读题缺少可作答的小题，无法继续作答。</div>
+            </div>
+          )}
         </div>
       </section>
     </div>

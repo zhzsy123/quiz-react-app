@@ -181,13 +181,23 @@ function sanitizeGeneratedQuestion(rawQuestion, planItem) {
   }
 
   if (normalizedType === 'reading') {
+    const passagePayload =
+      rawQuestion.passage && typeof rawQuestion.passage === 'object' ? rawQuestion.passage : null
     question.passage =
       typeof rawQuestion.passage === 'string'
         ? { title: rawQuestion.title || rawQuestion.prompt || '阅读材料', content: rawQuestion.passage }
-        : rawQuestion.passage || {
+        : {
+            ...passagePayload,
             title: rawQuestion.title || rawQuestion.prompt || '阅读材料',
             content: rawQuestion.article || rawQuestion.content || rawQuestion.body || '',
           }
+    if (passagePayload && !question.passage?.content) {
+      question.passage = {
+        ...question.passage,
+        title: question.passage?.title || passagePayload.title || rawQuestion.title || rawQuestion.prompt || '阅读材料',
+        content: passagePayload.content || passagePayload.body || passagePayload.text || '',
+      }
+    }
     question.questions = (rawQuestion.questions || rawQuestion.sub_questions || rawQuestion.subQuestions || []).map((subQuestion, subIndex) =>
       sanitizeObjectiveChild(
         {
@@ -399,7 +409,10 @@ export function buildDraftPaper({
   saveResult = null,
   requestId = '',
 } = {}) {
-  const normalizedQuestions = draftQuestions
+  const acceptedDraftQuestions = draftQuestions.filter(
+    (entry) => entry?.status === 'valid' || entry?.status === 'warning'
+  )
+  const normalizedQuestions = acceptedDraftQuestions
     .map((entry) => entry?.normalizedQuestion || entry?.rawQuestion)
     .filter(Boolean)
 

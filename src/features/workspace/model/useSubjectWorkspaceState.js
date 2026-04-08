@@ -99,7 +99,8 @@ function isResponseAnswered(item, response) {
   }
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return false
-    return item.questions.every((question) => isNonEmptyText(response[question.id]))
+    const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+    return readingQuestions.length > 0 && readingQuestions.every((question) => isNonEmptyText(response[question.id]))
   }
   if (item.answer?.type === 'subjective') {
     return Boolean(response?.text?.trim())
@@ -113,7 +114,8 @@ function getObjectiveItemTotal(item) {
     return (item.questions || []).reduce((sum, question) => sum + getObjectiveItemTotal(question), 0)
   }
   if (item.type === 'reading') {
-    return item.questions.reduce((sum, question) => sum + (question.score || 0), 0)
+    const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+    return readingQuestions.reduce((sum, question) => sum + (question.score || 0), 0)
   }
   if (item.type === 'fill_blank') {
     return item.blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)
@@ -132,7 +134,8 @@ function getObjectiveItemScore(item, response) {
   }
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return 0
-    return item.questions.reduce((sum, question) => {
+    const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+    return readingQuestions.reduce((sum, question) => {
       return sum + (response[question.id] === question.answer?.correct ? question.score || 0 : 0)
     }, 0)
   }
@@ -165,8 +168,9 @@ function getObjectiveWrongCount(item, response) {
     )
   }
   if (item.type === 'reading') {
-    if (!response || typeof response !== 'object') return item.questions.length
-    return item.questions.reduce((sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1), 0)
+    const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+    if (!response || typeof response !== 'object') return readingQuestions.length
+    return readingQuestions.reduce((sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1), 0)
   }
   if (item.type === 'fill_blank') {
     if (!response || typeof response !== 'object') return item.blanks.length

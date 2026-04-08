@@ -227,6 +227,13 @@ export function useAiQuestionGenerator({
         saveResult,
       })
 
+      if (!Array.isArray(draftPaper?.questions) || draftPaper.questions.length === 0) {
+        const error = new Error('当前没有可保存的有效题目，请先移除无效题或重新生成。')
+        setError(error.message)
+        setStatus('error')
+        throw error
+      }
+
       setStatus('saving')
       setError('')
 

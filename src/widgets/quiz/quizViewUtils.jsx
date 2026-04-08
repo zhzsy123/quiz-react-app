@@ -34,7 +34,9 @@ export function isAnswered(item, response) {
 
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return false
-    return item.questions.every((question) => typeof response[question.id] === 'string' && response[question.id].length > 0)
+    const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+    return readingQuestions.length > 0 &&
+      readingQuestions.every((question) => typeof response[question.id] === 'string' && response[question.id].length > 0)
   }
 
   if (item.type === 'multiple_choice') {

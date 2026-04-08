@@ -70,6 +70,44 @@ describe('questionGenerationService', () => {
     expect(draftPaper.scoreBreakdown.subjectiveScore).toBe(20)
   })
 
+  it('filters invalid draft entries when composing the generated draft paper payload', () => {
+    const draftPaper = buildDraftPaper({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+      },
+      requestId: 'gen_filter_001',
+      draftQuestions: [
+        {
+          status: 'valid',
+          normalizedQuestion: {
+            id: 'q1',
+            type: 'single_choice',
+            prompt: 'Valid question',
+            score: 2,
+            options: [
+              { key: 'A', text: 'One' },
+              { key: 'B', text: 'Two' },
+            ],
+            answer: { type: 'objective', correct: 'A' },
+          },
+        },
+        {
+          status: 'invalid',
+          rawQuestion: {
+            id: 'q2',
+            type: 'reading',
+            prompt: 'Broken reading',
+          },
+        },
+      ],
+    })
+
+    expect(draftPaper.questions).toHaveLength(1)
+    expect(draftPaper.questions[0].id).toBe('q1')
+  })
+
   it('generates practice questions with per-question json calls and normalizes english single choice', async () => {
     requestAiJsonMock
       .mockResolvedValueOnce({
@@ -137,7 +175,10 @@ describe('questionGenerationService', () => {
         type: 'reading',
         prompt: 'Read the passage and answer the questions.',
         score: 10,
-        passage: 'Tom likes reading books after school.',
+        passage: {
+          title: 'Passage A',
+          body: 'Tom likes reading books after school.',
+        },
         sub_questions: [
           {
             id: 'rq1_1',
@@ -169,6 +210,7 @@ describe('questionGenerationService', () => {
 
     expect(result.draftQuestions).toHaveLength(1)
     expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].normalizedQuestion.passage.content).toBe('Tom likes reading books after school.')
     expect(result.draftQuestions[0].normalizedQuestion.questions[0].options).toEqual([
       { key: 'A', text: 'Play football' },
       { key: 'B', text: 'Read books' },

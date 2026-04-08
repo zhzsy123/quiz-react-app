@@ -195,8 +195,9 @@ export default function QuizNavigationSidebar({
                 <div className={`nav-group-grid ${section.key === 'reading' ? 'reading-nav-grid' : ''}`}>
                   {section.items.map(({ item, index }) => {
                     if (section.key === 'reading') {
+                      const readingQuestions = Array.isArray(item.questions) ? item.questions : []
                       const readingResponse = answers[item.id] || {}
-                      return item.questions.map((question, subIndex) => {
+                      return readingQuestions.map((question, subIndex) => {
                         const answered = typeof readingResponse[question.id] === 'string' && readingResponse[question.id].length > 0
                         const wrong = submitted && answered && readingResponse[question.id] !== question.answer?.correct
                         const active =
