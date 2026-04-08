@@ -7,10 +7,36 @@ import {
   parseScore,
 } from './helpers'
 
+function appendObjectiveMeta(question, normalizedQuestion) {
+  return {
+    ...normalizedQuestion,
+    context_title: question.context_title || question.case_title || question.material_title || '',
+    context:
+      question.context ||
+      question.material ||
+      question.case_material ||
+      question.background ||
+      question.body ||
+      '',
+    context_format:
+      question.context_format ||
+      question.material_format ||
+      question.presentation ||
+      'plain',
+    presentation:
+      question.presentation ||
+      question.context_format ||
+      question.material_format ||
+      'plain',
+    deliverable_type: question.deliverable_type || '',
+    response_format: question.response_format || '',
+  }
+}
+
 export function normalizeSingleChoiceQuestion(question, options = {}) {
   if (!Array.isArray(question.options) || !question.answer?.correct) return null
 
-  return {
+  return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'single_choice', options.defaultScore || getDefaultScoreByType('single_choice')),
     options: question.options.map(normalizeOption),
     answer: {
@@ -18,7 +44,7 @@ export function normalizeSingleChoiceQuestion(question, options = {}) {
       correct: question.answer.correct,
       rationale: question.answer.rationale || '暂无解析',
     },
-  }
+  })
 }
 
 export function normalizeMultipleChoiceQuestion(question) {
@@ -26,7 +52,7 @@ export function normalizeMultipleChoiceQuestion(question) {
   const correct = normalizeMultiCorrect(question.answer?.correct)
   if (!correct.length) return null
 
-  return {
+  return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'multiple_choice', getDefaultScoreByType('multiple_choice')),
     options: question.options.map(normalizeOption),
     answer: {
@@ -34,14 +60,14 @@ export function normalizeMultipleChoiceQuestion(question) {
       correct,
       rationale: question.answer?.rationale || '暂无解析',
     },
-  }
+  })
 }
 
 export function normalizeTrueFalseQuestion(question) {
   const correct = normalizeTrueFalseCorrect(question.answer?.correct)
   if (!correct) return null
 
-  return {
+  return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'true_false', getDefaultScoreByType('true_false')),
     options: [
       { key: 'T', text: '正确' },
@@ -52,7 +78,7 @@ export function normalizeTrueFalseQuestion(question) {
       correct,
       rationale: question.answer?.rationale || '暂无解析',
     },
-  }
+  })
 }
 
 export function normalizeFillBlankQuestion(question) {
@@ -81,7 +107,7 @@ export function normalizeFillBlankQuestion(question) {
 
   if (!blanks.length) return null
 
-  return {
+  return appendObjectiveMeta(question, {
     ...ensureQuestionBase(
       question,
       'fill_blank',
@@ -94,7 +120,7 @@ export function normalizeFillBlankQuestion(question) {
       rationale: question.answer?.rationale || '',
     },
     score: blanks.reduce((sum, blank) => sum + (blank.score || 0), 0),
-  }
+  })
 }
 
 export function normalizeReadingQuestion(question) {
@@ -106,7 +132,7 @@ export function normalizeReadingQuestion(question) {
 
   if (!normalizedQuestions.length) return null
 
-  return {
+  return appendObjectiveMeta(question, {
     ...ensureQuestionBase(
       question,
       'reading',
@@ -122,7 +148,7 @@ export function normalizeReadingQuestion(question) {
       type: 'objective',
     },
     score: normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 0), 0),
-  }
+  })
 }
 
 export function normalizeClozeQuestion(question) {
@@ -138,6 +164,18 @@ export function normalizeClozeQuestion(question) {
         prompt: `${question.prompt}（第 ${blank.blank_id} 空）`,
         context_title: question.title || '完形填空',
         context: question.article.replace(`[[${blank.blank_id}]]`, `____(${blank.blank_id})____`),
+        context_format:
+          question.context_format ||
+          question.material_format ||
+          question.presentation ||
+          'plain',
+        presentation:
+          question.presentation ||
+          question.context_format ||
+          question.material_format ||
+          'plain',
+        response_format: question.response_format || '',
+        deliverable_type: question.deliverable_type || '',
         difficulty: question.difficulty,
         tags: question.tags || [],
         score: parseScore(blank.score, getDefaultScoreByType('cloze')),

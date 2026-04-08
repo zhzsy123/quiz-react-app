@@ -1,4 +1,5 @@
 import { loadMetaValue, saveMetaValue } from '../../../shared/storage/indexedDb/metaStore'
+import { normalizeWrongbookEntry } from '../../../shared/storage/indexedDb/compositePersistence'
 
 function wrongBookMasteredKey(profileId, subject) {
   return `wrongbook-mastered:${profileId}:${subject}`
@@ -45,9 +46,8 @@ export async function upsertWrongBookEntries(profileId, subject, entries) {
   const next = { ...current }
 
   ;(entries || []).forEach((entry) => {
-    if (!entry?.questionKey) return
-
-    const cloned = cloneValue(entry)
+    const cloned = normalizeWrongbookEntry(cloneValue(entry))
+    if (!cloned?.questionKey) return
     const existing = next[cloned.questionKey]
     const wrongTimes = (existing?.wrongTimes || 0) + (cloned.wrongTimes || 1)
     const addedAt = existing?.addedAt || cloned.addedAt || Date.now()

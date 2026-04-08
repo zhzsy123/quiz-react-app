@@ -1,10 +1,16 @@
 import { openDb, requestToPromise, waitForTransaction } from './db'
+import {
+  buildCompositeAnswerSnapshotMap,
+  buildCompositeQuestionSnapshotMap,
+  decorateCompositeItems,
+} from './compositePersistence'
 
 function progressId(profileId, subject, paperId) {
   return `progress:${profileId}:${subject}:${paperId}`
 }
 
 export async function saveProgressRecord(profileId, subject, paperId, data) {
+  const itemsSnapshot = Array.isArray(data?.itemsSnapshot) ? decorateCompositeItems(data.itemsSnapshot) : data?.itemsSnapshot
   const db = await openDb()
   const tx = db.transaction('progress', 'readwrite')
   tx.objectStore('progress').put({
@@ -13,6 +19,11 @@ export async function saveProgressRecord(profileId, subject, paperId, data) {
     subject,
     paperId,
     ...data,
+    itemsSnapshot,
+    compositeQuestionSnapshotMap: Array.isArray(itemsSnapshot) ? buildCompositeQuestionSnapshotMap(itemsSnapshot) : data?.compositeQuestionSnapshotMap,
+    compositeAnswerSnapshotMap: Array.isArray(itemsSnapshot)
+      ? buildCompositeAnswerSnapshotMap(itemsSnapshot, data?.answers || {})
+      : data?.compositeAnswerSnapshotMap,
   })
   await waitForTransaction(tx, 'Save progress failed')
 }

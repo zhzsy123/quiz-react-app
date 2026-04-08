@@ -72,6 +72,10 @@ function clipText(text = '', maxLength = 180) {
 
 function isResponseAnswered(item, response) {
   if (!item) return false
+  if (item.type === 'composite') {
+    if (!response || typeof response !== 'object') return false
+    return (item.questions || []).every((question) => isResponseAnswered(question, response[question.id]))
+  }
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return false
     return item.questions.every((question) => isNonEmptyText(response[question.id]))
@@ -84,6 +88,9 @@ function isResponseAnswered(item, response) {
 
 function getObjectiveItemTotal(item) {
   if (!item) return 0
+  if (item.type === 'composite') {
+    return (item.questions || []).reduce((sum, question) => sum + getObjectiveItemTotal(question), 0)
+  }
   if (item.type === 'reading') {
     return item.questions.reduce((sum, question) => sum + (question.score || 0), 0)
   }
@@ -95,6 +102,13 @@ function getObjectiveItemTotal(item) {
 
 function getObjectiveItemScore(item, response) {
   if (!item) return 0
+  if (item.type === 'composite') {
+    if (!response || typeof response !== 'object') return 0
+    return (item.questions || []).reduce(
+      (sum, question) => sum + getObjectiveItemScore(question, response[question.id]),
+      0
+    )
+  }
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return 0
     return item.questions.reduce((sum, question) => {
@@ -117,6 +131,18 @@ function getObjectiveItemScore(item, response) {
 
 function getObjectiveWrongCount(item, response) {
   if (!item) return 0
+  if (item.type === 'composite') {
+    if (!response || typeof response !== 'object') {
+      return (item.questions || []).reduce(
+        (sum, question) => sum + (question.answer?.type === 'objective' ? 1 : 0),
+        0
+      )
+    }
+    return (item.questions || []).reduce(
+      (sum, question) => sum + getObjectiveWrongCount(question, response[question.id]),
+      0
+    )
+  }
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return item.questions.length
     return item.questions.reduce((sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1), 0)
@@ -140,13 +166,55 @@ function buildWrongItems(items, answers, meta) {
   const lastWrongAt = Date.now()
 
   items.forEach((item) => {
+    if (item.type === 'composite') {
+      const compositeAnswers = answers[item.id] || {}
+      item.questions.forEach((question) => {
+        if (question.answer?.type !== 'objective') return
+        const userAnswer = compositeAnswers[question.id]
+        if (isObjectiveResponseCorrect(question, userAnswer)) return
+        const compositeContext = buildCompositeContext(item)
+        wrongItems.push({
+          questionKey: `${item.id}:${question.id}`,
+          subject: meta.subject,
+          paperId: meta.paperId,
+          paperTitle: meta.paperTitle,
+          parentType: 'composite',
+          sourceType: question.source_type || question.type,
+          type: question.type,
+          questionId: item.id,
+          subQuestionId: question.id,
+          prompt: question.prompt,
+          contextTitle: item.material_title || item.context_title || item.prompt || '',
+          contextSnippet: clipText(item.material || item.context || ''),
+          contextFormat: item.material_format || item.context_format || '',
+          composite_context: compositeContext,
+          compositeContext,
+          options: question.options || [],
+          blanks: question.blanks || [],
+          userAnswer,
+          userAnswerLabel: formatObjectiveAnswerLabel(question, userAnswer),
+          correctAnswer: question.answer?.correct || '',
+          correctAnswerLabel:
+            question.type === 'fill_blank'
+              ? question.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
+              : getObjectiveAnswerLabel(question, question.answer?.correct),
+          rationale: question.answer?.rationale || 'No rationale provided',
+          tags: [...(item.tags || []), ...(question.tags || [])],
+          difficulty: question.difficulty || item.difficulty,
+          lastWrongAt,
+          wrongTimes: 1,
+        })
+      })
+      return
+    }
+
     if (item.type === 'reading') {
       const readingAnswers = answers[item.id] || {}
       item.questions.forEach((question) => {
         const userAnswer = readingAnswers[question.id] || ''
         if (userAnswer === question.answer?.correct) return
         wrongItems.push({
-          questionKey: `${meta.subject}:${meta.paperId}:${item.id}:${question.id}`,
+          questionKey: `${item.id}:${question.id}`,
           subject: meta.subject,
           paperId: meta.paperId,
           paperTitle: meta.paperTitle,
@@ -242,6 +310,39 @@ function buildFavoriteEntryFromItem(item, meta) {
     contextSnippet: clipText(item.type === 'reading' ? item.passage?.content || '' : item.context || ''),
     itemSnapshot: item,
   }
+}
+
+function buildCompositeContext(item) {
+  return {
+    composite_id: item.id,
+    composite_prompt: item.prompt || '',
+    material_title: item.material_title || item.context_title || '',
+    material: item.material || item.context || '',
+    material_format: item.material_format || item.context_format || '',
+    presentation: item.presentation || '',
+    deliverable_type: item.deliverable_type || '',
+    tags: item.tags || [],
+    assets: item.assets || [],
+  }
+}
+
+function buildPersistedItemsSnapshot(items = []) {
+  return items.map((item) => {
+    if (item?.type !== 'composite') return item
+
+    const compositeContext = buildCompositeContext(item)
+    return {
+      ...item,
+      questions: (item.questions || []).map((question) => ({
+        ...question,
+        questionKey: `${item.id}:${question.id}`,
+        composite_context: compositeContext,
+      })),
+    }
+  })
+}
+function getCompositeSubQuestionResponse(item, answers, subQuestionId) {
+  return answers[item.id]?.[subQuestionId]
 }
 
 
@@ -389,7 +490,8 @@ export function useSubjectWorkspaceState() {
     examWritesWrongBook,
     mode,
     updatedAt: Date.now(),
-              title: quiz?.title || entry?.title || '?????',
+    title: quiz?.title || entry?.title || 'Untitled paper',
+    itemsSnapshot: buildPersistedItemsSnapshot(quiz?.items || []),
     ...overrides,
   })
 
@@ -439,6 +541,18 @@ export function useSubjectWorkspaceState() {
     let answered = 0
 
     quiz.items.forEach((item) => {
+      if (item.type === 'composite') {
+        const compositeResponses = answers[item.id] || {}
+        item.questions.forEach((question) => {
+          if (question.answer?.type !== 'objective') return
+          if (isObjectiveAnswered(question, compositeResponses[question.id])) {
+            answered += 1
+            if (isObjectiveResponseCorrect(question, compositeResponses[question.id])) correct += 1
+          }
+        })
+        return
+      }
+
       if (item.type === 'reading') {
         const response = answers[item.id] || {}
         item.questions.forEach((question) => {
@@ -597,6 +711,7 @@ export function useSubjectWorkspaceState() {
     const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
     const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
     const initialAiReview = subjectivePendingScore > 0 ? createPendingAiReview(subjectivePendingScore) : null
+    const itemsSnapshot = buildPersistedItemsSnapshot(quiz.items)
     const wrongItems = buildWrongItems(quiz.items, answers, {
       subject: subjectKey,
       paperId,
@@ -626,7 +741,7 @@ export function useSubjectWorkspaceState() {
         wrongCount,
         submittedAt: Date.now(),
         answersSnapshot: answers,
-        itemsSnapshot: quiz.items,
+        itemsSnapshot,
         wrongItems,
         mode,
         includeInHistory: mode === 'exam',
@@ -757,6 +872,42 @@ export function useSubjectWorkspaceState() {
     void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
   }
 
+  const handleSelectCompositeOption = (parentQuestionId, subQuestionId, optionLetter) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'composite' || currentItem.id !== parentQuestionId) return
+
+    const subQuestion = currentItem.questions?.find((question) => question.id === subQuestionId)
+    if (!subQuestion || subQuestion.answer?.type !== 'objective' || subQuestion.type === 'fill_blank') return
+
+    const compositeAnswers = { ...(answers[parentQuestionId] || {}) }
+    const currentResponse = compositeAnswers[subQuestionId]
+
+    let nextValue = optionLetter
+    if (subQuestion.type === 'multiple_choice') {
+      const currentValues = normalizeChoiceArray(currentResponse)
+      nextValue = currentValues.includes(optionLetter)
+        ? currentValues.filter((value) => value !== optionLetter)
+        : [...currentValues, optionLetter].sort()
+    }
+
+    const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextValue }
+    const nextAnswers = { ...answers, [parentQuestionId]: nextCompositeAnswers }
+    setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
+
+    if (mode === 'practice') {
+      const revealKey = `${parentQuestionId}:${subQuestionId}`
+      const nextRevealed = { ...revealedMap, [revealKey]: true }
+      setRevealedMap(nextRevealed)
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+      return
+    }
+
+    void persistNow({ answers: nextAnswers })
+  }
+
   const handleSelectReadingOption = (questionId, subQuestionId, optionLetter) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
 
@@ -827,6 +978,35 @@ export function useSubjectWorkspaceState() {
     void persistNow({ answers: nextAnswers })
   }
 
+  const handleCompositeFillBlankChange = (parentQuestionId, subQuestionId, blankId, text) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'composite' || currentItem.id !== parentQuestionId) return
+
+    const subQuestion = currentItem.questions?.find((question) => question.id === subQuestionId)
+    if (subQuestion?.type !== 'fill_blank') return
+
+    const compositeAnswers = { ...(answers[parentQuestionId] || {}) }
+    const currentSubResponse = { ...(compositeAnswers[subQuestionId] || {}) }
+    const nextSubResponse = { ...currentSubResponse, [blankId]: text }
+    const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextSubResponse }
+    const nextAnswers = { ...answers, [parentQuestionId]: nextCompositeAnswers }
+    setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
+
+    if (mode === 'practice') {
+      const allFilled = subQuestion.blanks.every((blank) => isNonEmptyText(nextSubResponse[blank.blank_id]))
+      const revealKey = `${parentQuestionId}:${subQuestionId}`
+      const nextRevealed = allFilled ? { ...revealedMap, [revealKey]: true } : revealedMap
+      if (allFilled) setRevealedMap(nextRevealed)
+      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+      return
+    }
+
+    void persistNow({ answers: nextAnswers })
+  }
+
   const handleRevealCurrentObjective = () => {
     if (!quiz || submitted || mode !== 'practice') return
     const currentItem = quiz.items[currentIndex]
@@ -848,9 +1028,43 @@ export function useSubjectWorkspaceState() {
     void persistNow({ revealedMap: nextRevealed, currentIndex: nextIndex })
   }
 
+  const handleRevealCompositeQuestion = (parentQuestionId, subQuestionId) => {
+    if (!quiz || submitted || mode !== 'practice') return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'composite' || currentItem.id !== parentQuestionId) return
+
+    const subQuestion = currentItem.questions?.find((question) => question.id === subQuestionId)
+    if (!subQuestion || subQuestion.answer?.type !== 'objective' || subQuestion.type !== 'multiple_choice') return
+
+    const currentResponse = getCompositeSubQuestionResponse(currentItem, answers, subQuestionId)
+    if (!isObjectiveAnswered(subQuestion, currentResponse)) return
+
+    const revealKey = `${parentQuestionId}:${subQuestionId}`
+    const nextRevealed = { ...revealedMap, [revealKey]: true }
+    setRevealedMap(nextRevealed)
+    void persistNow({ revealedMap: nextRevealed })
+  }
+
   const handleTextChange = (questionId, text) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
     const nextAnswers = { ...answers, [questionId]: { text } }
+    setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
+    void persistNow({ answers: nextAnswers })
+  }
+
+  const handleCompositeTextChange = (parentQuestionId, subQuestionId, text) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'composite' || currentItem.id !== parentQuestionId) return
+
+    const nextCompositeAnswers = {
+      ...(answers[parentQuestionId] || {}),
+      [subQuestionId]: { text },
+    }
+    const nextAnswers = { ...answers, [parentQuestionId]: nextCompositeAnswers }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
     void persistNow({ answers: nextAnswers })
@@ -979,10 +1193,14 @@ export function useSubjectWorkspaceState() {
     handlePrev,
     handleNext,
     handleSelectOption,
+    handleSelectCompositeOption,
     handleRevealCurrentObjective,
+    handleRevealCompositeQuestion,
     handleSelectReadingOption,
     handleFillBlankChange,
+    handleCompositeFillBlankChange,
     handleTextChange,
+    handleCompositeTextChange,
     handleReset,
     handleChangeAiExplainMode,
     handleExplainQuestionWithMode,
@@ -992,6 +1210,7 @@ export function useSubjectWorkspaceState() {
     handleFinish,
   }
 }
+
 
 
 

@@ -51,6 +51,10 @@ function countWords(text) {
 
 function isAnswered(item, response) {
   if (!item) return false
+  if (item.type === 'composite') {
+    if (!response || typeof response !== 'object') return false
+    return (item.questions || []).every((question) => isAnswered(question, response[question.id]))
+  }
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return false
     return item.questions.every((question) => typeof response[question.id] === 'string' && response[question.id].length > 0)
@@ -79,6 +83,7 @@ function getSpoilerTags(item) {
 }
 
 function getNavGroupMeta(item) {
+  if (item.type === 'composite') return { key: 'composite', label: '综合题' }
   if (item.type === 'reading') return { key: 'reading', label: '阅读理解' }
   if (item.type === 'translation') return { key: 'translation', label: '翻译题' }
   if (item.type === 'short_answer') return { key: 'short_answer', label: '简答题' }
@@ -610,6 +615,151 @@ function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabl
   )
 }
 
+function renderFormattedMaterial(content, format, className = 'question-context-body') {
+  if (!content) return null
+  if (['code', 'sql'].includes(format)) {
+    return (
+      <pre className={className}>
+        <code>{content}</code>
+      </pre>
+    )
+  }
+  return <div className={className}>{content}</div>
+}
+
+function CompositeBlock({
+  item,
+  userResponse,
+  submitted,
+  disabled,
+  mode,
+  revealedMap,
+  onSelectOption,
+  onFillBlankChange,
+  onTextChange,
+  onRevealQuestion,
+}) {
+  const responseMap = userResponse || {}
+
+  return (
+    <div className="subjective-block">
+      <div className="analysis-box">
+        {(item.material_title || item.prompt) && (
+          <div className="question-context-title">{item.material_title || item.prompt}</div>
+        )}
+        {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
+      </div>
+
+      <div className="answer-review-grid">
+        {(item.questions || []).map((question, index) => {
+          const questionResponse = responseMap[question.id]
+          const revealKey = `${item.id}:${question.id}`
+          const objectiveReveal = submitted || (mode === 'practice' && revealedMap[revealKey])
+          const isSubjective = question.answer?.type === 'subjective'
+          const isFillBlank = question.type === 'fill_blank'
+          const isTranslation = question.type === 'translation'
+          const isEssay = question.type === 'essay'
+          const isGenericSubjective = ['short_answer', 'case_analysis', 'calculation', 'operation'].includes(question.type)
+          const canRevealMultiChoice =
+            mode === 'practice' &&
+            question.type === 'multiple_choice' &&
+            !submitted &&
+            !objectiveReveal &&
+            normalizeChoiceArray(questionResponse).length > 0
+
+          return (
+            <article key={question.id} className="answer-review-card">
+              <div className="answer-review-prompt">
+                第 {index + 1} 小题
+                <span className="tag purple" style={{ marginLeft: 8 }}>{getNavGroupMeta(question).label}</span>
+              </div>
+              <div className="wrongbook-card-title">{question.prompt}</div>
+              {question.context_title && <div className="question-context-title">{question.context_title}</div>}
+              {renderFormattedMaterial(question.context, question.context_format)}
+
+              {isFillBlank ? (
+                <FillBlankBlock
+                  item={question}
+                  userResponse={questionResponse}
+                  objectiveReveal={objectiveReveal}
+                  submitted={submitted}
+                  disabled={disabled}
+                  mode={mode}
+                  onFillBlankChange={(subQuestionId, blankId, text) => onFillBlankChange(subQuestionId, blankId, text)}
+                />
+              ) : !isSubjective ? (
+                <>
+                  <ObjectiveOptionsBlock
+                    item={question}
+                    userResponse={questionResponse}
+                    objectiveReveal={objectiveReveal}
+                    submitted={submitted}
+                    disabled={disabled}
+                    mode={mode}
+                    onSelectOption={(subQuestionId, optionKey) => onSelectOption(subQuestionId, optionKey)}
+                  />
+                  {canRevealMultiChoice && (
+                    <div className="question-inline-actions">
+                      <button type="button" className="secondary-btn small-btn" onClick={() => onRevealQuestion(question.id)}>
+                        查看答案
+                      </button>
+                    </div>
+                  )}
+                  {objectiveReveal && (
+                    <div className="analysis-box">
+                      <div>
+                        正确答案：
+                        <strong>
+                          {Array.isArray(question.answer?.correct)
+                            ? question.answer.correct.join(' / ')
+                            : question.answer?.correct}
+                        </strong>
+                      </div>
+                      <div>解析：{question.answer?.rationale || '暂无解析'}</div>
+                    </div>
+                  )}
+                </>
+              ) : isTranslation ? (
+                <TranslationBlock
+                  item={question}
+                  userResponse={questionResponse}
+                  disabled={disabled || submitted}
+                  submitted={submitted}
+                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                />
+              ) : isGenericSubjective ? (
+                <GenericSubjectiveBlock
+                  item={question}
+                  userResponse={questionResponse}
+                  disabled={disabled || submitted}
+                  submitted={submitted}
+                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                />
+              ) : isEssay ? (
+                <EssayBlock
+                  item={question}
+                  userResponse={questionResponse}
+                  disabled={disabled || submitted}
+                  submitted={submitted}
+                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                />
+              ) : (
+                <GenericSubjectiveBlock
+                  item={question}
+                  userResponse={questionResponse}
+                  disabled={disabled || submitted}
+                  submitted={submitted}
+                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                />
+              )}
+            </article>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function CleanQuizView({
   quiz,
   answers,
@@ -634,10 +784,14 @@ export default function CleanQuizView({
   onPrev,
   onNext,
   onSelectOption,
+  onSelectCompositeOption,
   onRevealCurrentObjective,
+  onRevealCompositeQuestion,
   onSelectReadingOption,
   onFillBlankChange,
+  onCompositeFillBlankChange,
   onTextChange,
+  onCompositeTextChange,
   aiReview,
   aiQuestionReviewMap = {},
   aiExplainMap = {},
@@ -656,7 +810,7 @@ export default function CleanQuizView({
   const [focusedReadingQuestion, setFocusedReadingQuestion] = useState(null)
 
   const groupedNavSections = useMemo(() => {
-    const order = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'reading', 'short_answer', 'case_analysis', 'calculation', 'operation', 'translation', 'essay']
+    const order = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'reading', 'composite', 'short_answer', 'case_analysis', 'calculation', 'operation', 'translation', 'essay']
     const map = new Map()
 
     quiz.items.forEach((item, index) => {
@@ -704,9 +858,10 @@ export default function CleanQuizView({
   const isTranslation = currentItem.type === 'translation'
   const isGenericSubjective = ['short_answer', 'case_analysis', 'calculation', 'operation'].includes(currentItem.type)
   const isFillBlank = currentItem.type === 'fill_blank'
+  const isComposite = currentItem.type === 'composite'
   const spoilerTags = getSpoilerTags(currentItem)
   const disabled = isPaused && mode === 'exam'
-  const objectiveReveal = submitted || (mode === 'practice' && revealedMap[currentItem.id])
+  const objectiveReveal = !isComposite && (submitted || (mode === 'practice' && revealedMap[currentItem.id]))
   const canRevealCurrentMultiChoice =
     mode === 'practice' &&
     currentItem.type === 'multiple_choice' &&
@@ -715,7 +870,7 @@ export default function CleanQuizView({
     normalizeChoiceArray(userResponse).length > 0
   const currentExplainEntry = aiExplainMap[currentItem.id]
   const currentQuestionReview = aiQuestionReviewMap[currentItem.id]
-  const currentQuestionWrong = !isReading && !isSubjective && isObjectiveWrong(currentItem, userResponse)
+  const currentQuestionWrong = !isComposite && !isReading && !isSubjective && isObjectiveWrong(currentItem, userResponse)
   const showPracticeAiToolbar = mode === 'practice'
   const showExamAuditToolbar = mode === 'exam' && submitted
   const showWrongFollowups = showPracticeAiToolbar && objectiveReveal && currentQuestionWrong
@@ -893,6 +1048,7 @@ export default function CleanQuizView({
               {currentItem.type === 'calculation' && <span className="tag purple">计算题</span>}
               {currentItem.type === 'operation' && <span className="tag purple">操作题</span>}
               {isReading && <span className="tag purple">阅读题</span>}
+              {isComposite && <span className="tag purple">综合题</span>}
               {currentItem.type === 'multiple_choice' && <span className="tag purple">多选题</span>}
               {currentItem.type === 'true_false' && <span className="tag purple">判断题</span>}
               {isFillBlank && <span className="tag purple">填空题</span>}
@@ -916,16 +1072,16 @@ export default function CleanQuizView({
 
           <div className="progress-text">第 {currentIndex + 1} / {total} 题</div>
 
-          {!isReading && currentItem.context && (
+          {!isReading && !isComposite && currentItem.context && (
             <div className="question-context">
               {currentItem.context_title && <div className="question-context-title">{currentItem.context_title}</div>}
-              <div className="question-context-body">{currentItem.context}</div>
+              {renderFormattedMaterial(currentItem.context, currentItem.context_format)}
             </div>
           )}
 
           <h3>{currentItem.prompt}</h3>
 
-          {!isReading && (showPracticeAiToolbar || showExamAuditToolbar) && (
+          {!isReading && !isComposite && (showPracticeAiToolbar || showExamAuditToolbar) && (
             <div className="ai-toolbar">
               <div className="ai-mode-switch" style={{ display: showPracticeAiToolbar ? undefined : 'none' }}>
                 {[
@@ -1001,6 +1157,19 @@ export default function CleanQuizView({
               aiExplainMap={aiExplainMap}
               onExplainQuestion={onExplainQuestion}
             />
+          ) : isComposite ? (
+            <CompositeBlock
+              item={currentItem}
+              userResponse={userResponse}
+              submitted={submitted}
+              disabled={disabled}
+              mode={mode}
+              revealedMap={revealedMap}
+              onSelectOption={(subQuestionId, optionKey) => onSelectCompositeOption(currentItem.id, subQuestionId, optionKey)}
+              onFillBlankChange={(subQuestionId, blankId, text) => onCompositeFillBlankChange(currentItem.id, subQuestionId, blankId, text)}
+              onTextChange={(subQuestionId, text) => onCompositeTextChange(currentItem.id, subQuestionId, text)}
+              onRevealQuestion={(subQuestionId) => onRevealCompositeQuestion(currentItem.id, subQuestionId)}
+            />
           ) : isFillBlank ? (
             <FillBlankBlock
               item={currentItem}
@@ -1055,7 +1224,7 @@ export default function CleanQuizView({
             </div>
           )}
 
-          {objectiveReveal && !isSubjective && !isReading && !isFillBlank && (
+          {objectiveReveal && !isSubjective && !isReading && !isFillBlank && !isComposite && (
             <div className="analysis-box">
               <div>
                 正确答案：
@@ -1077,7 +1246,7 @@ export default function CleanQuizView({
               </div>
             </div>
           )}
-          {!isReading && (showPracticeAiToolbar || showExamAuditToolbar) && <AiExplainPanel entry={currentExplainEntry} />}
+          {!isReading && !isComposite && (showPracticeAiToolbar || showExamAuditToolbar) && <AiExplainPanel entry={currentExplainEntry} />}
 
           <div className="question-actions">
             <button className="secondary-btn" onClick={onPrev} disabled={isFirst || disabled}>
