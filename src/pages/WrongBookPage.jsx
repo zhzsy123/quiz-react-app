@@ -1,5 +1,16 @@
 import React from 'react'
-import { ArrowLeft, BookOpen, BookX, CheckCircle2, Filter, Play, RotateCcw, Search, Trash2, XCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  BookOpen,
+  BookX,
+  CheckCircle2,
+  Filter,
+  Play,
+  RotateCcw,
+  Search,
+  Trash2,
+  XCircle,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
 import {
@@ -15,6 +26,7 @@ export default function WrongBookPage() {
     setSubjectFilter,
     typeFilter,
     setTypeFilter,
+    typeOptions,
     query,
     setQuery,
     practiceMode,
@@ -43,18 +55,32 @@ export default function WrongBookPage() {
       <div className="container dashboard-page">
         <section className="dashboard-hero left-hero compact-page-hero">
           <div className="section-header-row no-margin">
-            <h1 className="page-title-inline"><BookX size={28} /> 错题本</h1>
+            <h1 className="page-title-inline">
+              <BookX size={28} />
+              错题本
+            </h1>
             <div className="dashboard-action-row">
-              <Link className="secondary-btn small-btn" to="/"><ArrowLeft size={16} /> 返回首页</Link>
-              <Link className="secondary-btn small-btn" to="/history">历史记录</Link>
-              <Link className="secondary-btn small-btn" to="/exam/english"><BookOpen size={16} /> 文件列表</Link>
+              <Link className="secondary-btn small-btn" to="/">
+                <ArrowLeft size={16} />
+                返回首页
+              </Link>
+              <Link className="secondary-btn small-btn" to="/history">
+                历史记录
+              </Link>
+              <Link className="secondary-btn small-btn" to="/exam/english">
+                <BookOpen size={16} />
+                文件列表
+              </Link>
             </div>
           </div>
         </section>
 
         <section className="profile-card compact-card">
           <div className="section-header-row">
-            <h2><Filter size={18} /> 筛选与搜索</h2>
+            <h2>
+              <Filter size={18} />
+              筛选与搜索
+            </h2>
             <div className="dashboard-action-row">
               {practiceMode ? (
                 <button className="secondary-btn small-btn" onClick={() => setPracticeMode(false)}>
@@ -99,21 +125,31 @@ export default function WrongBookPage() {
               <span>科目</span>
               <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
                 <option value="all">全部科目</option>
-                {SUBJECT_REGISTRY.map((subject) => <option key={subject.key} value={subject.key}>{subject.label}</option>)}
+                {SUBJECT_REGISTRY.map((subject) => (
+                  <option key={subject.key} value={subject.key}>
+                    {subject.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="form-field">
               <span>题型</span>
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">全部题型</option>
-                <option value="single_choice">单项选择</option>
-                <option value="cloze">完形填空</option>
-                <option value="reading">阅读理解</option>
+                {typeOptions.map((typeMeta) => (
+                  <option key={typeMeta.key} value={typeMeta.key}>
+                    {typeMeta.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="form-field grow">
               <span>关键词</span>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索题干、阅读标题、标签或上下文" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索题干、阅读标题、标签或上下文"
+              />
             </label>
           </div>
         </section>
@@ -127,7 +163,14 @@ export default function WrongBookPage() {
 
         {practiceMode && (
           <section className="record-list-card wrongbook-practice-panel">
-            <div className="section-header-row"><h2><Play size={18} /> 错题练习器</h2><span className="section-header-tip">{filteredWrongItems.length > 0 ? `第 ${Math.min(practiceIndex + 1, Math.max(filteredWrongItems.length, 1))} / ${filteredWrongItems.length}` : '已无待练习错题'}</span></div>
+            <div className="section-header-row">
+              <h2><Play size={18} /> 错题练习器</h2>
+              <span className="section-header-tip">
+                {filteredWrongItems.length > 0
+                  ? `第 ${Math.min(practiceIndex + 1, Math.max(filteredWrongItems.length, 1))} / ${filteredWrongItems.length}`
+                  : '已无待练习错题'}
+              </span>
+            </div>
             {!displayPracticeItem ? (
               <div className="local-library-empty">当前筛选条件下已经没有待练习错题了。</div>
             ) : (
@@ -146,14 +189,21 @@ export default function WrongBookPage() {
                     删除
                   </button>
                 </div>
-                {displayPracticeItem.contextTitle && <div className="wrongbook-context"><strong>{displayPracticeItem.contextTitle}</strong>{displayPracticeItem.contextSnippet ? `：${displayPracticeItem.contextSnippet}` : ''}</div>}
+                {displayPracticeItem.contextTitle && (
+                  <div className="wrongbook-context">
+                    <strong>{displayPracticeItem.contextTitle}</strong>
+                    {displayPracticeItem.contextSnippet ? `：${displayPracticeItem.contextSnippet}` : ''}
+                  </div>
+                )}
                 <div className="options">
                   {(displayPracticeItem.options || []).map((option, index) => {
                     const selected = selectedAnswer === option.key
                     let className = 'option'
                     let icon = null
                     const lockAnswering = Boolean(holdSolvedItem)
+
                     if (selected) className += ' selected'
+
                     if (selectedAnswer) {
                       if (option.key === displayPracticeItem.correctAnswer) {
                         className += ' correct'
@@ -163,19 +213,46 @@ export default function WrongBookPage() {
                         icon = <XCircle size={18} />
                       }
                     }
-                    return <button key={index} className={className} disabled={lockAnswering} onClick={() => handlePracticeAnswer(option.key)}><span>{renderWrongBookOptionLabel(option)}</span>{icon}</button>
+
+                    return (
+                      <button
+                        key={index}
+                        className={className}
+                        disabled={lockAnswering}
+                        onClick={() => handlePracticeAnswer(option.key)}
+                      >
+                        <span>{renderWrongBookOptionLabel(option)}</span>
+                        {icon}
+                      </button>
+                    )
                   })}
                 </div>
                 {feedback && <div className="practice-feedback">{feedback}</div>}
-                {selectedAnswer && selectedAnswer !== displayPracticeItem.correctAnswer && <div className="analysis-box"><div><strong>正确答案：</strong>{displayPracticeItem.correctAnswerLabel || displayPracticeItem.correctAnswer || '--'}</div><div><strong>解析：</strong>{displayPracticeItem.rationale || '暂无解析'}</div></div>}
+                {selectedAnswer && selectedAnswer !== displayPracticeItem.correctAnswer && (
+                  <div className="analysis-box">
+                    <div><strong>正确答案：</strong>{displayPracticeItem.correctAnswerLabel || displayPracticeItem.correctAnswer || '--'}</div>
+                    <div><strong>解析：</strong>{displayPracticeItem.rationale || '暂无解析'}</div>
+                  </div>
+                )}
                 <div className="question-actions">
-                  <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.max(value - 1, 0))} disabled={practiceIndex <= 0 || Boolean(holdSolvedItem)}>上一题</button>
+                  <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.max(value - 1, 0))} disabled={practiceIndex <= 0 || Boolean(holdSolvedItem)}>
+                    上一题
+                  </button>
                   {holdSolvedItem ? (
                     <button className="secondary-btn" onClick={handleAdvanceAfterSolved}>下一题</button>
                   ) : (
-                    <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.min(value + 1, Math.max(filteredWrongItems.length - 1, 0)))} disabled={practiceIndex >= filteredWrongItems.length - 1}>下一题</button>
+                    <button
+                      className="secondary-btn"
+                      onClick={() => setPracticeIndex((value) => Math.min(value + 1, Math.max(filteredWrongItems.length - 1, 0)))}
+                      disabled={practiceIndex >= filteredWrongItems.length - 1}
+                    >
+                      下一题
+                    </button>
                   )}
-                  <button className="secondary-btn" onClick={resetPractice}><RotateCcw size={14} /> 重新开始</button>
+                  <button className="secondary-btn" onClick={resetPractice}>
+                    <RotateCcw size={14} />
+                    重新开始
+                  </button>
                 </div>
               </div>
             )}
@@ -184,7 +261,10 @@ export default function WrongBookPage() {
 
         {!practiceMode && (
           <section className="record-list-card">
-            <div className="section-header-row"><h2><BookX size={18} /> 错题列表</h2><span className="section-header-tip">按最近出错时间倒序排列</span></div>
+            <div className="section-header-row">
+              <h2><BookX size={18} /> 错题列表</h2>
+              <span className="section-header-tip">按最近出错时间倒序排列</span>
+            </div>
             {filteredWrongItems.length === 0 ? (
               <div className="local-library-empty">当前还没有可展示的错题。</div>
             ) : (
@@ -217,8 +297,16 @@ export default function WrongBookPage() {
                           删除
                         </button>
                       </div>
-                      {item.contextTitle && <div className="wrongbook-context"><strong>{item.contextTitle}</strong>{item.contextSnippet ? `：${item.contextSnippet}` : ''}</div>}
-                      <div className="wrongbook-answer-compare"><div className="wrongbook-answer-pill wrong"><span>你的答案</span><strong>{item.userAnswerLabel || '未作答'}</strong></div><div className="wrongbook-answer-pill correct"><span>正确答案</span><strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong></div></div>
+                      {item.contextTitle && (
+                        <div className="wrongbook-context">
+                          <strong>{item.contextTitle}</strong>
+                          {item.contextSnippet ? `：${item.contextSnippet}` : ''}
+                        </div>
+                      )}
+                      <div className="wrongbook-answer-compare">
+                        <div className="wrongbook-answer-pill wrong"><span>你的答案</span><strong>{item.userAnswerLabel || '未作答'}</strong></div>
+                        <div className="wrongbook-answer-pill correct"><span>正确答案</span><strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong></div>
+                      </div>
                       <div className="wrongbook-rationale">解析：{item.rationale || '暂无解析'}</div>
                     </article>
                   )

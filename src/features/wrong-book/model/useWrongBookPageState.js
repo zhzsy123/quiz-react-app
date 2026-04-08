@@ -1,28 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
 import {
+  getQuestionTypeMeta,
+  getSubjectQuestionTypeOptions,
+  normalizeQuestionTypeKey,
+} from '../../../entities/subject/model/subjects'
+import {
   listAllWrongbookEntries,
   removeWrongbookEntries,
   removeWrongbookEntry,
 } from '../../../entities/wrongbook/api/wrongbookRepository'
 
-export function getWrongItemCategory(item) {
-  if (item.parentType === 'reading' || item.sourceType === 'reading') return 'reading'
-  if (
-    item.sourceType === 'cloze' ||
-    item.source_type === 'cloze' ||
-    String(item.contextTitle || '').includes('完形') ||
-    (item.tags || []).some((tag) => String(tag).toLowerCase() === 'cloze')
-  ) {
-    return 'cloze'
-  }
+function inferWrongItemType(item) {
+  const candidates = [item.type, item.sourceType, item.source_type, item.parentType]
+  const explicit = candidates.map(normalizeQuestionTypeKey).find((value) => value && value !== 'unknown')
+  if (explicit && getQuestionTypeMeta(explicit).key !== 'unknown') return explicit
+
+  if (String(item.contextTitle || '').includes('完形')) return 'cloze'
   return 'single_choice'
 }
 
+export function getWrongItemCategory(item) {
+  return inferWrongItemType(item)
+}
+
 export function getWrongItemCategoryLabel(category) {
-  if (category === 'reading') return '阅读理解'
-  if (category === 'cloze') return '完形填空'
-  return '客观题'
+  return getQuestionTypeMeta(category).label
 }
 
 export function renderWrongBookOptionLabel(option) {
@@ -53,8 +56,11 @@ export function useWrongBookPageState() {
     void refreshEntries()
   }, [activeProfileId])
 
+  const typeOptions = useMemo(() => getSubjectQuestionTypeOptions(subjectFilter), [subjectFilter])
+
   const filteredWrongItems = useMemo(() => {
     const lowered = query.trim().toLowerCase()
+
     return entries.filter((item) => {
       const subjectMatched = subjectFilter === 'all' || item.subject === subjectFilter
       const typeMatched = typeFilter === 'all' || item.category === typeFilter
@@ -62,7 +68,7 @@ export function useWrongBookPageState() {
       const queryMatched = !lowered || bucket.includes(lowered)
       return subjectMatched && typeMatched && queryMatched
     })
-  }, [entries, subjectFilter, typeFilter, query])
+  }, [entries, query, subjectFilter, typeFilter])
 
   const currentPracticeItem = practiceMode ? filteredWrongItems[practiceIndex] || null : null
   const displayPracticeItem = holdSolvedItem || currentPracticeItem
@@ -82,6 +88,12 @@ export function useWrongBookPageState() {
   useEffect(() => {
     setSelectedKeys((prev) => prev.filter((questionKey) => entries.some((item) => item.questionKey === questionKey)))
   }, [entries])
+
+  useEffect(() => {
+    if (typeFilter !== 'all' && !typeOptions.some((item) => item.key === typeFilter)) {
+      setTypeFilter('all')
+    }
+  }, [typeFilter, typeOptions])
 
   const handleRemove = async (item) => {
     if (!activeProfileId) return
@@ -105,6 +117,7 @@ export function useWrongBookPageState() {
 
   const removeItemsBulk = async (items) => {
     if (!activeProfileId || !items.length) return
+
     const grouped = items.reduce((map, item) => {
       if (!map[item.subject]) map[item.subject] = []
       map[item.subject].push(item.questionKey)
@@ -138,12 +151,14 @@ export function useWrongBookPageState() {
   const handlePracticeAnswer = async (optionKey) => {
     if (!displayPracticeItem || holdSolvedItem) return
     setSelectedAnswer(optionKey)
+
     if (optionKey === displayPracticeItem.correctAnswer) {
       setFeedback('回答正确，已从错题本中移除。')
       setHoldSolvedItem(displayPracticeItem)
       await handleRemove(displayPracticeItem)
       return
     }
+
     setFeedback('回答错误，请继续查看解析。')
   }
 
@@ -177,6 +192,7 @@ export function useWrongBookPageState() {
     setSubjectFilter,
     typeFilter,
     setTypeFilter,
+    typeOptions,
     query,
     setQuery,
     practiceMode,

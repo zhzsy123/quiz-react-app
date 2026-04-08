@@ -10,8 +10,8 @@ import {
   isObjectiveResponseCorrect,
   normalizeChoiceArray,
 } from '../../../entities/quiz/lib/objectiveAnswers'
-import { buildQuizDocumentFromText } from '../../../entities/quiz/lib/quizPipeline'
-import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/scoring/getQuizScoreBreakdown'
+import { buildQuizDocumentFromText } from '../../../entities/quiz/lib/quizPipeline.js'
+import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/scoring/getQuizScoreBreakdown.js'
 import {
   auditQuizQuestionCompliance,
   explainQuizQuestionWithMode,
@@ -29,6 +29,27 @@ import {
 } from '../../../entities/session/api/sessionRepository'
 import { upsertWrongbookEntries } from '../../../entities/wrongbook/api/wrongbookRepository'
 import { loadPreference, savePreference } from '../../../shared/lib/preferences/preferenceRepository'
+import {
+  buildProgressPayload as buildWorkspaceProgressPayload,
+  formatRemainingSeconds as formatWorkspaceRemainingSeconds,
+  getExamDurationSeconds as getWorkspaceExamDurationSeconds,
+  loadWorkspaceSnapshot as loadWorkspaceSnapshotModel,
+} from './subjectWorkspaceSession.js'
+import {
+  buildFavoriteEntryFromItem as buildWorkspaceFavoriteEntryFromItem,
+  buildWrongItems as buildWorkspaceWrongItems,
+  cloneFavoriteItem as cloneWorkspaceFavoriteItem,
+} from './subjectWorkspaceSideEffects.js'
+import {
+  buildPersistedItemsSnapshot as buildWorkspacePersistedItemsSnapshot,
+  createPendingAiReview as createWorkspacePendingAiReview,
+  getExplainEntryKey as getWorkspaceExplainEntryKey,
+} from './subjectWorkspaceObjective.js'
+import {
+  runExplainQuestionAi as runWorkspaceExplainQuestionAi,
+  runSimilarQuestionsAi as runWorkspaceSimilarQuestionsAi,
+  runSubjectiveAiReview as runWorkspaceSubjectiveAiReview,
+} from './subjectWorkspaceAi.js'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
@@ -413,30 +434,27 @@ export function useSubjectWorkspaceState() {
       let resolvedQuiz = null
       let resolvedDurationSeconds = (subjectMeta.defaultDurationMinutes || 90) * 60
 
-      if (source === 'favorites') {
-        const items = favoriteRows.map((favoriteEntry, index) => cloneFavoriteItem(favoriteEntry, index))
-        resolvedEntry = { title: `${subjectMeta.shortLabel}收藏题`, paperId: 'favorites' }
-        resolvedQuiz = {
-          title: `${subjectMeta.shortLabel}收藏题`,
-          subject: subjectKey,
-          duration_minutes: subjectMeta.defaultDurationMinutes || 90,
-          items,
-        }
-        resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
-      } else {
-        const entries = await listLibraryEntries(activeProfile.id, subjectKey)
-        const matched = entries.find((item) => item.paperId === paperId)
-        if (!matched || cancelled) {
-          setLoading(false)
-          return
-        }
+      const snapshot = await loadWorkspaceSnapshotModel({
+        activeProfileId: activeProfile.id,
+        subjectKey,
+        subjectMeta,
+        source,
+        paperId,
+        sessionPaperId,
+        favoriteRows,
+        listLibraryEntries,
+        loadSessionProgress,
+      })
 
-        resolvedEntry = matched
-        resolvedQuiz = buildQuizDocumentFromText(matched.rawText).quiz
-        resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
+      if (!snapshot || cancelled) {
+        setLoading(false)
+        return
       }
 
-      const progress = await loadSessionProgress(activeProfile.id, subjectKey, sessionPaperId)
+      const { entry: nextEntry, quiz: nextQuiz, progress, resolvedDurationSeconds: nextDurationSeconds } = snapshot
+
+      resolvedEntry = nextEntry
+      resolvedQuiz = nextQuiz
       if (cancelled) return
 
       setEntry(resolvedEntry)
@@ -452,7 +470,7 @@ export function useSubjectWorkspaceState() {
       setRemainingSeconds(
         typeof progress?.timerSecondsRemaining === 'number'
           ? progress.timerSecondsRemaining
-          : resolvedDurationSeconds
+          : nextDurationSeconds
       )
       setIsPaused(Boolean(progress?.isPaused))
       setPracticeWritesWrongBook(
@@ -475,25 +493,25 @@ export function useSubjectWorkspaceState() {
     }
   }, [activeProfile?.id, paperId, source, sessionPaperId, subjectKey, subjectMeta.shortLabel])
 
-  const buildProgressPayload = (overrides = {}) => ({
-    answers,
-    revealedMap,
-    submitted,
-    score,
-    attemptId,
-    aiReview,
-    aiExplainMap,
-    currentIndex,
-    timerSecondsRemaining: remainingSeconds,
-    isPaused,
-    practiceWritesWrongBook,
-    examWritesWrongBook,
-    mode,
-    updatedAt: Date.now(),
-    title: quiz?.title || entry?.title || 'Untitled paper',
-    itemsSnapshot: buildPersistedItemsSnapshot(quiz?.items || []),
-    ...overrides,
-  })
+  const buildProgressPayload = (overrides = {}) =>
+    buildWorkspaceProgressPayload({
+      answers,
+      revealedMap,
+      submitted,
+      score,
+      attemptId,
+      aiReview,
+      aiExplainMap,
+      currentIndex,
+      remainingSeconds,
+      isPaused,
+      practiceWritesWrongBook,
+      examWritesWrongBook,
+      mode,
+      quiz,
+      entry,
+      overrides,
+    })
 
   const persistNow = async (overrides = {}) => {
     if (!readyToPersist || !quiz || !activeProfile?.id || !sessionPaperId) return
@@ -529,7 +547,7 @@ export function useSubjectWorkspaceState() {
     return getQuizScoreBreakdown(quiz?.items || [])
   }, [quiz])
 
-  const examDurationSeconds = useMemo(() => getExamDurationSeconds(quiz, subjectMeta), [quiz, subjectMeta])
+  const examDurationSeconds = useMemo(() => getWorkspaceExamDurationSeconds(quiz, subjectMeta), [quiz, subjectMeta])
   const objectiveTotalScore = scoreSummary.objectiveTotal
   const paperTotalScore = scoreSummary.paperTotal
   const subjectivePendingScore = scoreSummary.subjectiveTotal
@@ -582,11 +600,11 @@ export function useSubjectWorkspaceState() {
   }) => {
     if (!quiz || subjectiveTotal <= 0) return
 
-    const pendingReview = createPendingAiReview(subjectiveTotal)
+    const pendingReview = createWorkspacePendingAiReview(subjectiveTotal)
     await syncAiReview(pendingReview, targetAttemptId)
 
     try {
-      const completedReview = await gradeSubjectiveAttempt({
+      const completedReview = await runWorkspaceSubjectiveAiReview({
         quiz,
         answers,
         objectiveScore,
@@ -610,7 +628,7 @@ export function useSubjectWorkspaceState() {
   const handleExplainQuestionWithMode = async ({ item, subQuestion = null, focus = 'general' }) => {
     if (!quiz || !item) return
 
-    const entryKey = getExplainEntryKey(item.id, subQuestion?.id)
+    const entryKey = getWorkspaceExplainEntryKey(item.id, subQuestion?.id)
     await syncAiExplainEntry(
       entryKey,
       {
@@ -625,22 +643,15 @@ export function useSubjectWorkspaceState() {
     )
 
     try {
-      const completedExplain =
-        mode === 'exam'
-          ? await auditQuizQuestionCompliance({
-              paperTitle: quiz.title,
-              item,
-              response: answers[item.id],
-              subQuestion,
-            })
-          : await explainQuizQuestionWithMode({
-              paperTitle: quiz.title,
-              item,
-              response: answers[item.id],
-              subQuestion,
-              mode: aiExplainMode,
-              focus,
-            })
+      const completedExplain = await runWorkspaceExplainQuestionAi({
+        mode,
+        aiExplainMode,
+        quiz,
+        answers,
+        item,
+        subQuestion,
+        focus,
+      })
       await syncAiExplainEntry(entryKey, completedExplain)
     } catch (error) {
       await syncAiExplainEntry(entryKey, {
@@ -666,11 +677,7 @@ export function useSubjectWorkspaceState() {
     })
 
     try {
-      const generated = await generateSimilarQuestions({
-        paperTitle: quiz.title,
-        item,
-        response: answers[item.id],
-      })
+      const generated = await runWorkspaceSimilarQuestionsAi({ quiz, answers, item })
       setAiPracticeModal(generated)
     } catch (error) {
       setAiPracticeModal({
@@ -710,9 +717,9 @@ export function useSubjectWorkspaceState() {
 
     const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
     const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
-    const initialAiReview = subjectivePendingScore > 0 ? createPendingAiReview(subjectivePendingScore) : null
-    const itemsSnapshot = buildPersistedItemsSnapshot(quiz.items)
-    const wrongItems = buildWrongItems(quiz.items, answers, {
+    const initialAiReview = subjectivePendingScore > 0 ? createWorkspacePendingAiReview(subjectivePendingScore) : null
+    const itemsSnapshot = buildWorkspacePersistedItemsSnapshot(quiz.items)
+    const wrongItems = buildWorkspaceWrongItems(quiz.items, answers, {
       subject: subjectKey,
       paperId,
       paperTitle: entry?.title || quiz.title || '未命名试卷',
@@ -1129,7 +1136,7 @@ export function useSubjectWorkspaceState() {
   const handleToggleFavorite = async () => {
     if (!activeProfile?.id || !quiz?.items?.[currentIndex] || source === 'favorites') return
     const item = quiz.items[currentIndex]
-    const entryToToggle = buildFavoriteEntryFromItem(item, {
+    const entryToToggle = buildWorkspaceFavoriteEntryFromItem(item, {
       subject: subjectKey,
       paperId,
       paperTitle: entry?.title || quiz.title || 'Untitled paper',
@@ -1139,7 +1146,7 @@ export function useSubjectWorkspaceState() {
   }
 
   const backLink = source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`
-  const remainingTimeLabel = formatRemainingSeconds(remainingSeconds)
+  const remainingTimeLabel = formatWorkspaceRemainingSeconds(remainingSeconds)
   const isCurrentFavorite = Boolean(favoriteMap[favoriteQuestionKey])
 
   const handleTogglePause = () => {

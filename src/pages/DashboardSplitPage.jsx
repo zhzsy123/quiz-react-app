@@ -1,4 +1,4 @@
-﻿import React from 'react'
+import React from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -20,8 +20,8 @@ function WorkflowBand({ onOpenDownloads }) {
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
         <span className="dashboard-eyebrow">JSON Workflow</span>
-        <h2>使用解析规范，配合 AI 清洗试卷</h2>
-        <p>把 PDF / DOCX 和 JSON 规范一起发给 AI，让它直接输出可导入本站的标准 JSON。</p>
+        <h2>按科目下载 JSON 规范，再配合 AI 清洗试卷</h2>
+        <p>把 PDF / DOCX 和对应科目的 JSON 解析规范一起发给 AI，让它输出可导入本站的标准 JSON。</p>
       </div>
 
       <div className="dashboard-band-steps">
@@ -42,7 +42,7 @@ function WorkflowBand({ onOpenDownloads }) {
   )
 }
 
-function DownloadDialog({ open, onClose, options }) {
+function DownloadDialog({ open, onClose, groups }) {
   if (!open) return null
 
   return (
@@ -51,8 +51,8 @@ function DownloadDialog({ open, onClose, options }) {
         <div className="ai-modal-head">
           <div className="download-dialog-copy">
             <span className="dashboard-eyebrow">Downloads</span>
-            <h3>选择要下载的资料</h3>
-            <p>当前国际贸易样卷只保留一个混合示例，减少导入前的理解成本。</p>
+            <h3>按科目选择下载资料</h3>
+            <p>每个科目都映射自己的 JSON 解析规范或示例文件，方便直接交给 AI 清洗。</p>
           </div>
 
           <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭下载对话框">
@@ -61,24 +61,37 @@ function DownloadDialog({ open, onClose, options }) {
           </button>
         </div>
 
-        <div className="download-dialog-list">
-          {options.map((item) => (
-            <a
-              key={item.key}
-              className="download-dialog-item"
-              href={item.href}
-              download={item.filename}
-              onClick={onClose}
-            >
-              <div className="download-dialog-meta">
-                <strong>{item.title}</strong>
-                <p>{item.description}</p>
+        <div className="download-dialog-groups">
+          {groups.map((group) => (
+            <section key={group.subjectKey} className="download-dialog-group">
+              <div className="download-dialog-group-head">
+                <div>
+                  <strong>{group.subjectLabel}</strong>
+                  <p>{group.description}</p>
+                </div>
               </div>
-              <span className="download-dialog-action">
-                <FileJson size={16} />
-                立即下载
-              </span>
-            </a>
+
+              <div className="download-dialog-list">
+                {group.items.map((item) => (
+                  <a
+                    key={item.key}
+                    className="download-dialog-item"
+                    href={item.href}
+                    download={item.filename}
+                    onClick={onClose}
+                  >
+                    <div className="download-dialog-meta">
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                    </div>
+                    <span className="download-dialog-action">
+                      <FileJson size={16} />
+                      立即下载
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </div>
@@ -102,7 +115,7 @@ export default function DashboardSplitPage() {
     subjectSummaries,
     latestAttempt,
     spotlightStats,
-    downloadOptions,
+    downloadGroups,
     switchProfile,
     handleCreateProfile,
     handleRenameProfile,
@@ -278,9 +291,8 @@ export default function DashboardSplitPage() {
       <DownloadDialog
         open={showDownloadDialog}
         onClose={() => setShowDownloadDialog(false)}
-        options={downloadOptions}
+        groups={downloadGroups}
       />
     </div>
   )
 }
-

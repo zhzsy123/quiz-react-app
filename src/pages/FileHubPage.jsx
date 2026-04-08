@@ -44,7 +44,11 @@ export default function FileHubPage() {
           <div className="library-filters-grid single-search-grid">
             <label className="form-field grow">
               <span>关键词</span>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`搜索${subjectMeta.shortLabel}文件名称、标签或 schema 版本`} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`搜索${subjectMeta.shortLabel}文件名称、标签或 schema 版本`}
+              />
             </label>
           </div>
         </section>

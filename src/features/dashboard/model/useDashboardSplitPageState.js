@@ -1,26 +1,11 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
 import { listAllFavoriteEntries } from '../../../entities/favorite/api/favoriteRepository'
 import { listHistoryEntries } from '../../../entities/history/api/historyRepository'
-import { SUBJECT_REGISTRY } from '../../../entities/subject/model/subjects'
+import { SUBJECT_REGISTRY, getSubjectDownloadGroups } from '../../../entities/subject/model/subjects'
 import { getDeepSeekConfig, updateDeepSeekConfig } from '../../../shared/api/deepseekClient'
 
-export const DASHBOARD_DOWNLOAD_OPTIONS = [
-  {
-    key: 'ds-db-schema',
-    title: '数据库&数据结构解析规范',
-    description: '适用于数据库 / 数据结构试卷解析，包含题型映射、composite 规则、JSON 示例和 DeepSeek 提示模板。',
-    href: './数据库&数据结构解析规范.JSON',
-    filename: '数据库&数据结构解析规范.JSON',
-  },
-  {
-    key: 'trade-sample',
-    title: '国际贸易混合样卷',
-    description: '单个 JSON 混合多种国际贸易题型，每类题保留 3 个示例。',
-    href: './sample-international-trade.json',
-    filename: 'sample-international-trade.json',
-  },
-]
+export const DASHBOARD_DOWNLOAD_GROUPS = getSubjectDownloadGroups()
 
 export function useDashboardSplitPageState() {
   const {
@@ -54,17 +39,18 @@ export function useDashboardSplitPageState() {
         listHistoryEntries(activeProfileId),
       ])
 
-      if (!cancelled) {
-        setDashboardState({
-          attempts,
-          totalQuestionVolume: attempts.reduce((sum, item) => sum + (item.questionCount || 0), 0),
-          totalWrong: attempts.reduce((sum, item) => sum + (item.wrongCount || 0), 0),
-        })
-        setFavoriteCount(favorites.length)
-      }
+      if (cancelled) return
+
+      setDashboardState({
+        attempts,
+        totalQuestionVolume: attempts.reduce((sum, item) => sum + (item.questionCount || 0), 0),
+        totalWrong: attempts.reduce((sum, item) => sum + (item.wrongCount || 0), 0),
+      })
+      setFavoriteCount(favorites.length)
     }
 
     void loadDashboard()
+
     return () => {
       cancelled = true
     }
@@ -113,7 +99,7 @@ export function useDashboardSplitPageState() {
 
   const handleRenameProfile = async () => {
     if (!activeProfile) return
-    const nextName = window.prompt('璇疯緭鍏ユ柊鐨勬湰鍦版。妗堝悕绉帮細', activeProfile.name)
+    const nextName = window.prompt('请输入新的本地档案名称：', activeProfile.name)
     if (!nextName) return
     await renameLocalProfile(activeProfile.id, nextName)
   }
@@ -140,11 +126,10 @@ export function useDashboardSplitPageState() {
     subjectSummaries,
     latestAttempt,
     spotlightStats,
-    downloadOptions: DASHBOARD_DOWNLOAD_OPTIONS,
+    downloadGroups: DASHBOARD_DOWNLOAD_GROUPS,
     switchProfile,
     handleCreateProfile,
     handleRenameProfile,
     handleUpdateApiKey,
   }
 }
-

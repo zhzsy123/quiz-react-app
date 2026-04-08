@@ -2,18 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppContext } from '../../../app/providers/AppContext'
 import { listAllFavoriteEntries, removeFavoriteEntry } from '../../../entities/favorite/api/favoriteRepository'
-import { getSubjectMeta } from '../../../entities/subject/model/subjects'
+import { getQuestionTypeMeta, getSubjectMeta } from '../../../entities/subject/model/subjects'
 
 export function formatFavoriteType(entry) {
-  if (entry.itemType === 'reading') return '阅读理解'
-  if (entry.itemType === 'translation') return '翻译题'
-  if (entry.itemType === 'short_answer') return '简答题'
-  if (entry.itemType === 'case_analysis') return '案例分析'
-  if (entry.itemType === 'calculation') return '计算题'
-  if (entry.itemType === 'operation') return '操作题'
-  if (entry.itemType === 'essay') return '作文题'
-  if (entry.sourceType === 'cloze') return '完形填空'
-  return '客观题'
+  const typeKey = entry.sourceType === 'cloze' ? 'cloze' : entry.itemType || entry.sourceType
+  return getQuestionTypeMeta(typeKey).label
 }
 
 export function useFavoritesPageState() {
