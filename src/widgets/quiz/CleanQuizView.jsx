@@ -22,6 +22,20 @@ function getCurrentQuestionReview(currentItem, aiQuestionReviewMap) {
   return aiQuestionReviewMap?.[currentItem.id] || null
 }
 
+function InvalidQuizFallback() {
+  return (
+    <div className="quiz-layout">
+      <main className="question-list">
+        <section className="question-card current">
+          <div className="analysis-box">
+            <div>当前试卷没有可渲染的题目，请返回题库重新导入或重新生成。</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
+
 export default function CleanQuizView({
   quiz,
   answers,
@@ -70,9 +84,12 @@ export default function CleanQuizView({
   const showPracticeAiToolbar = mode === 'practice'
   const showExamAuditToolbar = mode === 'exam'
   const showWrongFollowups = false
-  const prompt = currentItem?.prompt || currentItem?.passage?.title || currentItem?.title || '未命名题目'
 
-  if (!quiz?.items?.length || !currentItem) return null
+  if (!quiz?.items?.length || !currentItem) {
+    return <InvalidQuizFallback />
+  }
+
+  const prompt = currentItem.prompt || currentItem.passage?.title || currentItem.title || '未命名题目'
 
   return (
     <div className="quiz-layout">

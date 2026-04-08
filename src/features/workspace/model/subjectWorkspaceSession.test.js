@@ -62,4 +62,36 @@ describe('subjectWorkspaceSession', () => {
     expect(snapshot.quiz.items).toHaveLength(1)
     expect(snapshot.quiz.items[0].type).toBe('single_choice')
   })
+
+  it('rejects library papers that contain no usable questions', async () => {
+    await expect(
+      loadWorkspaceSnapshot({
+        activeProfileId: 'profile-1',
+        subjectKey: 'english',
+        subjectMeta: {
+          key: 'english',
+          shortLabel: '英语',
+          defaultDurationMinutes: 90,
+        },
+        source: 'library',
+        paperId: 'paper-empty-1',
+        sessionPaperId: 'paper-empty-1:practice',
+        favoriteRows: [],
+        listLibraryEntries: vi.fn(async () => [
+          {
+            paperId: 'paper-empty-1',
+            title: 'Empty Paper',
+            rawText: JSON.stringify({
+              schema_version: 'quiz-generation-draft-v1',
+              paper_id: 'paper-empty-1',
+              title: 'Empty Paper',
+              subject: 'english',
+              questions: [],
+            }),
+          },
+        ]),
+        loadSessionProgress: vi.fn(async () => ({})),
+      })
+    ).rejects.toThrow('questions 数组不能为空')
+  })
 })

@@ -50,7 +50,7 @@ describe('buildDraftPaper', () => {
     expect(draft.title).toBe('AI draft')
     expect(draft.duration_minutes).toBe(90)
     expect(draft.questions).toHaveLength(2)
-    expect(draft.items).toHaveLength(2)
+    expect(draft.items).toBeUndefined()
     expect(draft.scoreBreakdown.paperTotal).toBe(8)
     expect(draft.generation.acceptedCount).toBe(2)
     expect(draft.generation.rejectedCount).toBe(1)

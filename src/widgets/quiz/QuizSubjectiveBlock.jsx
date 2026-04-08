@@ -123,6 +123,8 @@ function ReadingBlock({
   const readingResponse = response || {}
   const readingQuestions = Array.isArray(item.questions) ? item.questions : []
   const questionRefs = useRef({})
+  const passageTitle = item.passage?.title || item.title || '阅读材料'
+  const passageContent = item.passage?.content || item.passage?.body || item.passage?.text || ''
 
   useEffect(() => {
     if (!focusSubQuestionId) return
@@ -148,7 +150,7 @@ function ReadingBlock({
           </button>
         </div>
         <div className={`reading-passage-body ${immersiveReading ? 'immersive' : ''}`}>
-          {item.passage?.content}
+          {passageContent || '当前阅读题缺少材料正文。'}
         </div>
       </section>
 
@@ -161,6 +163,7 @@ function ReadingBlock({
             const isFocused = focusSubQuestionId === subQuestion.id
             const explainEntry = aiExplainMap?.[`${item.id}:${subQuestion.id}`]
             const canUseAiTool = mode === 'practice' || submitted
+            const subOptions = Array.isArray(subQuestion.options) ? subQuestion.options : []
 
             return (
               <div
@@ -176,7 +179,7 @@ function ReadingBlock({
                 </div>
 
                 <div className="options compact-options">
-                  {subQuestion.options.map((option, optionIndex) => {
+                  {subOptions.map((option, optionIndex) => {
                     const selected = userAnswer === option.key
                     let className = 'option compact-option'
                     let icon = null
@@ -210,6 +213,12 @@ function ReadingBlock({
                     )
                   })}
                 </div>
+
+                {!subOptions.length && (
+                  <div className="analysis-box compact-analysis-box">
+                    <div>当前小题缺少可作答的选项，无法继续作答。</div>
+                  </div>
+                )}
 
                 {showFeedback && (
                   <div className="analysis-box compact-analysis-box">
@@ -535,5 +544,9 @@ export default function QuizSubjectiveBlock({
     )
   }
 
-  return null
+  return (
+    <div className="analysis-box">
+      <div>当前主观题类型暂不支持渲染。</div>
+    </div>
+  )
 }

@@ -235,7 +235,8 @@ function buildWrongItems(items, answers, meta) {
 
     if (item.type === 'reading') {
       const readingAnswers = answers[item.id] || {}
-      item.questions.forEach((question) => {
+      const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+      readingQuestions.forEach((question) => {
         const userAnswer = readingAnswers[question.id] || ''
         if (userAnswer === question.answer?.correct) return
         wrongItems.push({
@@ -588,7 +589,8 @@ export function useSubjectWorkspaceState() {
 
       if (item.type === 'reading') {
         const response = answers[item.id] || {}
-        item.questions.forEach((question) => {
+        const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+        readingQuestions.forEach((question) => {
           if (isNonEmptyText(response[question.id])) {
             answered += 1
             if (response[question.id] === question.answer?.correct) correct += 1
@@ -935,6 +937,8 @@ export function useSubjectWorkspaceState() {
 
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'reading' || currentItem.id !== questionId) return
+    const readingQuestions = Array.isArray(currentItem.questions) ? currentItem.questions : []
+    if (!readingQuestions.length) return
 
     const nextItemResponse = { ...(answers[questionId] || {}), [subQuestionId]: optionLetter }
     const nextAnswers = { ...answers, [questionId]: nextItemResponse }
@@ -944,10 +948,10 @@ export function useSubjectWorkspaceState() {
     if (mode === 'practice') {
       const nextRevealed = { ...revealedMap, [`${questionId}:${subQuestionId}`]: true }
       setRevealedMap(nextRevealed)
-      const answeredCount = currentItem.questions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
+      const answeredCount = readingQuestions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
       const allCorrect =
-        answeredCount === currentItem.questions.length &&
-        currentItem.questions.every((question) => nextItemResponse[question.id] === question.answer?.correct)
+        answeredCount === readingQuestions.length &&
+        readingQuestions.every((question) => nextItemResponse[question.id] === question.answer?.correct)
       let nextIndex = currentIndex
       if (autoAdvance && allCorrect && currentIndex < quiz.items.length - 1) {
         nextIndex = currentIndex + 1
@@ -957,9 +961,9 @@ export function useSubjectWorkspaceState() {
       return
     }
 
-    const answeredCount = currentItem.questions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
+    const answeredCount = readingQuestions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
     let nextIndex = currentIndex
-    if (autoAdvance && answeredCount === currentItem.questions.length && currentIndex < quiz.items.length - 1) {
+    if (autoAdvance && answeredCount === readingQuestions.length && currentIndex < quiz.items.length - 1) {
       nextIndex = currentIndex + 1
       setCurrentIndex(nextIndex)
     }

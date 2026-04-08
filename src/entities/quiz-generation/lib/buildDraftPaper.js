@@ -54,7 +54,6 @@ export function buildDraftPaper({
     mode,
     difficulty,
     questions,
-    items: questions,
     scoreBreakdown,
     generation: {
       requestId,

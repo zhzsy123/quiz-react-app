@@ -2,6 +2,14 @@ import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { normalizeChoiceArray, renderOptionLabel } from '../../entities/quiz/lib/objectiveAnswers'
 
+function InvalidObjectiveFallback({ message }) {
+  return (
+    <div className="analysis-box">
+      <div>{message}</div>
+    </div>
+  )
+}
+
 function ObjectiveOptionsBlock({
   item,
   userResponse,
@@ -11,16 +19,22 @@ function ObjectiveOptionsBlock({
   mode,
   onSelectOption,
 }) {
+  const options = Array.isArray(item.options) ? item.options : []
   const selectedValues = item.type === 'multiple_choice' ? normalizeChoiceArray(userResponse) : []
+
+  if (!options.length) {
+    return <InvalidObjectiveFallback message="当前客观题缺少可作答的选项，无法继续作答。" />
+  }
 
   return (
     <div className="options">
-      {item.options.map((opt, optIndex) => {
+      {options.map((opt, optIndex) => {
         const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
         const selected = item.type === 'multiple_choice' ? selectedValues.includes(option.key) : userResponse === option.key
-        const isCorrect = item.type === 'multiple_choice'
-          ? normalizeChoiceArray(item.answer?.correct).includes(option.key)
-          : option.key === item.answer?.correct
+        const isCorrect =
+          item.type === 'multiple_choice'
+            ? normalizeChoiceArray(item.answer?.correct).includes(option.key)
+            : option.key === item.answer?.correct
 
         let className = 'option'
         let icon = null
@@ -56,14 +70,20 @@ function ObjectiveOptionsBlock({
 
 function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabled, mode, onFillBlankChange }) {
   const response = userResponse || {}
+  const blanks = Array.isArray(item.blanks) ? item.blanks : []
+
+  if (!blanks.length) {
+    return <InvalidObjectiveFallback message="当前填空题缺少可作答的空位配置，无法继续作答。" />
+  }
 
   return (
     <div className="subjective-block">
       <div className="answer-review-grid">
-        {item.blanks.map((blank, index) => {
+        {blanks.map((blank, index) => {
           const value = response[blank.blank_id] || ''
+          const acceptedAnswers = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
           const normalized = String(value).trim().toLowerCase()
-          const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
+          const isCorrect = acceptedAnswers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
           const showFeedback = objectiveReveal
 
           return (
@@ -83,7 +103,7 @@ function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabl
                 <>
                   <div className="answer-review-line">
                     <strong>参考答案</strong>
-                    {blank.accepted_answers.join(' / ')}
+                    {acceptedAnswers.join(' / ')}
                   </div>
                   <div className="answer-review-line">
                     <strong>解析</strong>
@@ -153,11 +173,7 @@ export default function QuizObjectiveBlock({
         <div className="analysis-box">
           <div>
             正确答案：
-            <strong>
-              {Array.isArray(item.answer?.correct)
-                ? item.answer.correct.join(' / ')
-                : item.answer?.correct}
-            </strong>
+            <strong>{Array.isArray(item.answer?.correct) ? item.answer.correct.join(' / ') : item.answer?.correct}</strong>
           </div>
           <div>解析：{item.answer?.rationale || '暂无解析'}</div>
         </div>

@@ -53,6 +53,13 @@ export function buildProgressPayload({
   }
 }
 
+function ensureQuizHasItems(targetQuiz) {
+  if (!Array.isArray(targetQuiz?.items) || targetQuiz.items.length === 0) {
+    throw new Error('试卷中没有可用题目。')
+  }
+  return targetQuiz
+}
+
 export async function loadWorkspaceSnapshot({
   activeProfileId,
   subjectKey,
@@ -70,13 +77,16 @@ export async function loadWorkspaceSnapshot({
 
   if (source === 'favorites') {
     const items = favoriteRows.map((favoriteEntry, index) => cloneFavoriteItem(favoriteEntry, index))
-    resolvedEntry = { title: `${subjectMeta.shortLabel}收藏题`, paperId: 'favorites' }
-    resolvedQuiz = {
+    resolvedEntry = {
+      title: `${subjectMeta.shortLabel}收藏题`,
+      paperId: 'favorites',
+    }
+    resolvedQuiz = ensureQuizHasItems({
       title: `${subjectMeta.shortLabel}收藏题`,
       subject: subjectKey,
       duration_minutes: subjectMeta.defaultDurationMinutes || 90,
       items,
-    }
+    })
     resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
   } else {
     const entries = await listLibraryEntries(activeProfileId, subjectKey)
@@ -84,7 +94,7 @@ export async function loadWorkspaceSnapshot({
     if (!matched) return null
 
     resolvedEntry = matched
-    resolvedQuiz = buildQuizDocumentFromText(matched.rawText).quiz
+    resolvedQuiz = ensureQuizHasItems(buildQuizDocumentFromText(matched.rawText).quiz)
     resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
   }
 
