@@ -173,3 +173,30 @@ npm run preview
 - 当前架构索引：[docs/current-architecture.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/current-architecture.md)
 - JSON 规范：[docs/json-schema.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/json-schema.md)
 - 对外下载版 JSON 规范：[public/json-schema.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/public/json-schema.md)
+
+## Hot file governance
+
+Current hotspots:
+
+- `src/widgets/quiz/CleanQuizView.jsx`: 1093 lines
+- `src/features/workspace/model/useSubjectWorkspaceState.js`: 935 lines
+
+Rules:
+
+- Soft warning threshold: 800 lines. New work touching a file above this threshold should first ask whether the change can be split.
+- Hard threshold: 1000 lines. A file above this threshold should not grow unless the change comes with a split plan or removal of equivalent complexity.
+- Mixed responsibility rule: if a file owns both UI behavior and business/state orchestration, treat it as a split candidate even before the hard threshold.
+- Hotspot rule: if a file is touched in multiple bugfix/refactor threads in the same phase, prefer extracting helpers or moving state to smaller modules before adding new logic.
+
+Split priorities:
+
+1. Separate state orchestration from rendering.
+2. Separate pure transformation logic from side effects.
+3. Separate compatibility glue from active runtime paths.
+4. Separate page-level composition from reusable widgets when the file is over the hard threshold.
+
+Thread guidance:
+
+- Do not expand a hotspot file just to keep the change local.
+- If a change would add more branching, more state, or more side effects to a hotspot file, split first or delegate the new logic to a smaller module.
+- When in doubt, keep the first follow-up thread focused on extraction, not on feature growth.

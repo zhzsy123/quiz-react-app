@@ -1,4 +1,18 @@
 /**
- * @deprecated 兼容层。新代码请改用 `src/entities/wrongbook/api/wrongbookRepository.js`
+ * @deprecated Compatibility shim. New code should use
+ * `src/entities/wrongbook/api/wrongbookRepository.js`.
  */
-export * from '../../wrongbook/api/wrongbookRepository'
+export {
+  listWrongbookEntriesBySubject,
+  listAllWrongbookEntries,
+  upsertWrongbookEntries,
+  removeWrongbookEntry,
+  removeWrongbookEntries,
+  loadMasteredWrongMap,
+  markWrongQuestionMastered,
+  loadWrongBookEntries,
+  listAllWrongBookEntries,
+  upsertWrongBookEntries,
+  removeWrongBookEntry,
+  removeWrongBookEntries,
+} from '../../wrongbook/api/wrongbookRepository'

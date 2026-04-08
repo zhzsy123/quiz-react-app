@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bot,
   CheckCircle2,
@@ -17,6 +17,15 @@ import {
   Star,
   XCircle,
 } from 'lucide-react'
+import {
+  formatOptionLabel,
+  getObjectiveAnswerLabel,
+  isObjectiveAnswered,
+  isObjectiveResponseCorrect,
+  isObjectiveWrong,
+  normalizeChoiceArray,
+  renderOptionLabel,
+} from '../../entities/quiz/lib/objectiveAnswers'
 
 function difficultyClass(difficulty = '') {
   switch ((difficulty || '').toLowerCase()) {
@@ -31,11 +40,6 @@ function difficultyClass(difficulty = '') {
   }
 }
 
-function renderOptionLabel(option) {
-  if (typeof option === 'string') return option
-  return `${option.key}. ${option.text}`
-}
-
 function getSubjectiveText(response) {
   if (typeof response === 'string') return response
   return response?.text || ''
@@ -43,11 +47,6 @@ function getSubjectiveText(response) {
 
 function countWords(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
-}
-
-function normalizeChoiceArray(value) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
 }
 
 function isAnswered(item, response) {
@@ -70,22 +69,6 @@ function isAnswered(item, response) {
   return typeof response === 'string' && response.length > 0
 }
 
-function isObjectiveWrong(item, response) {
-  if (!item || item.answer?.type !== 'objective' || !isAnswered(item, response)) return false
-  if (item.type === 'multiple_choice') {
-    const actual = normalizeChoiceArray(response)
-    const expected = normalizeChoiceArray(item.answer?.correct)
-    return actual.length !== expected.length || actual.some((value, index) => value !== expected[index])
-  }
-  if (item.type === 'fill_blank') {
-    return item.blanks.some((blank) => {
-      const userValue = String(response?.[blank.blank_id] || '').trim().toLowerCase()
-      return !blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-    })
-  }
-  return response !== item.answer?.correct
-}
-
 function getSpoilerTags(item) {
   const hiddenTags = new Set()
   if (item.type) hiddenTags.add(String(item.type).toLowerCase())
@@ -103,10 +86,10 @@ function getNavGroupMeta(item) {
   if (item.type === 'calculation') return { key: 'calculation', label: '计算题' }
   if (item.type === 'operation') return { key: 'operation', label: '操作题' }
   if (item.type === 'essay') return { key: 'essay', label: '作文题' }
-  if (item.type === 'multiple_choice') return { key: 'multiple_choice', label: '多项选择' }
+  if (item.type === 'multiple_choice') return { key: 'multiple_choice', label: '婢舵岸銆嶉柅澶嬪' }
   if (item.type === 'true_false') return { key: 'true_false', label: '判断题' }
   if (item.type === 'fill_blank' || item.source_type === 'cloze') return { key: 'fill_blank', label: '填空题' }
-  return { key: 'single_choice', label: '单项选择' }
+  return { key: 'single_choice', label: '閸楁洟銆嶉柅澶嬪' }
 }
 
 function formatRemainingSeconds(totalSeconds) {
@@ -132,14 +115,14 @@ function AiExplainPanel({ entry }) {
       <div className="analysis-box ai-panel">
         <div className="ai-panel-status ai-loading-row">
           <LoaderCircle size={16} className="spin" />
-          AI 正在生成解释...
+          AI 濮濓絽婀悽鐔稿灇鐟欙綁锟?..
         </div>
       </div>
     )
   }
 
   if (entry.status === 'failed') {
-    return <div className="analysis-box ai-panel"><div className="ai-panel-status">AI 解释失败：{entry.error || '请稍后重试'}</div></div>
+    return <div className="analysis-box ai-panel"><div className="ai-panel-status">AI 解析失败：{entry.error || '请稍后再试'}</div></div>
   }
 
   if (entry.status !== 'completed') return null
@@ -153,7 +136,7 @@ function AiExplainPanel({ entry }) {
   return (
     <div className="analysis-box ai-panel">
       <div className="ai-panel-head">
-        <strong>{entry.title || 'AI 解释'}</strong>
+        <strong>{entry.title || 'AI 解析'}</strong>
         {(entry.explanation || hasDetails) && (
           <button type="button" className="ai-panel-toggle" onClick={() => setExpanded((value) => !value)}>
             {expanded ? '收起' : '展开'}
@@ -162,7 +145,7 @@ function AiExplainPanel({ entry }) {
       </div>
       {(entry.auditVerdict || typeof entry.confidenceScore === 'number') && (
         <div className="ai-panel-row">
-          <strong>核题结果</strong>
+          <strong>审核结论</strong>
           <span>
             {entry.auditVerdict || '--'}
             {typeof entry.confidenceScore === 'number' ? ` / 置信度 ${entry.confidenceScore}` : ''}
@@ -172,13 +155,13 @@ function AiExplainPanel({ entry }) {
       {preview && <div className="ai-panel-preview">{preview}</div>}
       {expanded && entry.explanation && <div className="ai-panel-body">{entry.explanation}</div>}
       {expanded && Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0 && (
-        <div className="ai-panel-row"><strong>关键点</strong><span>{entry.keyPoints.join(' / ')}</span></div>
+        <div className="ai-panel-row"><strong>要点</strong><span>{entry.keyPoints.join(' / ')}</span></div>
       )}
       {expanded && Array.isArray(entry.commonMistakes) && entry.commonMistakes.length > 0 && (
-        <div className="ai-panel-row"><strong>误区</strong><span>{entry.commonMistakes.join(' / ')}</span></div>
+        <div className="ai-panel-row"><strong>常见问题</strong><span>{entry.commonMistakes.join(' / ')}</span></div>
       )}
       {expanded && Array.isArray(entry.answerStrategy) && entry.answerStrategy.length > 0 && (
-        <div className="ai-panel-row"><strong>建议</strong><span>{entry.answerStrategy.join(' / ')}</span></div>
+        <div className="ai-panel-row"><strong>作答策略</strong><span>{entry.answerStrategy.join(' / ')}</span></div>
       )}
     </div>
   )
@@ -199,7 +182,7 @@ function AiQuestionReviewPanel({ review }) {
     <div className="analysis-box ai-panel ai-review-panel">
       <div className="ai-panel-head">
         <div>
-          <strong>AI 批改</strong>
+          <strong>AI 评审</strong>
         </div>
         {(review.feedback || hasDetails) && (
           <button type="button" className="ai-panel-toggle" onClick={() => setExpanded((value) => !value)}>
@@ -208,7 +191,7 @@ function AiQuestionReviewPanel({ review }) {
         )}
       </div>
       <div className="ai-review-score">
-        <strong>AI 批改：</strong>
+        <strong>AI 评分</strong>
         {review.score} / {review.maxScore}
       </div>
       {preview && <div className="ai-panel-preview">{preview}</div>}
@@ -217,10 +200,10 @@ function AiQuestionReviewPanel({ review }) {
         <div className="ai-panel-row"><strong>优点</strong><span>{review.strengths.join(' / ')}</span></div>
       )}
       {expanded && Array.isArray(review.weaknesses) && review.weaknesses.length > 0 && (
-        <div className="ai-panel-row"><strong>扣分点</strong><span>{review.weaknesses.join(' / ')}</span></div>
+        <div className="ai-panel-row"><strong>不足</strong><span>{review.weaknesses.join(' / ')}</span></div>
       )}
       {expanded && Array.isArray(review.suggestions) && review.suggestions.length > 0 && (
-        <div className="ai-panel-row"><strong>改进</strong><span>{review.suggestions.join(' / ')}</span></div>
+        <div className="ai-panel-row"><strong>建议</strong><span>{review.suggestions.join(' / ')}</span></div>
       )}
     </div>
   )
@@ -259,7 +242,7 @@ function AiPracticeModal({ modal, onClose }) {
         )}
 
         {modal.status === 'failed' && (
-          <div className="ai-panel-status">生成失败：{modal.error || '请稍后重试'}</div>
+          <div className="ai-panel-status">生成失败：{modal.error || '请稍后再试'}</div>
         )}
 
         {modal.status === 'completed' && (
@@ -267,7 +250,7 @@ function AiPracticeModal({ modal, onClose }) {
             {(modal.questions || []).map((question, index) => (
               <article key={`${question.index || index}`} className="ai-similar-card">
                 <div className="ai-similar-head">
-                  <span className="tag blue">第 {index + 1} 题</span>
+                  <span className="tag blue">题 {index + 1}</span>
                   <span className="tag">{question.difficulty || 'progressive'}</span>
                 </div>
                 <div className="ai-similar-prompt">{question.prompt}</div>
@@ -313,7 +296,7 @@ function AiPracticeModal({ modal, onClose }) {
                   </div>
                 )}
                 {!revealedMap[index] ? (
-                  <div className="ai-practice-hint">请选择答案后再查看判定与解析。</div>
+                  <div className="ai-practice-hint">完成作答后即可查看解析与结果。</div>
                 ) : (
                   <>
                     <div className="ai-panel-row">
@@ -362,7 +345,7 @@ function ReadingBlock({
         <div className="reading-passage-head">
           <div className="reading-passage-title">
             <FileText size={16} />
-            <span>{item.passage?.title || item.title || '阅读文章'}</span>
+            <span>{item.passage?.title || item.title || '闂冨懓顕伴弬鍥╃彿'}</span>
           </div>
           <button
             type="button"
@@ -450,18 +433,18 @@ function ReadingBlock({
                   data-ai-label={
                     mode === 'exam'
                       ? explainEntry?.status === 'pending'
-                        ? 'AI 核题中'
-                        : 'AI 核题'
+                        ? 'AI 审核中'
+                        : 'AI 审核'
                       : explainEntry?.status === 'pending'
-                        ? 'AI 解释中'
-                        : 'AI 解释'
+                        ? 'AI 解析中'
+                        : 'AI 解析'
                   }
                   style={{ display: canUseAiTool ? undefined : 'none' }}
                   onClick={() => onExplainQuestion({ item, subQuestion })}
                   disabled={isPaused || explainEntry?.status === 'pending'}
                 >
                   {explainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
-                  {explainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
+                  {explainEntry?.status === 'pending' ? 'AI 解析中' : 'AI 解析'}
                 </button>
                 <AiExplainPanel entry={explainEntry} />
               </div>
@@ -478,7 +461,7 @@ function TranslationBlock({ item, userResponse, disabled, submitted, onTextChang
     <div className="subjective-block translation-card">
       <div className="translation-source-meta">
         <Languages size={16} />
-        <span>{item.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span>
+        <span>{item.direction === 'zh_to_en' ? '中译英' : '英译中'}</span>
       </div>
       <div className="translation-source">{item.source_text}</div>
       <textarea
@@ -599,7 +582,7 @@ function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabl
               key={blank.blank_id}
               className={`answer-review-card ${showFeedback ? (isCorrect ? 'correct' : 'wrong') : ''}`}
             >
-              <div className="answer-review-prompt">第 {index + 1} 空</div>
+              <div className="answer-review-prompt">空 {index + 1}</div>
               <input
                 className="subjective-textarea"
                 value={value}
@@ -610,11 +593,11 @@ function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabl
               {showFeedback && (
                 <>
                   <div className="answer-review-line">
-                    <strong>参考答案：</strong>
+                    <strong>参考答案</strong>
                     {blank.accepted_answers.join(' / ')}
                   </div>
                   <div className="answer-review-line">
-                    <strong>解析：</strong>
+                    <strong>解析</strong>
                     {blank.rationale || '暂无解析'}
                   </div>
                 </>
@@ -741,7 +724,7 @@ export default function CleanQuizView({
     <section className="quiz-layout clean-workspace-layout">
       <aside className="sidebar-card nav-sidebar">
         <div className="sidebar-head-row">
-          <h3>题目导航</h3>
+          <h3>答题导航</h3>
         </div>
 
         {mode === 'exam' && (
@@ -767,8 +750,8 @@ export default function CleanQuizView({
         <div className="sidebar-tools compact-sidebar-tools">
           <div className="sidebar-tool-card compact-toggle-card">
             <div className="sidebar-tool-copy">
-              <span className="sidebar-tool-title">自动切题</span>
-              <span className="sidebar-tool-desc">完成当前题后自动跳到下一题。</span>
+              <span className="sidebar-tool-title">閼奉亜濮╅崚鍥暯</span>
+              <span className="sidebar-tool-desc">答对后自动切换到下一题。</span>
             </div>
             <button
               type="button"
@@ -786,8 +769,8 @@ export default function CleanQuizView({
           <div className="sidebar-tools compact-sidebar-tools">
             <div className="sidebar-tool-card compact-toggle-card">
               <div className="sidebar-tool-copy">
-                <span className="sidebar-tool-title">写入错题库</span>
-                <span className="sidebar-tool-desc">关闭后，本次刷题不会进入错题本。</span>
+                <span className="sidebar-tool-title">练习写入错题本</span>
+                <span className="sidebar-tool-desc">开启后，练习模式下的错题会写入错题本。</span>
               </div>
               <button
                 type="button"
@@ -805,8 +788,8 @@ export default function CleanQuizView({
           <div className="sidebar-tools compact-sidebar-tools">
             <div className="sidebar-tool-card compact-toggle-card">
               <div className="sidebar-tool-copy">
-                <span className="sidebar-tool-title">加入错题本</span>
-                <span className="sidebar-tool-desc">关闭后，本次考试不会把错题写入错题本。</span>
+                <span className="sidebar-tool-title">考试写入错题本</span>
+                <span className="sidebar-tool-desc">开启后，考试模式下的错题会写入错题本。</span>
               </div>
               <button
                 type="button"
@@ -898,21 +881,21 @@ export default function CleanQuizView({
 
       <div className="question-list">
         <article className="question-card current">
-          {disabled && !submitted && <div className="paused-banner">答题已暂停。</div>}
+          {disabled && !submitted && <div className="paused-banner">当前已暂停，暂时无法作答。</div>}
 
           <div className="question-top">
             <div className="question-meta">
-              <span className="tag">第 {currentIndex + 1} 题</span>
-              {isTranslation && <span className="tag purple">{currentItem.direction === 'zh_to_en' ? '汉译英' : '英译汉'}</span>}
+              <span className="tag">题 {currentIndex + 1}</span>
+              {isTranslation && <span className="tag purple">{currentItem.direction === 'zh_to_en' ? '中译英' : '英译中'}</span>}
               {isEssay && <span className="tag purple">作文</span>}
               {currentItem.type === 'short_answer' && <span className="tag purple">简答题</span>}
               {currentItem.type === 'case_analysis' && <span className="tag purple">案例分析</span>}
               {currentItem.type === 'calculation' && <span className="tag purple">计算题</span>}
               {currentItem.type === 'operation' && <span className="tag purple">操作题</span>}
-              {isReading && <span className="tag purple">阅读理解</span>}
-              {currentItem.type === 'multiple_choice' && <span className="tag purple">多选</span>}
-              {currentItem.type === 'true_false' && <span className="tag purple">判断</span>}
-              {isFillBlank && <span className="tag purple">填空</span>}
+              {isReading && <span className="tag purple">阅读题</span>}
+              {currentItem.type === 'multiple_choice' && <span className="tag purple">多选题</span>}
+              {currentItem.type === 'true_false' && <span className="tag purple">判断题</span>}
+              {isFillBlank && <span className="tag purple">填空题</span>}
               {spoilerTags.length > 0 && (
                 <button type="button" className="spoiler-icon-toggle" onClick={onToggleSpoiler}>
                   {spoilerExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -931,7 +914,7 @@ export default function CleanQuizView({
             </div>
           </div>
 
-          <div className="progress-text">进度：{currentIndex + 1} / {total}</div>
+          <div className="progress-text">第 {currentIndex + 1} / {total} 题</div>
 
           {!isReading && currentItem.context && (
             <div className="question-context">
@@ -946,7 +929,7 @@ export default function CleanQuizView({
             <div className="ai-toolbar">
               <div className="ai-mode-switch" style={{ display: showPracticeAiToolbar ? undefined : 'none' }}>
                 {[
-                  { key: 'brief', label: '简要' },
+                  { key: 'brief', label: '简略' },
                   { key: 'standard', label: '标准' },
                   { key: 'deep', label: '深入' },
                 ].map((item) => (
@@ -968,17 +951,17 @@ export default function CleanQuizView({
                   data-ai-label={
                     mode === 'exam'
                       ? currentExplainEntry?.status === 'pending'
-                        ? 'AI 核题中'
-                        : 'AI 核题'
+                        ? 'AI 审核中'
+                        : 'AI 审核'
                       : currentExplainEntry?.status === 'pending'
-                        ? 'AI 解释中'
-                        : 'AI 解释'
+                        ? 'AI 解析中'
+                        : 'AI 解析'
                   }
                   onClick={() => onExplainQuestion({ item: currentItem })}
                   disabled={disabled || currentExplainEntry?.status === 'pending'}
                 >
                   {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
-                  {currentExplainEntry?.status === 'pending' ? 'AI 解释中' : 'AI 解释'}
+                    {currentExplainEntry?.status === 'pending' ? 'AI 解析中' : 'AI 解析'}
                 </button>
                 {showPracticeAiToolbar && showWrongFollowups && (
                   <>
@@ -988,7 +971,7 @@ export default function CleanQuizView({
                       onClick={() => onExplainWhyWrong?.({ item: currentItem })}
                       disabled={disabled || currentExplainEntry?.status === 'pending'}
                     >
-                      为什么我错了
+                      娑撹桨绮堟稊鍫熷灉闁挎瑤锟?
                     </button>
                     <button
                       type="button"
@@ -996,7 +979,7 @@ export default function CleanQuizView({
                       onClick={() => onGenerateSimilarQuestions?.({ item: currentItem })}
                       disabled={disabled}
                     >
-                      给我同类题
+                      缂佹瑦鍨滈崥宀€琚０?
                     </button>
                   </>
                 )}
@@ -1067,7 +1050,7 @@ export default function CleanQuizView({
           {canRevealCurrentMultiChoice && (
             <div className="question-inline-actions">
               <button type="button" className="secondary-btn small-btn" onClick={onRevealCurrentObjective}>
-                检查答案
+                濡偓閺屻儳鐡熷?
               </button>
             </div>
           )}
@@ -1075,7 +1058,7 @@ export default function CleanQuizView({
           {objectiveReveal && !isSubjective && !isReading && !isFillBlank && (
             <div className="analysis-box">
               <div>
-                正确答案：
+                濮濓絿鈥樼粵鏃€顢嶉敍?
                 <strong>
                   {Array.isArray(currentItem.answer?.correct)
                     ? currentItem.answer.correct.join(' / ')
@@ -1090,7 +1073,7 @@ export default function CleanQuizView({
             <div className="analysis-box ai-panel">
               <div className="ai-panel-status ai-loading-row">
                 <LoaderCircle size={16} className="spin" />
-                AI 正在批改当前主观题...
+                AI 濮濓絽婀幍瑙勬暭瑜版挸澧犳稉鏄忣潎锟?..
               </div>
             </div>
           )}
@@ -1099,13 +1082,13 @@ export default function CleanQuizView({
           <div className="question-actions">
             <button className="secondary-btn" onClick={onPrev} disabled={isFirst || disabled}>
               <ChevronLeft size={16} />
-              上一题
+              娑撳﹣绔存０?
             </button>
 
             {!submitted ? (
               isLast ? (
                 <button className="submit-btn small-submit-btn" onClick={() => onSubmit()} disabled={disabled}>
-                  {mode === 'practice' ? '结束练习' : '交卷并查看解析'}
+                  {mode === 'practice' ? '提交练习' : '提交试卷'}
                 </button>
               ) : (
                 <button className="secondary-btn" onClick={onNext} disabled={disabled}>
@@ -1125,7 +1108,7 @@ export default function CleanQuizView({
         {!submitted && total > 0 && !isLast && (
           <div className="submit-wrap">
             <button className="submit-btn" onClick={() => onSubmit()} disabled={disabled}>
-              {mode === 'practice' ? '结束练习' : '交卷并查看解析'}
+              {mode === 'practice' ? '提交练习' : '提交试卷'}
             </button>
           </div>
         )}
@@ -1155,7 +1138,7 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
       {item.context && <div className="analysis-box"><div>{item.context}</div></div>}
       {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 && (
         <div className="analysis-box">
-          <div className="analysis-section-title">作答要点</div>
+          <div className="analysis-section-title">娴ｆ粎鐡熺憰浣哄仯</div>
           <ul className="analysis-list">
             {item.requirements.points.map((point, index) => <li key={index}>{point}</li>)}
           </ul>
@@ -1179,3 +1162,4 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
     </div>
   )
 }
+

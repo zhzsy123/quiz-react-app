@@ -30,13 +30,4 @@ export {
 export {
   saveLastOpenedPaper,
   loadLastOpenedPaper,
-  loadMasteredWrongMap,
-  markWrongQuestionMastered,
-  loadWrongBookEntries,
-  upsertWrongBookEntries,
-  removeWrongBookEntry,
-  removeWrongBookEntries,
-  loadFavoriteEntries,
-  toggleFavoriteEntry,
-  removeFavoriteEntry,
 } from './metaStore'

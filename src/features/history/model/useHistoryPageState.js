@@ -1,66 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
 import { listHistoryEntries, removeHistoryEntry, updateHistoryEntry } from '../../../entities/history/api/historyRepository'
+import {
+  formatOptionLabel,
+  getObjectiveAnswerLabel,
+  formatObjectiveCorrectAnswerLabel,
+  isObjectiveResponseCorrect,
+} from '../../../entities/quiz/lib/objectiveAnswers'
 
 function attemptDisplayTitle(attempt) {
-  return attempt.customTitle?.trim() || attempt.title || '未命名答卷'
-}
-
-function normalizeChoiceArray(value) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
-}
-
-function optionLabel(options = [], key = '') {
-  if (!key) return '未作答'
-  const match = options.find((option) => option?.key === key)
-  if (!match) return key
-  return `${match.key}. ${match.text}`
-}
-
-function objectiveLabel(item, response) {
-  if (item.type === 'multiple_choice') {
-    const values = normalizeChoiceArray(response)
-    return values.length ? values.map((value) => optionLabel(item.options || [], value)).join(' / ') : '未作答'
-  }
-  if (item.type === 'fill_blank') {
-    if (!response || typeof response !== 'object') return '未作答'
-    return (
-      item.blanks
-        .map((blank) => String(response[blank.blank_id] || '').trim())
-        .filter(Boolean)
-        .join(' / ') || '未作答'
-    )
-  }
-  return optionLabel(item.options || [], response || '')
-}
-
-function objectiveCorrectLabel(item) {
-  if (item.type === 'multiple_choice') {
-    return normalizeChoiceArray(item.answer?.correct)
-      .map((value) => optionLabel(item.options || [], value))
-      .join(' / ')
-  }
-  if (item.type === 'fill_blank') {
-    return item.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
-  }
-  return optionLabel(item.options || [], item.answer?.correct || '')
-}
-
-function isObjectiveCorrect(item, response) {
-  if (item.type === 'multiple_choice') {
-    const actual = normalizeChoiceArray(response)
-    const expected = normalizeChoiceArray(item.answer?.correct)
-    return actual.length > 0 && actual.length === expected.length && actual.every((value, index) => value === expected[index])
-  }
-  if (item.type === 'fill_blank') {
-    if (!response || typeof response !== 'object') return false
-    return item.blanks.every((blank) => {
-      const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
-      return blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-    })
-  }
-  return (response || '') === item.answer?.correct
+  return attempt.customTitle?.trim() || attempt.title || '未命名试卷'
 }
 
 function buildAnswerRows(attempt) {
@@ -77,8 +26,8 @@ function buildAnswerRows(attempt) {
           parentTitle: item.passage?.title || item.title || '阅读理解',
           prompt: question.prompt,
           type: 'objective',
-          userLabel: optionLabel(question.options || [], readingAnswers[question.id] || ''),
-          correctLabel: optionLabel(question.options || [], question.answer?.correct || ''),
+          userLabel: formatOptionLabel(question.options || [], readingAnswers[question.id] || '', '未作答'),
+          correctLabel: formatOptionLabel(question.options || [], question.answer?.correct || '', '未作答'),
           rationale: question.answer?.rationale || '暂无解析',
           isCorrect: (readingAnswers[question.id] || '') === question.answer?.correct,
         })
@@ -92,13 +41,13 @@ function buildAnswerRows(attempt) {
         key: item.id,
         prompt: item.prompt,
         type: 'objective',
-        userLabel: objectiveLabel(item, userValue),
-        correctLabel: objectiveCorrectLabel(item),
+        userLabel: getObjectiveAnswerLabel(item, userValue, '未作答'),
+        correctLabel: formatObjectiveCorrectAnswerLabel(item, '未作答'),
         rationale:
           item.type === 'fill_blank'
-            ? item.blanks.map((blank, index) => `空 ${index + 1}：${blank.rationale || '暂无解析'}`).join('；')
+            ? item.blanks.map((blank, index) => `空${index + 1}：${blank.rationale || '暂无解析'}`).join('；')
             : item.answer?.rationale || '暂无解析',
-        isCorrect: isObjectiveCorrect(item, userValue),
+        isCorrect: isObjectiveResponseCorrect(item, userValue),
       })
       return
     }
@@ -160,9 +109,9 @@ export function useHistoryPageState() {
   }, [filteredAttempts])
 
   const handleEditAttempt = async (attempt) => {
-    const nextTitle = window.prompt('请输入新的展示标题：', attempt.customTitle?.trim() || attempt.title || '')
+    const nextTitle = window.prompt('编辑标题', attempt.customTitle?.trim() || attempt.title || '')
     if (nextTitle === null) return
-    const nextNotes = window.prompt('请输入备注：', attempt.notes || '')
+    const nextNotes = window.prompt('编辑备注', attempt.notes || '')
     if (nextNotes === null) return
     await updateHistoryEntry(attempt.id, { customTitle: nextTitle, notes: nextNotes })
     await refreshAttempts()

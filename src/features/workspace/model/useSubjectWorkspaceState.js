@@ -1,6 +1,15 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../../app/providers/AppContext'
+import {
+  formatObjectiveAnswerLabel,
+  formatOptionLabel,
+  getObjectiveAnswerLabel,
+  isObjectiveAnswered,
+  isObjectiveCorrect,
+  isObjectiveResponseCorrect,
+  normalizeChoiceArray,
+} from '../../../entities/quiz/lib/objectiveAnswers'
 import { buildQuizDocumentFromText } from '../../../entities/quiz/lib/quizPipeline'
 import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/scoring/getQuizScoreBreakdown'
 import {
@@ -27,6 +36,10 @@ const AI_EXPLAIN_MODE_KEY = 'quiz:pref:aiExplainMode'
 const DEFAULT_PRACTICE_WRONG_BOOK = true
 const DEFAULT_EXAM_WRONG_BOOK = true
 
+function isNonEmptyText(value) {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
 function getExamDurationSeconds(quiz, subjectMeta) {
   const minutes = Number(quiz?.duration_minutes) || Number(subjectMeta?.defaultDurationMinutes) || 90
   return Math.max(1, minutes) * 60
@@ -51,77 +64,11 @@ function getExplainEntryKey(itemId, subQuestionId = '') {
   return subQuestionId ? `${itemId}:${subQuestionId}` : itemId
 }
 
-function isNonEmptyText(value) {
-  return typeof value === 'string' && value.trim().length > 0
-}
-
-function normalizeChoiceArray(value) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
-}
-
 function clipText(text = '', maxLength = 180) {
   if (typeof text !== 'string') return ''
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
 }
 
-function normalizeMultiChoiceResponse(value) {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].sort()
-}
-
-function getOptionText(options = [], key = '') {
-  if (!key) return '未作答'
-  const match = options.find((option) => option?.key === key)
-  if (!match) return key
-  return `${match.key}. ${match.text}`
-}
-
-function getObjectiveAnswerLabel(item, response) {
-  if (item.type === 'multiple_choice') {
-    const values = normalizeChoiceArray(response)
-    return values.length ? values.map((value) => getOptionText(item.options || [], value)).join(' / ') : '未作答'
-  }
-  if (item.type === 'fill_blank') {
-    if (!response || typeof response !== 'object') return '未作答'
-    return (
-      item.blanks
-        .map((blank) => String(response[blank.blank_id] || '').trim())
-        .filter(Boolean)
-        .join(' / ') || '未作答'
-    )
-  }
-  return getOptionText(item.options || [], response || '')
-}
-
-function isObjectiveAnswered(item, response) {
-  if (!item || item.answer?.type !== 'objective') return false
-  if (item.type === 'multiple_choice') {
-    return normalizeChoiceArray(response).length > 0
-  }
-  if (item.type === 'fill_blank') {
-    if (!response || typeof response !== 'object') return false
-    return item.blanks.every((blank) => isNonEmptyText(response[blank.blank_id]))
-  }
-  return isNonEmptyText(response)
-}
-
-function isObjectiveCorrect(item, response) {
-  if (!item || item.answer?.type !== 'objective') return false
-  if (item.type === 'multiple_choice') {
-    const actual = normalizeChoiceArray(response)
-    const expected = normalizeChoiceArray(item.answer?.correct)
-    return actual.length > 0 && actual.length === expected.length && actual.every((value, index) => value === expected[index])
-  }
-  if (item.type === 'fill_blank') {
-    if (!response || typeof response !== 'object') return false
-    return item.blanks.every((blank) => {
-      const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
-      return blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-    })
-  }
-  return response === item.answer?.correct
-}
 
 function isResponseAnswered(item, response) {
   if (!item) return false
@@ -162,7 +109,7 @@ function getObjectiveItemScore(item, response) {
       return sum + (isCorrect ? blank.score || 0 : 0)
     }, 0)
   }
-  if (item.answer?.type === 'objective' && isObjectiveCorrect(item, response)) {
+  if (item.answer?.type === 'objective' && isObjectiveResponseCorrect(item, response)) {
     return item.score || 0
   }
   return 0
@@ -183,7 +130,7 @@ function getObjectiveWrongCount(item, response) {
     }, 0)
   }
   if (item.answer?.type === 'objective') {
-    return isObjectiveCorrect(item, response) ? 0 : 1
+    return isObjectiveResponseCorrect(item, response) ? 0 : 1
   }
   return 0
 }
@@ -209,14 +156,14 @@ function buildWrongItems(items, answers, meta) {
           questionId: item.id,
           subQuestionId: question.id,
           prompt: question.prompt,
-          contextTitle: item.passage?.title || item.title || '阅读理解',
+                    contextTitle: item.passage?.title || item.title || 'Reading passage',
           contextSnippet: clipText(item.passage?.content || ''),
           options: question.options || [],
           userAnswer,
-          userAnswerLabel: getOptionText(question.options || [], userAnswer),
+          userAnswerLabel: formatOptionLabel(question.options || [], userAnswer),
           correctAnswer: question.answer?.correct || '',
-          correctAnswerLabel: getOptionText(question.options || [], question.answer?.correct || ''),
-          rationale: question.answer?.rationale || '暂无解析',
+          correctAnswerLabel: formatOptionLabel(question.options || [], question.answer?.correct || ''),
+                    rationale: question.answer?.rationale || 'No rationale provided',
           tags: [...(item.tags || []), ...(question.tags || [])],
           difficulty: question.difficulty || item.difficulty,
           lastWrongAt,
@@ -228,7 +175,7 @@ function buildWrongItems(items, answers, meta) {
 
     if (item.answer?.type !== 'objective') return
     const userAnswer = answers[item.id]
-    if (isObjectiveCorrect(item, userAnswer)) return
+    if (isObjectiveResponseCorrect(item, userAnswer)) return
 
     wrongItems.push({
       questionKey: `${meta.subject}:${meta.paperId}:${item.id}`,
@@ -244,13 +191,13 @@ function buildWrongItems(items, answers, meta) {
       options: item.options || [],
       blanks: item.blanks || [],
       userAnswer,
-      userAnswerLabel: getObjectiveAnswerLabel(item, userAnswer),
+      userAnswerLabel: formatObjectiveAnswerLabel(item, userAnswer),
       correctAnswer: item.answer?.correct || '',
       correctAnswerLabel:
         item.type === 'fill_blank'
           ? item.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
           : getObjectiveAnswerLabel(item, item.answer?.correct),
-      rationale: item.answer?.rationale || '暂无解析',
+            rationale: item.answer?.rationale || 'No rationale provided',
       tags: item.tags || [],
       difficulty: item.difficulty,
       lastWrongAt,
@@ -287,7 +234,7 @@ function buildFavoriteEntryFromItem(item, meta) {
     subject: meta.subject,
     paperId: meta.paperId,
     paperTitle: meta.paperTitle,
-    prompt: item.prompt || item.passage?.title || '未命名题目',
+        prompt: item.prompt || item.passage?.title || '?????',
     itemType: item.type,
     sourceType: item.source_type || item.type,
     tags: item.tags || [],
@@ -376,11 +323,6 @@ export function useSubjectWorkspaceState() {
         }
         resolvedDurationSeconds = getExamDurationSeconds(resolvedQuiz, subjectMeta)
       } else {
-        if (!paperId) {
-          setLoading(false)
-          return
-        }
-
         const entries = await listLibraryEntries(activeProfile.id, subjectKey)
         const matched = entries.find((item) => item.paperId === paperId)
         if (!matched || cancelled) {
@@ -447,7 +389,7 @@ export function useSubjectWorkspaceState() {
     examWritesWrongBook,
     mode,
     updatedAt: Date.now(),
-    title: quiz?.title || entry?.title || '未命名试卷',
+              title: quiz?.title || entry?.title || '?????',
     ...overrides,
   })
 
@@ -461,7 +403,7 @@ export function useSubjectWorkspaceState() {
     try {
       await updateHistoryEntry(targetAttemptId, patch)
     } catch (error) {
-      console.error('AI 评阅记录更新失败', error)
+      console.error('Failed to persist attempt patch.', error)
     }
   }
 
@@ -510,7 +452,7 @@ export function useSubjectWorkspaceState() {
 
       if (item.answer?.type === 'objective' && isObjectiveAnswered(item, answers[item.id])) {
         answered += 1
-        if (isObjectiveCorrect(item, answers[item.id])) correct += 1
+        if (isObjectiveResponseCorrect(item, answers[item.id])) correct += 1
       }
     })
 
@@ -544,7 +486,7 @@ export function useSubjectWorkspaceState() {
         {
           ...pendingReview,
           status: 'failed',
-          error: error?.message || 'AI 批改失败',
+          error: error?.message || 'AI 评审失败',
         },
         targetAttemptId
       )
@@ -604,7 +546,7 @@ export function useSubjectWorkspaceState() {
 
     setAiPracticeModal({
       status: 'pending',
-      title: 'AI 同类题生成中',
+      title: 'AI 正在生成同类题',
       questions: [],
       error: '',
     })
@@ -648,7 +590,7 @@ export function useSubjectWorkspaceState() {
     const answeredCount = quiz.items.filter((item) => isResponseAnswered(item, answers[item.id])).length
 
     if (mode === 'exam' && !forced && answeredCount < totalQuestions) {
-      const ok = window.confirm('还有题目未作答，确定现在交卷吗？')
+      const ok = window.confirm('还有未作答题目，确定现在交卷吗？')
       if (!ok) return
     }
 
@@ -660,6 +602,7 @@ export function useSubjectWorkspaceState() {
       paperId,
       paperTitle: entry?.title || quiz.title || '未命名试卷',
     })
+    const shouldPersistAttempt = source !== 'favorites'
     const shouldWriteWrongBook = source !== 'favorites' && (mode === 'exam' ? examWritesWrongBook : practiceWritesWrongBook)
 
     setScore(nextScore)
@@ -667,15 +610,13 @@ export function useSubjectWorkspaceState() {
     setIsPaused(false)
     setAiReview(initialAiReview)
 
-    await persistNow({ submitted: true, score: nextScore, isPaused: false, aiReview: initialAiReview })
-
     let savedAttempt = null
-    if (source !== 'favorites' && (mode === 'exam' || practiceWritesWrongBook)) {
+    if (shouldPersistAttempt) {
       savedAttempt = await createHistoryEntry({
         profileId: activeProfile.id,
         subject: subjectKey,
         paperId,
-        title: entry?.title || quiz.title || '未命名试卷',
+        title: entry?.title || quiz.title || 'Untitled paper',
         objectiveScore: nextScore,
         objectiveTotal: objectiveTotalScore,
         paperTotal: paperTotalScore,
@@ -784,7 +725,7 @@ export function useSubjectWorkspaceState() {
 
     let nextValue = optionLetter
     if (currentItem.type === 'multiple_choice') {
-      const currentValues = normalizeMultiChoiceResponse(answersRef.current[questionId])
+      const currentValues = normalizeChoiceArray(answersRef.current[questionId])
       nextValue = currentValues.includes(optionLetter)
         ? currentValues.filter((value) => value !== optionLetter)
         : [...currentValues, optionLetter].sort()
@@ -798,7 +739,7 @@ export function useSubjectWorkspaceState() {
       const nextRevealed = { ...revealedMap, [questionId]: true }
       setRevealedMap(nextRevealed)
       let nextIndex = currentIndex
-      const isCorrectNow = currentItem.type !== 'multiple_choice' && isObjectiveCorrect(currentItem, nextValue)
+      const isCorrectNow = currentItem.type !== 'multiple_choice' && isObjectiveResponseCorrect(currentItem, nextValue)
       if (autoAdvance && isCorrectNow && currentIndex < quiz.items.length - 1) {
         nextIndex = currentIndex + 1
         setCurrentIndex(nextIndex)
@@ -899,7 +840,7 @@ export function useSubjectWorkspaceState() {
     setRevealedMap(nextRevealed)
 
     let nextIndex = currentIndex
-    if (autoAdvance && isObjectiveCorrect(currentItem, currentResponse) && currentIndex < quiz.items.length - 1) {
+    if (autoAdvance && isObjectiveResponseCorrect(currentItem, currentResponse) && currentIndex < quiz.items.length - 1) {
       nextIndex = currentIndex + 1
       setCurrentIndex(nextIndex)
     }
@@ -917,7 +858,7 @@ export function useSubjectWorkspaceState() {
 
   const handleReset = async () => {
     if (!activeProfile?.id || !sessionPaperId) return
-    const ok = window.confirm('确定重置当前进度吗？')
+    const ok = window.confirm('Reset current progress?')
     if (!ok) return
 
     await clearSessionProgress(activeProfile.id, subjectKey, sessionPaperId)
@@ -947,7 +888,7 @@ export function useSubjectWorkspaceState() {
       examWritesWrongBook,
       mode,
       updatedAt: Date.now(),
-      title: quiz?.title || entry?.title || '未命名试卷',
+      title: quiz?.title || entry?.title || 'Untitled paper',
     })
   }
 
@@ -977,12 +918,11 @@ export function useSubjectWorkspaceState() {
     const entryToToggle = buildFavoriteEntryFromItem(item, {
       subject: subjectKey,
       paperId,
-      paperTitle: entry?.title || quiz.title || '未命名试卷',
+      paperTitle: entry?.title || quiz.title || 'Untitled paper',
     })
     const result = await toggleFavoriteEntry(activeProfile.id, subjectKey, entryToToggle)
     setFavoriteEntries(result.entries)
   }
-
 
   const backLink = source === 'favorites' ? '/favorites' : `/exam/${subjectMeta.routeSlug}`
   const remainingTimeLabel = formatRemainingSeconds(remainingSeconds)
@@ -1052,3 +992,10 @@ export function useSubjectWorkspaceState() {
     handleFinish,
   }
 }
+
+
+
+
+
+
+

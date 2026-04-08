@@ -1,0 +1,89 @@
+import {
+  buildScopedMetaKey,
+  cloneMetaValue,
+  getMetaRecord,
+  saveMetaValue,
+} from '../../../shared/storage/indexedDb/metaRecordStore'
+
+function wrongBookMasteredKey(profileId, subject) {
+  return buildScopedMetaKey('wrongbook-mastered', profileId, subject)
+}
+
+function wrongBookEntriesKey(profileId, subject) {
+  return buildScopedMetaKey('wrongbook-entries', profileId, subject)
+}
+
+async function loadWrongBookEntryMap(profileId, subject) {
+  const result = await getMetaRecord(wrongBookEntriesKey(profileId, subject))
+  return result?.value || {}
+}
+
+async function saveWrongBookEntryMap(profileId, subject, value) {
+  await saveMetaValue(wrongBookEntriesKey(profileId, subject), value)
+  return value
+}
+
+export async function loadMasteredWrongMap(profileId, subject) {
+  const result = await getMetaRecord(wrongBookMasteredKey(profileId, subject))
+  return result?.value || {}
+}
+
+export async function markWrongQuestionMastered(profileId, subject, questionKey, masteredAt = Date.now()) {
+  const current = await loadMasteredWrongMap(profileId, subject)
+  const next = {
+    ...current,
+    [questionKey]: masteredAt,
+  }
+  await saveMetaValue(wrongBookMasteredKey(profileId, subject), next)
+  return next
+}
+
+export async function loadWrongBookEntries(profileId, subject) {
+  const map = await loadWrongBookEntryMap(profileId, subject)
+  return Object.values(map).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+}
+
+export async function upsertWrongBookEntries(profileId, subject, entries) {
+  const current = await loadWrongBookEntryMap(profileId, subject)
+  const next = { ...current }
+
+  ;(entries || []).forEach((entry) => {
+    if (!entry?.questionKey) return
+
+    const cloned = cloneMetaValue(entry)
+    const existing = next[cloned.questionKey]
+    const wrongTimes = (existing?.wrongTimes || 0) + (cloned.wrongTimes || 1)
+    const addedAt = existing?.addedAt || cloned.addedAt || Date.now()
+    const lastWrongAt = cloned.lastWrongAt || Date.now()
+
+    next[cloned.questionKey] = {
+      ...(existing || {}),
+      ...cloned,
+      subject: cloned.subject || subject,
+      wrongTimes,
+      addedAt,
+      lastWrongAt,
+    }
+  })
+
+  const saved = await saveWrongBookEntryMap(profileId, subject, next)
+  return Object.values(saved).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+}
+
+export async function removeWrongBookEntry(profileId, subject, questionKey) {
+  const current = await loadWrongBookEntryMap(profileId, subject)
+  const next = { ...current }
+  delete next[questionKey]
+  const saved = await saveWrongBookEntryMap(profileId, subject, next)
+  return Object.values(saved).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+}
+
+export async function removeWrongBookEntries(profileId, subject, questionKeys = []) {
+  const current = await loadWrongBookEntryMap(profileId, subject)
+  const next = { ...current }
+  questionKeys.forEach((questionKey) => {
+    delete next[questionKey]
+  })
+  const saved = await saveWrongBookEntryMap(profileId, subject, next)
+  return Object.values(saved).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+}

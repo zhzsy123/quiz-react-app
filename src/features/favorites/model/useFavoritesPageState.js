@@ -44,6 +44,14 @@ export function useFavoritesPageState() {
     })
   }, [entries, query, subjectFilter])
 
+  const startPracticeSubjectKey = useMemo(() => {
+    if (subjectFilter !== 'all') return subjectFilter
+    const uniqueSubjects = [...new Set(filteredEntries.map((entry) => entry.subject).filter(Boolean))]
+    return uniqueSubjects.length === 1 ? uniqueSubjects[0] : ''
+  }, [filteredEntries, subjectFilter])
+
+  const canStartPractice = Boolean(startPracticeSubjectKey)
+
   const handleRemove = async (entry) => {
     if (!activeProfileId) return
     await removeFavoriteEntry(activeProfileId, entry.subject, entry.questionKey)
@@ -51,9 +59,8 @@ export function useFavoritesPageState() {
   }
 
   const handleStartPractice = () => {
-    const targetSubjectKey = subjectFilter !== 'all' ? subjectFilter : filteredEntries[0]?.subject
-    if (!targetSubjectKey) return
-    const subjectMeta = getSubjectMeta(targetSubjectKey)
+    if (!canStartPractice) return
+    const subjectMeta = getSubjectMeta(startPracticeSubjectKey)
     navigate(`/workspace/${subjectMeta.routeSlug}?source=favorites&mode=practice`)
   }
 
@@ -64,6 +71,7 @@ export function useFavoritesPageState() {
     setQuery,
     subjectFilter,
     setSubjectFilter,
+    canStartPractice,
     handleRemove,
     handleStartPractice,
   }

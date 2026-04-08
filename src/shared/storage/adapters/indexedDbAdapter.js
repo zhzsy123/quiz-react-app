@@ -16,15 +16,6 @@ import {
   listAttempts,
   updateAttemptRecord,
   deleteAttemptRecord,
-  loadMasteredWrongMap,
-  markWrongQuestionMastered,
-  loadWrongBookEntries,
-  upsertWrongBookEntries,
-  removeWrongBookEntry,
-  removeWrongBookEntries,
-  loadFavoriteEntries,
-  toggleFavoriteEntry,
-  removeFavoriteEntry,
 } from '../indexedDb'
 
 export const indexedDbAdapter = {
@@ -45,13 +36,4 @@ export const indexedDbAdapter = {
   listAttempts,
   updateAttemptRecord,
   deleteAttemptRecord,
-  loadMasteredWrongMap,
-  markWrongQuestionMastered,
-  loadWrongBookEntries,
-  upsertWrongBookEntries,
-  removeWrongBookEntry,
-  removeWrongBookEntries,
-  loadFavoriteEntries,
-  toggleFavoriteEntry,
-  removeFavoriteEntry,
 }
