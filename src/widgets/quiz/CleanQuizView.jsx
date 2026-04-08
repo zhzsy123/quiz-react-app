@@ -86,10 +86,10 @@ function getNavGroupMeta(item) {
   if (item.type === 'calculation') return { key: 'calculation', label: '计算题' }
   if (item.type === 'operation') return { key: 'operation', label: '操作题' }
   if (item.type === 'essay') return { key: 'essay', label: '作文题' }
-  if (item.type === 'multiple_choice') return { key: 'multiple_choice', label: '婢舵岸銆嶉柅澶嬪' }
+  if (item.type === 'multiple_choice') return { key: 'multiple_choice', label: '多选题' }
   if (item.type === 'true_false') return { key: 'true_false', label: '判断题' }
   if (item.type === 'fill_blank' || item.source_type === 'cloze') return { key: 'fill_blank', label: '填空题' }
-  return { key: 'single_choice', label: '閸楁洟銆嶉柅澶嬪' }
+  return { key: 'single_choice', label: '单选题' }
 }
 
 function formatRemainingSeconds(totalSeconds) {
@@ -115,7 +115,7 @@ function AiExplainPanel({ entry }) {
       <div className="analysis-box ai-panel">
         <div className="ai-panel-status ai-loading-row">
           <LoaderCircle size={16} className="spin" />
-          AI 濮濓絽婀悽鐔稿灇鐟欙綁锟?..
+          AI 解析中...
         </div>
       </div>
     )
@@ -345,7 +345,7 @@ function ReadingBlock({
         <div className="reading-passage-head">
           <div className="reading-passage-title">
             <FileText size={16} />
-            <span>{item.passage?.title || item.title || '闂冨懓顕伴弬鍥╃彿'}</span>
+            <span>{item.passage?.title || item.title || '阅读材料'}</span>
           </div>
           <button
             type="button"
@@ -750,7 +750,7 @@ export default function CleanQuizView({
         <div className="sidebar-tools compact-sidebar-tools">
           <div className="sidebar-tool-card compact-toggle-card">
             <div className="sidebar-tool-copy">
-              <span className="sidebar-tool-title">閼奉亜濮╅崚鍥暯</span>
+              <span className="sidebar-tool-title">自动切题</span>
               <span className="sidebar-tool-desc">答对后自动切换到下一题。</span>
             </div>
             <button
@@ -971,7 +971,7 @@ export default function CleanQuizView({
                       onClick={() => onExplainWhyWrong?.({ item: currentItem })}
                       disabled={disabled || currentExplainEntry?.status === 'pending'}
                     >
-                      娑撹桨绮堟稊鍫熷灉闁挎瑤锟?
+                      错因分析
                     </button>
                     <button
                       type="button"
@@ -979,7 +979,7 @@ export default function CleanQuizView({
                       onClick={() => onGenerateSimilarQuestions?.({ item: currentItem })}
                       disabled={disabled}
                     >
-                      缂佹瑦鍨滈崥宀€琚０?
+                      同类练习
                     </button>
                   </>
                 )}
@@ -1050,7 +1050,7 @@ export default function CleanQuizView({
           {canRevealCurrentMultiChoice && (
             <div className="question-inline-actions">
               <button type="button" className="secondary-btn small-btn" onClick={onRevealCurrentObjective}>
-                濡偓閺屻儳鐡熷?
+                查看答案
               </button>
             </div>
           )}
@@ -1058,7 +1058,7 @@ export default function CleanQuizView({
           {objectiveReveal && !isSubjective && !isReading && !isFillBlank && (
             <div className="analysis-box">
               <div>
-                濮濓絿鈥樼粵鏃€顢嶉敍?
+                正确答案：
                 <strong>
                   {Array.isArray(currentItem.answer?.correct)
                     ? currentItem.answer.correct.join(' / ')
@@ -1073,7 +1073,7 @@ export default function CleanQuizView({
             <div className="analysis-box ai-panel">
               <div className="ai-panel-status ai-loading-row">
                 <LoaderCircle size={16} className="spin" />
-                AI 濮濓絽婀幍瑙勬暭瑜版挸澧犳稉鏄忣潎锟?..
+                AI 评审中...
               </div>
             </div>
           )}
@@ -1082,7 +1082,7 @@ export default function CleanQuizView({
           <div className="question-actions">
             <button className="secondary-btn" onClick={onPrev} disabled={isFirst || disabled}>
               <ChevronLeft size={16} />
-              娑撳﹣绔存０?
+              上一题
             </button>
 
             {!submitted ? (
@@ -1138,7 +1138,7 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
       {item.context && <div className="analysis-box"><div>{item.context}</div></div>}
       {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 && (
         <div className="analysis-box">
-          <div className="analysis-section-title">娴ｆ粎鐡熺憰浣哄仯</div>
+          <div className="analysis-section-title">作答要点</div>
           <ul className="analysis-list">
             {item.requirements.points.map((point, index) => <li key={index}>{point}</li>)}
           </ul>
