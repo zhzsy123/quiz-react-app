@@ -112,6 +112,14 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
     setEditingId('')
   }
 
+  const handleRepair = async (questionId) => {
+    try {
+      await handlers?.onRepairQuestion?.(questionId)
+    } catch {
+      // 错误状态由 hook 内部维护，这里不再额外抛出未处理 Promise。
+    }
+  }
+
   return (
     <div className="document-import-question-preview">
       <div className="document-import-question-preview-head">
@@ -130,7 +138,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
                 <strong>第 {item.index} 题</strong>
                 <span className="tag blue">{item.label}</span>
                 {item.subQuestionCount > 0 ? (
-                  <span className="tag blue">含 {item.subQuestionCount} 个子项</span>
+                  <span className="tag blue">含 {item.subQuestionCount} 个子题</span>
                 ) : null}
               </div>
               <span>{item.score} 分</span>
@@ -169,7 +177,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
                     取消
                   </button>
                   <button type="button" className="primary-btn small-btn" onClick={() => saveDraft(item.id)}>
-                    保存修订
+                    保存修改
                   </button>
                 </div>
               </div>
@@ -183,7 +191,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
                   <button
                     type="button"
                     className="secondary-btn small-btn"
-                    onClick={() => handlers?.onRepairQuestion?.(item.id)}
+                    onClick={() => void handleRepair(item.id)}
                     disabled={handlers?.repairingQuestionIds?.includes(item.id)}
                   >
                     {handlers?.repairingQuestionIds?.includes(item.id) ? '重解析中…' : '重新解析'}
@@ -249,6 +257,7 @@ export default function DocumentImportPreview({
           <span>文本 {documentDraft.stats.characterCount} 字</span>
           <span>页数 {documentDraft.stats.pageCount || 0}</span>
           <span>段落 {documentDraft.stats.paragraphCount || 0}</span>
+          {documentDraft.ocrUsed ? <span>已启用 OCR</span> : null}
         </div>
       ) : null}
 
@@ -260,7 +269,7 @@ export default function DocumentImportPreview({
 
       {renderIssueList('警告', warnings, 'warning')}
       {renderIssueList('错误', errors, 'error')}
-      {renderIssueList('无效题原因', invalidReasons, 'error')}
+      {renderIssueList('无效原因', invalidReasons, 'error')}
       {isPreviewReady
         ? renderQuestionPreviewList(preview, {
             onRemoveQuestion,

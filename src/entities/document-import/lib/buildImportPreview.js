@@ -99,10 +99,13 @@ export function buildImportPreview({ normalizedDocument, subjectKey, warnings = 
     warningCount: warnings.length,
     invalidCount: invalidReasons.length,
     questionPreviews: buildQuestionPreviews(items),
-    typeStats: Array.from(typeCounter.entries()).map(([type, count]) => ({
-      type,
-      label: getQuestionTypeMeta(type).shortLabel || getQuestionTypeMeta(type).label || type,
-      count,
-    })),
+    typeStats: Array.from(typeCounter.entries()).map(([type, count]) => {
+      const typeMeta = getQuestionTypeMeta(type)
+      return {
+        type,
+        label: typeMeta.shortLabel || typeMeta.label || type,
+        count,
+      }
+    }),
   }
 }

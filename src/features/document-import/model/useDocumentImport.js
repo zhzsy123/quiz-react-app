@@ -380,7 +380,6 @@ export function useDocumentImport({
   }, [
     failImport,
     onStartPracticeWithImportedPaper,
-    repairImportedQuestionWithAi,
     saveImportedPaper,
     state.documentDraft,
     state.importResult,
@@ -521,7 +520,7 @@ export function useDocumentImport({
           errors: [message],
           progressLog: appendLog(current.progressLog, `局部重解析失败：${message}`),
         }))
-        throw error
+        return null
       } finally {
         updateState((current) => ({
           ...current,

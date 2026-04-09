@@ -71,6 +71,7 @@ describe('DocumentImportDialog', () => {
         failedStage: '',
         canSave: true,
         canStartPractice: true,
+        repairingQuestionIds: [],
       },
       subjectOptions: [
         { key: 'english', shortLabel: '英语' },
@@ -84,6 +85,9 @@ describe('DocumentImportDialog', () => {
       onReset: vi.fn(),
       onSaveImportedPaper: vi.fn(),
       onStartPracticeWithImportedPaper: vi.fn(),
+      onRemoveQuestion: vi.fn(),
+      onUpdateQuestion: vi.fn(),
+      onRepairQuestion: vi.fn(),
     }
 
     const { root, container } = await renderDialog(props)

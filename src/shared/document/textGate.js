@@ -19,12 +19,12 @@ export function assessDocumentTextGate(documentDraft, options = {}) {
   }
 
   if (nonWhitespaceText.length < minChars) {
-    reasons.push(`提取到的有效文本过短（少于 ${minChars} 个非空白字符）。`)
+    reasons.push(`提取到的有效文本过短，少于 ${minChars} 个非空白字符。`)
   }
 
   const lineCount = Number(documentDraft?.stats?.lineCount) || 0
   if (lineCount < minLines) {
-    reasons.push(`提取到的有效文本行数不足（少于 ${minLines} 行）。`)
+    reasons.push(`提取到的有效文本行数不足，少于 ${minLines} 行。`)
   }
 
   const looksLikeScannedPdf =
@@ -34,8 +34,8 @@ export function assessDocumentTextGate(documentDraft, options = {}) {
       (nonWhitespaceText.length < minChars && pagesWithTextCount <= Math.max(1, Math.ceil(pageCount / 3))))
 
   if (looksLikeScannedPdf) {
-    reasons.unshift('当前 PDF 可能是扫描件或图片 PDF，暂不支持 OCR，请更换带文本层的 PDF，或先转成可复制文本后再导入。')
-    hints.push('当前系统会优先拦截扫描件，避免把空文本或乱码内容发送给 AI。')
+    reasons.unshift('当前 PDF 疑似扫描件或图片 PDF，需要先尝试 OCR 才能继续解析。')
+    hints.push('系统会先尝试 OCR；如果结果仍然很差，建议换用带文本层的 PDF，或先做 OCR 后再导入。')
   }
 
   return {
@@ -58,7 +58,7 @@ export function assertDocumentTextGate(documentDraft, options = {}) {
   if (!gate.isUsable) {
     throw createDocumentImportError(
       'extracting_text',
-      gate.reasons[0] || '当前文件未提取到可供解析的有效文本。',
+      gate.reasons[0] || '当前文档未提取到可供解析的有效文本。',
       { reasons: gate.reasons, hints: gate.hints, stats: gate.stats }
     )
   }

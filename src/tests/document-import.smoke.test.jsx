@@ -188,6 +188,7 @@ vi.mock('../shared/document', () => ({
 
 vi.mock('../features/document-import/api/documentImportService', () => ({
   importDocumentWithAi: importDocumentWithAiMock,
+  repairImportedQuestionWithAi: vi.fn(),
 }))
 
 vi.mock('../entities/subject/model/subjects', () => {

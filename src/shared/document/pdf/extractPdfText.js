@@ -58,30 +58,43 @@ export async function extractPdfText(file, { subject = '', gateOptions } = {}) {
   })
 
   const gate = assessDocumentTextGate(documentDraft, gateOptions)
-  if (!gate.isUsable) {
-    try {
-      const ocrResult = await extractPdfTextWithOcr(pdf, {
-        fileName: file.name,
-        subject,
-        gateOptions,
-      })
-
-      return ocrResult
-    } catch (error) {
-      if (error instanceof Error) {
-        throw createDocumentImportError(
-          'extracting_text',
-          `当前 PDF 文本层不可用，且 OCR 识别失败：${error.message}`,
-          { cause: error, gate }
-        )
-      }
-      throw error
+  if (gate.isUsable) {
+    return {
+      documentDraft,
+      gate,
+      warnings: [],
     }
   }
 
-  return {
-    documentDraft,
-    gate,
-    warnings: [],
+  try {
+    const ocrResult = await extractPdfTextWithOcr(pdf, {
+      fileName: file.name,
+      subject,
+      gateOptions,
+    })
+
+    if (!ocrResult?.gate?.isUsable) {
+      throw createDocumentImportError(
+        'extracting_text',
+        '已尝试 OCR，但仍未提取到足够文本，可能是扫描质量过低或版式过于复杂。',
+        { gate: ocrResult?.gate, warnings: ocrResult?.warnings || [] }
+      )
+    }
+
+    return ocrResult
+  } catch (error) {
+    if (error?.failedStage === 'extracting_text') {
+      throw error
+    }
+
+    if (error instanceof Error) {
+      throw createDocumentImportError(
+        'extracting_text',
+        `当前 PDF 文本层不可用，且 OCR 识别失败：${error.message}`,
+        { cause: error, gate }
+      )
+    }
+
+    throw error
   }
 }

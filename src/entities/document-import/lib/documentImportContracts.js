@@ -71,6 +71,7 @@ export function createEmptyDocumentDraft() {
     outline: [],
     stats: {
       pageCount: 0,
+      pagesWithTextCount: 0,
       paragraphCount: 0,
       characterCount: 0,
       nonWhitespaceCharacterCount: 0,

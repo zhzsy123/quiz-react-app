@@ -40,7 +40,7 @@ export default function DocumentImportDialog({
           <div className="download-dialog-copy">
             <span className="dashboard-eyebrow">Direct Import</span>
             <h3>导入 PDF / DOCX</h3>
-            <p>拖入试卷文件后，系统会先提取文本，再调用 AI 解析为题库结构。</p>
+            <p>拖入试卷文件后，系统会先提取文本，再调用 AI 解析成题库结构。</p>
           </div>
 
           <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭导入对话框">

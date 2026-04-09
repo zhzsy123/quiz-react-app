@@ -5,7 +5,7 @@ const OCR_RENDER_SCALE = 2
 
 function ensureBrowserCanvas() {
   if (typeof document === 'undefined') {
-    throw new Error('当前环境不支持 OCR 画布渲染。')
+    throw new Error('当前环境不支持 OCR 所需的画布能力。')
   }
 
   const canvas = document.createElement('canvas')

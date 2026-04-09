@@ -38,21 +38,24 @@ describe('assessDocumentTextGate', () => {
     })
 
     expect(gate.isUsable).toBe(false)
-    expect(gate.reasons[0]).toContain('暂不支持 OCR')
-    expect(gate.hints[0]).toContain('优先拦截扫描件')
+    expect(gate.reasons[0]).toContain('需要先尝试 OCR')
+    expect(gate.hints[0]).toContain('系统会先尝试 OCR')
   })
 
   it('accepts usable extracted text', () => {
-    const gate = assessDocumentTextGate({
-      plainText:
-        '这是一份具有足够长度的可解析文本。\n它包含多行内容，用于模拟 PDF 或 DOCX 中提取出的试卷正文。\n这里继续补充一些句子，确保文本长度达到门槛。',
-      stats: {
-        lineCount: 3,
+    const gate = assessDocumentTextGate(
+      {
+        plainText:
+          '这是一份具有足够长度的可解析文本。\n它包含多行内容，用于模拟 PDF 或 DOCX 中提取出的试卷正文。\n这里继续补充一些句子，确保文本长度达到门槛。',
+        stats: {
+          lineCount: 3,
+        },
       },
-    }, {
-      minNonWhitespaceCharacters: 40,
-      minLines: 3,
-    })
+      {
+        minNonWhitespaceCharacters: 40,
+        minLines: 3,
+      }
+    )
 
     expect(gate.isUsable).toBe(true)
     expect(gate.reasons).toHaveLength(0)
