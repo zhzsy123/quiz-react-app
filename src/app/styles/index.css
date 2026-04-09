@@ -358,6 +358,16 @@ button { border: none; }
   gap: 10px;
   margin-top: 14px;
 }
+.cloze-blank-context {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15,23,42,0.72);
+  border: 1px solid rgba(148,163,184,0.16);
+  color: #cbd5e1;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
 
 .options { display: flex; flex-direction: column; gap: 12px; }
 .option {

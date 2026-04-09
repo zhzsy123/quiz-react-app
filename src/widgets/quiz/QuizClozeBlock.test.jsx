@@ -34,6 +34,7 @@ describe('QuizClozeBlock', () => {
         {
           blank_id: 1,
           score: 2,
+          prompt: 'The city park offers a quiet place for residents to relax.',
           options: [
             { key: 'A', text: 'refuge' },
             { key: 'B', text: 'obstacle' },
@@ -44,6 +45,7 @@ describe('QuizClozeBlock', () => {
         {
           blank_id: 2,
           score: 2,
+          prompt: 'Local volunteers hope their efforts will inspire more people to care for it.',
           options: [
             { key: 'A', text: 'if only' },
             { key: 'B', text: 'even if' },
@@ -70,6 +72,8 @@ describe('QuizClozeBlock', () => {
     expect(container.textContent).toContain('In the heart of the city')
     expect(container.textContent).toContain('(1) ______')
     expect(container.textContent).toContain('(2) ______')
+    expect(container.textContent).toContain('The city park offers a quiet place for residents to relax.')
+    expect(container.textContent).toContain('Local volunteers hope their efforts will inspire more people to care for it.')
 
     await act(async () => {
       root.unmount()

@@ -16,6 +16,93 @@ export function getClozeRawBlanks(question = {}) {
   return []
 }
 
+function getBlankOptions(blank = {}) {
+  if (Array.isArray(blank?.options)) return blank.options
+  if (Array.isArray(blank?.choices)) return blank.choices
+  if (Array.isArray(blank?.selections)) return blank.selections
+  return []
+}
+
+function getBlankCorrectValue(blank = {}) {
+  return (
+    blank?.answer?.correct ??
+    blank?.answer?.answer ??
+    blank?.correct_answer ??
+    blank?.correctAnswer ??
+    blank?.correct_option ??
+    blank?.correctOption ??
+    blank?.correct ??
+    ''
+  )
+}
+
+function normalizeText(value) {
+  return String(value || '').trim()
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function getBlankCorrectText(blank = {}) {
+  const correct = getBlankCorrectValue(blank)
+  const normalizedCorrect = Array.isArray(correct) ? normalizeText(correct[0]) : normalizeText(correct)
+  if (!normalizedCorrect) return ''
+
+  const options = getBlankOptions(blank)
+  const matchedOption = options.find((option) => {
+    if (typeof option === 'string') {
+      const match = option.match(/^([A-Z])(?:[\.\s、，：:）\)]*)\s*(.*)$/)
+      return match ? normalizeText(match[1]) === normalizedCorrect : normalizeText(option) === normalizedCorrect
+    }
+
+    return normalizeText(option?.key) === normalizedCorrect
+  })
+
+  if (matchedOption) {
+    if (typeof matchedOption === 'string') {
+      const match = matchedOption.match(/^([A-Z])(?:[\.\s、，：:）\)]*)\s*(.*)$/)
+      return normalizeText(match?.[2] || matchedOption)
+    }
+
+    return normalizeText(matchedOption?.text || matchedOption?.label || matchedOption?.value || '')
+  }
+
+  return normalizedCorrect
+}
+
+function injectClozePlaceholdersFromAnswers(article = '', rawBlanks = []) {
+  let nextArticle = String(article || '')
+  if (!nextArticle || !rawBlanks.length) return nextArticle
+
+  let cursor = 0
+  let matchedCount = 0
+
+  rawBlanks.forEach((blank, index) => {
+    const correctText = getBlankCorrectText(blank)
+    if (!correctText) return
+
+    const blankId = getClozeBlankId(blank, index)
+    const placeholder = `[[${blankId}]]`
+    const escaped = escapeRegExp(correctText)
+    const regex = new RegExp(escaped, 'i')
+    const remaining = nextArticle.slice(cursor)
+    const match = remaining.match(regex)
+
+    if (!match || typeof match.index !== 'number') return
+
+    const absoluteIndex = cursor + match.index
+    nextArticle =
+      nextArticle.slice(0, absoluteIndex) +
+      placeholder +
+      nextArticle.slice(absoluteIndex + match[0].length)
+    cursor = absoluteIndex + placeholder.length
+    matchedCount += 1
+  })
+
+  return matchedCount > 0 ? nextArticle : article
+}
+
 function extractArticleCandidate(question = {}) {
   return (
     question?.article ||
@@ -48,6 +135,11 @@ export function ensureClozeArticlePlaceholders(article = '', rawBlanks = []) {
   const articleText = String(article || '').trim()
   if (!articleText) return articleText
   if (hasClozePlaceholders(articleText) || !rawBlanks.length) return articleText
+
+  const reconstructedArticle = injectClozePlaceholdersFromAnswers(articleText, rawBlanks)
+  if (hasClozePlaceholders(reconstructedArticle)) {
+    return reconstructedArticle
+  }
 
   const placeholderLine = rawBlanks
     .map((blank, index) => `(${index + 1}) [[${getClozeBlankId(blank, index)}]]`)

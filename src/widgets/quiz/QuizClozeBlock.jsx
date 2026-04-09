@@ -107,6 +107,8 @@ export default function QuizClozeBlock({
                 <span className="essay-word-count">{blank.score || 0} 分</span>
               </div>
 
+              {blank.prompt ? <div className="cloze-blank-context">{blank.prompt}</div> : null}
+
               <div className="options compact-options">
                 {(blank.options || []).map((option, optionIndex) => {
                   const selected = selectedValue === option.key

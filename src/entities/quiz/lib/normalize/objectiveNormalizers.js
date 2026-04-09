@@ -221,6 +221,7 @@ export function normalizeClozeQuestion(question) {
         options: optionList.map(normalizeOption),
         correct,
         rationale: blank.rationale || blank?.answer?.rationale || '暂无解析',
+        prompt: blank.prompt || blank.title || blank.stem || blank.sentence || '',
       }
     })
     .filter(Boolean)
