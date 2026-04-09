@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { getNavGroupMeta, getReadingQuestionDisplayLabel } from './quizViewUtils.jsx'
 
 describe('quizViewUtils', () => {
-  it('groups cloze-derived objective items under the cloze navigation group', () => {
+  it('groups top-level cloze items under the cloze navigation group', () => {
     const meta = getNavGroupMeta({
-      id: 'q_cloze_001_blank_1',
-      type: 'single_choice',
-      source_type: 'cloze',
+      id: 'q_cloze_001',
+      type: 'cloze',
     })
 
     expect(meta.key).toBe('cloze')

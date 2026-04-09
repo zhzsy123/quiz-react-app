@@ -24,12 +24,27 @@ function isFillBlankLike(item) {
   return item?.type === 'fill_blank' || item?.type === 'function_fill_blank'
 }
 
+function isClozeLike(item) {
+  return item?.type === 'cloze'
+}
+
 export function formatObjectiveAnswerLabel(item, response, unansweredLabel = '未作答') {
+  if (!item) return unansweredLabel
+
   if (item.type === 'multiple_choice') {
     const values = normalizeChoiceArray(response)
     return values.length
       ? values.map((value) => getOptionText(item.options || [], value, unansweredLabel)).join(' / ')
       : unansweredLabel
+  }
+
+  if (isClozeLike(item)) {
+    if (!response || typeof response !== 'object') return unansweredLabel
+    return (
+      (item.blanks || [])
+        .map((blank, index) => `${index + 1}. ${getOptionText(blank.options || [], response[blank.blank_id] || '', unansweredLabel)}`)
+        .join(' | ') || unansweredLabel
+    )
   }
 
   if (isFillBlankLike(item)) {
@@ -50,9 +65,18 @@ export function getObjectiveAnswerLabel(item, response, unansweredLabel = '未�
 }
 
 export function formatObjectiveCorrectAnswerLabel(item, unansweredLabel = '未作答') {
+  if (!item) return unansweredLabel
+
+  if (isClozeLike(item)) {
+    return (item.blanks || [])
+      .map((blank, index) => `${index + 1}. ${getOptionText(blank.options || [], blank.correct || '', unansweredLabel)}`)
+      .join(' | ')
+  }
+
   if (isFillBlankLike(item)) {
     return item.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
   }
+
   return formatObjectiveAnswerLabel(item, item.answer?.correct, unansweredLabel)
 }
 
@@ -65,6 +89,13 @@ export function isObjectiveAnswered(item, response) {
 
   if (item.type === 'multiple_choice') {
     return normalizeChoiceArray(response).length > 0
+  }
+
+  if (isClozeLike(item)) {
+    if (!response || typeof response !== 'object') return false
+    return (item.blanks || []).every(
+      (blank) => typeof response[blank.blank_id] === 'string' && response[blank.blank_id].trim().length > 0
+    )
   }
 
   if (isFillBlankLike(item)) {
@@ -87,6 +118,13 @@ export function isObjectiveCorrect(item, response) {
       actual.length > 0 &&
       actual.length === expected.length &&
       actual.every((value, index) => value === expected[index])
+    )
+  }
+
+  if (isClozeLike(item)) {
+    if (!response || typeof response !== 'object') return false
+    return (item.blanks || []).every(
+      (blank) => String(response[blank.blank_id] || '').trim() === String(blank.correct || '').trim()
     )
   }
 

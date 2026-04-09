@@ -1,5 +1,6 @@
 import {
   formatObjectiveAnswerLabel,
+  formatObjectiveCorrectAnswerLabel,
   formatOptionLabel,
   getObjectiveAnswerLabel,
 } from '../../../entities/quiz/lib/objectiveAnswers'
@@ -136,8 +137,8 @@ export function buildWrongItems(items, answers, meta) {
       userAnswerLabel: formatObjectiveAnswerLabel(item, userAnswer),
       correctAnswer: item.answer?.correct || '',
       correctAnswerLabel:
-        item.type === 'fill_blank'
-          ? item.blanks.map((blank) => blank.accepted_answers.join(' / ')).join(' | ')
+        item.type === 'fill_blank' || item.type === 'cloze'
+          ? formatObjectiveCorrectAnswerLabel(item)
           : getObjectiveAnswerLabel(item, item.answer?.correct),
       rationale: item.answer?.rationale || 'No rationale provided',
       tags: item.tags || [],

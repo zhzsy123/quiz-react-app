@@ -142,6 +142,26 @@ function sanitizeObjectiveChild(rawQuestion = {}, fallbackType = 'single_choice'
   }
 }
 
+function sanitizeClozeBlank(blank = {}, index = 0, defaultScore = 2) {
+  const correct =
+    blank?.answer?.correct ??
+    blank?.answer?.answer ??
+    blank?.correct_answer ??
+    blank?.correctAnswer ??
+    blank?.correct_option ??
+    blank?.correctOption ??
+    blank?.correct ??
+    ''
+
+  return {
+    blank_id: blank?.blank_id ?? blank?.id ?? index + 1,
+    score: Number(blank?.score) > 0 ? Number(blank.score) : defaultScore,
+    options: normalizeOptionList(blank?.options || blank?.choices || blank?.selections),
+    correct: normalizeCorrectValue(correct),
+    rationale: blank?.rationale || blank?.answer?.rationale || '',
+  }
+}
+
 export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
   if (!rawQuestion || typeof rawQuestion !== 'object') {
     return null
@@ -194,6 +214,32 @@ export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
         'single_choice'
       )
     )
+  }
+
+  if (normalizedType === 'cloze') {
+    const rawBlanks = rawQuestion.blanks || rawQuestion.answers || rawQuestion.items || []
+    const totalScore = Number(question.score) > 0 ? Number(question.score) : Number(planItem?.score) || 0
+    const defaultBlankScore =
+      rawBlanks.length > 0 && totalScore > 0 ? Math.max(1, totalScore / rawBlanks.length) : 2
+
+    question.title = rawQuestion.title || rawQuestion.prompt || '完形填空'
+    question.article =
+      rawQuestion.article ||
+      rawQuestion.content ||
+      rawQuestion.body ||
+      rawQuestion.passage?.content ||
+      rawQuestion.passage?.body ||
+      rawQuestion.passage?.text ||
+      ''
+    question.blanks = rawBlanks
+      .map((blank, index) =>
+        sanitizeClozeBlank(
+          blank,
+          index,
+          Number(blank?.score) > 0 ? Number(blank.score) : defaultBlankScore
+        )
+      )
+      .filter((blank) => blank.options.length > 0 && blank.correct)
   }
 
   if (normalizedType === 'translation') {

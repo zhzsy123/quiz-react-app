@@ -18,6 +18,7 @@ import {
   getSubjectiveText,
   renderFormattedMaterial,
 } from './quizViewUtils.jsx'
+import QuizClozeBlock from './QuizClozeBlock.jsx'
 
 function TranslationBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   return (
@@ -503,6 +504,8 @@ export default function QuizSubjectiveBlock({
   focusSubQuestionId,
   onFocusSubQuestion,
   onSelectReadingOption,
+  onSelectClozeOption,
+  onRevealCurrentObjective,
   aiExplainMap,
   onExplainQuestion,
   onSelectCompositeOption,
@@ -512,6 +515,21 @@ export default function QuizSubjectiveBlock({
   onFillBlankChange,
   onTextChange,
 }) {
+  if (item.type === 'cloze') {
+    return (
+      <QuizClozeBlock
+        item={item}
+        response={response}
+        submitted={submitted}
+        isPaused={isPaused}
+        mode={mode}
+        revealedMap={revealedMap}
+        onSelectClozeOption={onSelectClozeOption}
+        onRevealCurrentObjective={onRevealCurrentObjective}
+      />
+    )
+  }
+
   if (item.type === 'reading') {
     return (
       <ReadingBlock

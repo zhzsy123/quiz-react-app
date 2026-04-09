@@ -60,6 +60,7 @@ export default function CleanQuizView({
   onSelectOption,
   onRevealCurrentObjective,
   onSelectReadingOption,
+  onSelectClozeOption,
   onFillBlankChange,
   onTextChange,
   aiReview,
@@ -89,6 +90,7 @@ export default function CleanQuizView({
   }
 
   const renderObjectiveBlock =
+    currentItem.type !== 'cloze' &&
     currentItem.type !== 'reading' &&
     currentItem.type !== 'composite' &&
     (currentItem.answer?.type === 'objective' || currentItem.type === 'fill_blank')
@@ -182,6 +184,8 @@ export default function CleanQuizView({
               revealedMap={revealedMap}
               onFocusSubQuestion={() => {}}
               onSelectReadingOption={onSelectReadingOption}
+              onSelectClozeOption={onSelectClozeOption}
+              onRevealCurrentObjective={onRevealCurrentObjective}
               aiExplainMap={aiExplainMap}
               onExplainQuestion={onExplainQuestion}
               onSelectCompositeOption={onSelectCompositeOption}

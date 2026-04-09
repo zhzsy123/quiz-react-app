@@ -220,7 +220,7 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[0].normalizedQuestion.questions[0].answer.correct).toBe('B')
   })
 
-  it('preserves cloze questions as multiple normalized draft items for english generation', async () => {
+  it('preserves cloze questions as a single normalized draft item for english generation', async () => {
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'cq1',
@@ -272,9 +272,11 @@ describe('questionGenerationService', () => {
 
     expect(result.draftQuestions).toHaveLength(1)
     expect(result.draftQuestions[0].status).toBe('valid')
-    expect(result.draftQuestions[0].normalizedItems).toHaveLength(2)
-    expect(result.draftPaper.questions).toHaveLength(2)
-    expect(result.draftPaper.questions[0].source_type).toBe('cloze')
+    expect(result.draftQuestions[0].normalizedItems).toHaveLength(1)
+    expect(result.draftQuestions[0].normalizedQuestion.type).toBe('cloze')
+    expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
+    expect(result.draftPaper.questions).toHaveLength(1)
+    expect(result.draftPaper.questions[0].type).toBe('cloze')
     expect(result.draftPaper.scoreBreakdown.totalScore).toBe(4)
   })
 

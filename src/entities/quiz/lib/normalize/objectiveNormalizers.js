@@ -145,16 +145,17 @@ export function normalizeFillBlankQuestion(question, options = {}) {
 
   const baseType = options.baseType || 'fill_blank'
   const normalizedType = options.normalizedType || baseType
+  const totalScore = blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)
 
   return appendObjectiveMeta(question, {
-    ...ensureQuestionBase(question, normalizedType, blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)),
+    ...ensureQuestionBase(question, normalizedType, totalScore),
     blanks,
     answer: {
       type: 'objective',
       correct: blanks.map((blank) => blank.accepted_answers),
       rationale: question?.answer?.rationale || '',
     },
-    score: blanks.reduce((sum, blank) => sum + (blank.score || 0), 0),
+    score: totalScore,
     source_type: question?.type || normalizedType,
     deliverable_type:
       question?.deliverable_type || (question?.type === 'function_fill_blank' ? 'function_fill_blank' : ''),
@@ -187,61 +188,53 @@ export function normalizeReadingQuestion(question) {
 
   if (!normalizedQuestions.length) return null
 
+  const totalScore = normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 0), 0)
+
   return appendObjectiveMeta(question, {
-    ...ensureQuestionBase(
-      question,
-      'reading',
-      normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 0), 0)
-    ),
+    ...ensureQuestionBase(question, 'reading', totalScore),
     title: question?.title,
     passage,
     questions: normalizedQuestions,
     answer: {
       type: 'objective',
     },
-    score: normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 0), 0),
+    score: totalScore,
   })
 }
 
 export function normalizeClozeQuestion(question) {
-  if (!question?.article || !Array.isArray(question?.blanks)) return []
+  if (!question?.article || !Array.isArray(question?.blanks)) return null
 
-  return question.blanks
-    .map((blank) => {
+  const blanks = question.blanks
+    .map((blank, index) => {
       const optionList = getOptionList(blank)
       const correct = getObjectiveCorrectValue(blank)
       if (!optionList.length || !correct) return null
 
       return {
-        id: `${question.id}_blank_${blank.blank_id}`,
-        type: 'single_choice',
-        prompt: `${question.prompt}（第 ${blank.blank_id} 空）`,
-        context_title: question.title || '完形填空',
-        context: question.article.replace(`[[${blank.blank_id}]]`, `____(${blank.blank_id})____`),
-        context_format:
-          question.context_format ||
-          question.material_format ||
-          question.presentation ||
-          'plain',
-        presentation:
-          question.presentation ||
-          question.context_format ||
-          question.material_format ||
-          'plain',
-        response_format: question.response_format || '',
-        deliverable_type: question.deliverable_type || '',
-        difficulty: question.difficulty,
-        tags: question.tags || [],
+        blank_id: blank.blank_id ?? blank.id ?? index + 1,
         score: parseScore(blank.score, getDefaultScoreByType('cloze')),
-        source_type: 'cloze',
-        assets: Array.isArray(question.assets) ? question.assets : [],
         options: optionList.map(normalizeOption),
-        answer: {
-          type: 'objective',
-          correct,
-          rationale: blank.rationale || '暂无解析',
-        },
+        correct,
+        rationale: blank.rationale || blank?.answer?.rationale || '暂无解析',
       }
     })
     .filter(Boolean)
+
+  if (!blanks.length) return null
+
+  const totalScore = blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)
+
+  return appendObjectiveMeta(question, {
+    ...ensureQuestionBase(question, 'cloze', totalScore),
+    title: question.title || '完形填空',
+    article: question.article,
+    blanks,
+    answer: {
+      type: 'objective',
+      correct: blanks.map((blank) => blank.correct),
+      rationale: question?.answer?.rationale || '',
+    },
+    score: totalScore,
+  })
 }

@@ -49,6 +49,7 @@ export default function SubjectWorkspacePage() {
     handleRevealCurrentObjective,
     handleRevealCompositeQuestion,
     handleSelectReadingOption,
+    handleSelectClozeOption,
     handleFillBlankChange,
     handleCompositeFillBlankChange,
     handleTextChange,
@@ -259,6 +260,7 @@ export default function SubjectWorkspacePage() {
           onRevealCurrentObjective={handleRevealCurrentObjective}
           onRevealCompositeQuestion={handleRevealCompositeQuestion}
           onSelectReadingOption={handleSelectReadingOption}
+          onSelectClozeOption={handleSelectClozeOption}
           onFillBlankChange={handleFillBlankChange}
           onCompositeFillBlankChange={handleCompositeFillBlankChange}
           onTextChange={handleTextChange}

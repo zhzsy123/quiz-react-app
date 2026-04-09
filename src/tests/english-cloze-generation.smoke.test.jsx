@@ -25,8 +25,8 @@ const {
   const clozeRawQuestion = {
     id: 'cloze_generated_1',
     type: 'cloze',
-    title: 'Cloze A',
-    prompt: 'Choose the best option for each blank.',
+    title: '完形填空 A',
+    prompt: '阅读短文并完成完形填空。',
     article: 'The system [[1]] stable after the first fix and [[2]] stable after the second fix.',
     blanks: [
       {
@@ -38,76 +38,66 @@ const {
           { key: 'C', text: 'becoming' },
           { key: 'D', text: 'become' },
         ],
-        answer: {
-          correct: 'A',
-          rationale: 'cloze-generation-rationale-1',
-        },
+        correct: 'A',
+        rationale: '第一空要用过去式，表示修复完成后的状态变化。',
       },
       {
         blank_id: 2,
         score: 2,
         options: [
           { key: 'A', text: 'remain' },
-          { key: 'B', text: 'remains' },
-          { key: 'C', text: 'remained' },
-          { key: 'D', text: 'remaining' },
+          { key: 'B', text: 'remained' },
+          { key: 'C', text: 'remaining' },
+          { key: 'D', text: 'remains' },
         ],
-        answer: {
-          correct: 'B',
-          rationale: 'cloze-generation-rationale-2',
-        },
+        correct: 'D',
+        rationale: '第二空主语仍是第三人称单数，使用 remains。',
       },
     ],
   }
 
-  const normalizedItems = [
-    {
-      id: 'cloze_generated_1_blank_1',
-      type: 'single_choice',
-      source_type: 'cloze',
-      prompt: 'Choose the best option for each blank.（第 1 空）',
-      context_title: 'Cloze A',
-      context: 'The system ____(1)____ stable after the first fix and [[2]] stable after the second fix.',
-      options: clozeRawQuestion.blanks[0].options,
-      answer: {
-        type: 'objective',
+  const normalizedQuestion = {
+    id: 'cloze_generated_1',
+    type: 'cloze',
+    title: '完形填空 A',
+    prompt: '阅读短文并完成完形填空。',
+    article: 'The system [[1]] stable after the first fix and [[2]] stable after the second fix.',
+    blanks: [
+      {
+        blank_id: 1,
+        score: 2,
+        options: clozeRawQuestion.blanks[0].options,
         correct: 'A',
-        rationale: 'cloze-generation-rationale-1',
+        rationale: '第一空要用过去式，表示修复完成后的状态变化。',
       },
-      score: 2,
-      tags: ['cloze'],
-    },
-    {
-      id: 'cloze_generated_1_blank_2',
-      type: 'single_choice',
-      source_type: 'cloze',
-      prompt: 'Choose the best option for each blank.（第 2 空）',
-      context_title: 'Cloze A',
-      context: 'The system [[1]] stable after the first fix and ____(2)____ stable after the second fix.',
-      options: clozeRawQuestion.blanks[1].options,
-      answer: {
-        type: 'objective',
-        correct: 'B',
-        rationale: 'cloze-generation-rationale-2',
+      {
+        blank_id: 2,
+        score: 2,
+        options: clozeRawQuestion.blanks[1].options,
+        correct: 'D',
+        rationale: '第二空主语仍是第三人称单数，使用 remains。',
       },
-      score: 2,
-      tags: ['cloze'],
+    ],
+    answer: {
+      type: 'objective',
+      correct: ['A', 'D'],
     },
-  ]
+    score: 4,
+    tags: ['cloze'],
+  }
 
   const createGenerationEntry = () => ({
     status: 'valid',
     rawQuestion: clone(clozeRawQuestion),
-    normalizedQuestion: clone(normalizedItems[0]),
-    normalizedItems: clone(normalizedItems),
+    normalizedQuestion: clone(normalizedQuestion),
     validation: { warnings: [], errors: [] },
     warnings: [],
     errors: [],
     preview: {
       questionId: 'cloze_generated_1',
       index: 1,
-      typeLabel: 'Cloze',
-      previewText: 'Choose the best option for each blank.',
+      typeLabel: '完形填空',
+      previewText: '阅读短文并完成完形填空。',
       score: 4,
     },
     scoreBreakdown: {
@@ -182,37 +172,42 @@ const clozeWorkspaceQuiz = {
   duration_minutes: 90,
   items: [
     {
-      id: 'cloze_generated_1_blank_1',
-      type: 'single_choice',
-      source_type: 'cloze',
-      prompt: 'Choose the best option for each blank.（第 1 空）',
-      context_title: 'Cloze A',
-      context: 'The system ____(1)____ stable after the first fix and [[2]] stable after the second fix.',
-      options: [
-        { key: 'A', text: 'became' },
-        { key: 'B', text: 'becomes' },
-        { key: 'C', text: 'becoming' },
-        { key: 'D', text: 'become' },
+      id: 'cloze_generated_1',
+      type: 'cloze',
+      title: '完形填空 A',
+      prompt: '阅读短文并完成完形填空。',
+      article: 'The system [[1]] stable after the first fix and [[2]] stable after the second fix.',
+      blanks: [
+        {
+          blank_id: 1,
+          score: 2,
+          options: [
+            { key: 'A', text: 'became' },
+            { key: 'B', text: 'becomes' },
+            { key: 'C', text: 'becoming' },
+            { key: 'D', text: 'become' },
+          ],
+          correct: 'A',
+          rationale: '第一空要用过去式，表示修复完成后的状态变化。',
+        },
+        {
+          blank_id: 2,
+          score: 2,
+          options: [
+            { key: 'A', text: 'remain' },
+            { key: 'B', text: 'remained' },
+            { key: 'C', text: 'remaining' },
+            { key: 'D', text: 'remains' },
+          ],
+          correct: 'D',
+          rationale: '第二空主语仍是第三人称单数，使用 remains。',
+        },
       ],
-      answer: { type: 'objective', correct: 'A', rationale: 'cloze-generation-rationale-1' },
-      score: 2,
-      tags: ['cloze'],
-    },
-    {
-      id: 'cloze_generated_1_blank_2',
-      type: 'single_choice',
-      source_type: 'cloze',
-      prompt: 'Choose the best option for each blank.（第 2 空）',
-      context_title: 'Cloze A',
-      context: 'The system [[1]] stable after the first fix and ____(2)____ stable after the second fix.',
-      options: [
-        { key: 'A', text: 'remain' },
-        { key: 'B', text: 'remains' },
-        { key: 'C', text: 'remained' },
-        { key: 'D', text: 'remaining' },
-      ],
-      answer: { type: 'objective', correct: 'B', rationale: 'cloze-generation-rationale-2' },
-      score: 2,
+      answer: {
+        type: 'objective',
+        correct: ['A', 'D'],
+      },
+      score: 4,
       tags: ['cloze'],
     },
   ],
@@ -229,7 +224,7 @@ const clozeQuizDocument = {
     warnings: [],
   },
   compatibility: {
-    supportedCount: 2,
+    supportedCount: 1,
     skippedCount: 0,
   },
 }
@@ -261,6 +256,13 @@ vi.mock('../entities/library/api/libraryRepository', () => ({
   deleteLibraryEntry: vi.fn(async () => {}),
 }))
 
+vi.mock('../entities/history/api/historyRepository', () => ({
+  createHistoryEntry: createHistoryEntryMock,
+  updateHistoryEntry: vi.fn(async () => {}),
+  listHistoryEntries: vi.fn(async () => []),
+  removeHistoryEntry: vi.fn(async () => {}),
+}))
+
 vi.mock('../entities/session/api/sessionRepository', () => ({
   loadSessionProgress: loadSessionProgressMock,
   saveSessionProgress: saveSessionProgressMock,
@@ -269,11 +271,13 @@ vi.mock('../entities/session/api/sessionRepository', () => ({
   loadLastOpenedPaper: vi.fn(async () => null),
 }))
 
-vi.mock('../entities/history/api/historyRepository', () => ({
-  createHistoryEntry: createHistoryEntryMock,
-  updateHistoryEntry: vi.fn(async () => {}),
-  listHistoryEntries: vi.fn(async () => []),
-  removeHistoryEntry: vi.fn(async () => {}),
+vi.mock('../shared/lib/preferences/preferenceRepository', () => ({
+  loadPreference: loadPreferenceMock,
+  savePreference: savePreferenceMock,
+}))
+
+vi.mock('../features/question-generator/api/questionGenerationService', () => ({
+  startQuestionGeneration: startQuestionGenerationMock,
 }))
 
 vi.mock('../entities/favorite/api/favoriteRepository', () => ({
@@ -291,23 +295,32 @@ vi.mock('../entities/wrongbook/api/wrongbookRepository', () => ({
   markWrongQuestionMastered: vi.fn(async () => {}),
 }))
 
-vi.mock('../shared/lib/preferences/preferenceRepository', () => ({
-  loadPreference: loadPreferenceMock,
-  savePreference: savePreferenceMock,
-}))
-
 vi.mock('../entities/subject/model/subjects', () => {
   const questionTypeOptions = [
-    { key: 'single_choice', label: 'Single Choice', shortLabel: 'Single', family: 'objective', mockExamDefaultCount: 1, mockExamDefaultScore: 2 },
-    { key: 'cloze', label: 'Cloze', shortLabel: 'Cloze', family: 'objective', mockExamDefaultCount: 1, mockExamDefaultScore: 4 },
+    {
+      key: 'single_choice',
+      label: '单项选择题',
+      shortLabel: '单选',
+      family: 'objective',
+      mockExamDefaultCount: 1,
+      mockExamDefaultScore: 2,
+    },
+    {
+      key: 'cloze',
+      label: '完形填空',
+      shortLabel: '完型',
+      family: 'objective',
+      mockExamDefaultCount: 1,
+      mockExamDefaultScore: 4,
+    },
   ]
 
   const subjectMeta = {
     key: 'english',
     routeSlug: 'english',
-    label: 'English Mock Exam System V2.0',
-    shortLabel: 'English',
-    description: 'English paper library and mock exam.',
+    label: '英语模考系统 V2.0',
+    shortLabel: '英语',
+    description: '英语题库与模考。',
     route: '/exam/english',
     workspaceRoute: '/workspace/english',
     expectedPaperTotal: 4,
@@ -332,12 +345,13 @@ vi.mock('../entities/subject/model/subjects', () => {
     getSubjectMeta: () => subjectMeta,
     getSubjectMetaByRouteParam: () => subjectMeta,
     getSubjectQuestionTypeOptions: () => questionTypeOptions,
-    getQuestionTypeMeta: (type) => questionTypeOptions.find((item) => item.key === type) || {
-      key: type,
-      label: type,
-      shortLabel: type,
-      family: 'objective',
-    },
+    getQuestionTypeMeta: (type) =>
+      questionTypeOptions.find((item) => item.key === type) || {
+        key: type,
+        label: type,
+        shortLabel: type,
+        family: 'objective',
+      },
     buildQuestionPlan: (typeKeys = [], options = []) =>
       typeKeys.reduce((plan, typeKey) => {
         const meta = options.find((item) => item.key === typeKey) || {
@@ -365,10 +379,6 @@ vi.mock('../entities/subject/model/subjects', () => {
       }, {}),
   }
 })
-
-vi.mock('../features/question-generator/api/questionGenerationService', () => ({
-  startQuestionGeneration: startQuestionGenerationMock,
-}))
 
 vi.mock('../widgets/quiz-importer/QuizImporter', () => ({
   default: function MockQuizImporter() {
@@ -431,14 +441,6 @@ function findButton(container, text) {
   return match
 }
 
-function getNextButton(container) {
-  const buttons = container.querySelectorAll('.question-actions button')
-  if (buttons.length < 2) {
-    throw new Error('Unable to find next-question button.')
-  }
-  return buttons[1]
-}
-
 function getSubmitButton(container) {
   const button = container.querySelector('.quiz-submit-row button')
   if (!button) {
@@ -457,7 +459,7 @@ describe('english cloze generation smoke flow', () => {
     vi.clearAllMocks()
   })
 
-  it('generates a cloze draft, saves it implicitly, and starts practice mode successfully', async () => {
+  it('generates a cloze draft, saves it, opens practice mode, and completes the whole cloze on one page', async () => {
     const { container, root } = await renderAt('/exam/english')
 
     await act(async () => {
@@ -475,24 +477,25 @@ describe('english cloze generation smoke flow', () => {
     })
 
     await waitFor(() => upsertLibraryEntryMock.mock.calls.length > 0)
-    expect(upsertLibraryEntryMock.mock.calls[0][0].questionCount).toBe(2)
+    expect(upsertLibraryEntryMock.mock.calls[0][0].questionCount).toBe(1)
 
-    await waitFor(() => container.textContent?.includes('Choose the best option for each blank.（第 1 空）'))
+    await waitFor(() => container.textContent?.includes('阅读短文并完成完形填空。'))
+    expect(container.textContent).toContain('(1) ______')
+    expect(container.textContent).toContain('(2) ______')
 
     await act(async () => {
       findButton(container, 'became').click()
-    })
-    await waitFor(() => container.textContent?.includes('cloze-generation-rationale-1'))
-
-    await act(async () => {
-      getNextButton(container).click()
-    })
-    await waitFor(() => container.textContent?.includes('Choose the best option for each blank.（第 2 空）'))
-
-    await act(async () => {
       findButton(container, 'remains').click()
     })
-    await waitFor(() => container.textContent?.includes('cloze-generation-rationale-2'))
+
+    await waitFor(() => container.textContent?.includes('检查整篇完形'))
+
+    await act(async () => {
+      findButton(container, '检查整篇完形').click()
+    })
+
+    await waitFor(() => container.textContent?.includes('第一空要用过去式'))
+    expect(container.textContent).toContain('第二空主语仍是第三人称单数')
 
     await act(async () => {
       getSubmitButton(container).click()

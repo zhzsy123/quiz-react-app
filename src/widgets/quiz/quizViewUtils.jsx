@@ -43,6 +43,13 @@ export function isAnswered(item, response) {
     return normalizeChoiceArray(response).length > 0
   }
 
+  if (item.type === 'cloze') {
+    if (!response || typeof response !== 'object') return false
+    return (item.blanks || []).every(
+      (blank) => typeof response[blank.blank_id] === 'string' && response[blank.blank_id].trim().length > 0
+    )
+  }
+
   if (item.type === 'fill_blank') {
     if (!response || typeof response !== 'object') return false
     return item.blanks.every((blank) => typeof response[blank.blank_id] === 'string' && response[blank.blank_id].trim().length > 0)

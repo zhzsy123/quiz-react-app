@@ -42,7 +42,10 @@ const QUESTION_NORMALIZERS = {
     const converted = normalizeReadingQuestion(question)
     return converted ? [converted] : []
   },
-  cloze: (question) => normalizeClozeQuestion(question),
+  cloze: (question) => {
+    const converted = normalizeClozeQuestion(question)
+    return converted ? [converted] : []
+  },
   translation: (question) => {
     const converted = normalizeTranslationQuestion(question)
     return converted ? [converted] : []

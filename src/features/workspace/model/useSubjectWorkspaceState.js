@@ -540,7 +540,14 @@ export function useSubjectWorkspaceState() {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
 
     const currentItem = quiz.items[currentIndex]
-    if (currentItem?.type === 'reading' || currentItem?.answer?.type !== 'objective' || currentItem?.type === 'fill_blank') return
+    if (
+      currentItem?.type === 'reading' ||
+      currentItem?.type === 'cloze' ||
+      currentItem?.answer?.type !== 'objective' ||
+      currentItem?.type === 'fill_blank'
+    ) {
+      return
+    }
 
     let nextValue = optionLetter
     if (currentItem.type === 'multiple_choice') {
@@ -550,7 +557,7 @@ export function useSubjectWorkspaceState() {
         : [...currentValues, optionLetter].sort()
     }
 
-    const nextAnswers = { ...answers, [questionId]: nextValue }
+    const nextAnswers = { ...answersRef.current, [questionId]: nextValue }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -579,6 +586,32 @@ export function useSubjectWorkspaceState() {
     void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
   }
 
+  const handleSelectClozeOption = (questionId, blankId, optionLetter) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'cloze' || currentItem.id !== questionId) return
+
+    const nextItemResponse = { ...(answersRef.current[questionId] || {}), [blankId]: optionLetter }
+    const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
+    setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
+
+    if (mode === 'practice') {
+      void persistNow({ answers: nextAnswers })
+      return
+    }
+
+    const allAnswered = currentItem.blanks.every((blank) => isNonEmptyText(nextItemResponse[blank.blank_id]))
+    let nextIndex = currentIndex
+    if (autoAdvance && allAnswered && currentIndex < quiz.items.length - 1) {
+      nextIndex = currentIndex + 1
+      setCurrentIndex(nextIndex)
+    }
+
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
+  }
+
   const handleSelectCompositeOption = (parentQuestionId, subQuestionId, optionLetter) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
 
@@ -588,7 +621,7 @@ export function useSubjectWorkspaceState() {
     const subQuestion = currentItem.questions?.find((question) => question.id === subQuestionId)
     if (!subQuestion || subQuestion.answer?.type !== 'objective' || subQuestion.type === 'fill_blank') return
 
-    const compositeAnswers = { ...(answers[parentQuestionId] || {}) }
+    const compositeAnswers = { ...(answersRef.current[parentQuestionId] || {}) }
     const currentResponse = compositeAnswers[subQuestionId]
 
     let nextValue = optionLetter
@@ -600,7 +633,7 @@ export function useSubjectWorkspaceState() {
     }
 
     const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextValue }
-    const nextAnswers = { ...answers, [parentQuestionId]: nextCompositeAnswers }
+    const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -626,8 +659,8 @@ export function useSubjectWorkspaceState() {
     const readingQuestions = Array.isArray(currentItem.questions) ? currentItem.questions : []
     if (!readingQuestions.length) return
 
-    const nextItemResponse = { ...(answers[questionId] || {}), [subQuestionId]: optionLetter }
-    const nextAnswers = { ...answers, [questionId]: nextItemResponse }
+    const nextItemResponse = { ...(answersRef.current[questionId] || {}), [subQuestionId]: optionLetter }
+    const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -663,8 +696,8 @@ export function useSubjectWorkspaceState() {
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'fill_blank' || currentItem.id !== questionId) return
 
-    const nextItemResponse = { ...(answers[questionId] || {}), [blankId]: text }
-    const nextAnswers = { ...answers, [questionId]: nextItemResponse }
+    const nextItemResponse = { ...(answersRef.current[questionId] || {}), [blankId]: text }
+    const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -699,11 +732,11 @@ export function useSubjectWorkspaceState() {
     const subQuestion = currentItem.questions?.find((question) => question.id === subQuestionId)
     if (subQuestion?.type !== 'fill_blank') return
 
-    const compositeAnswers = { ...(answers[parentQuestionId] || {}) }
+    const compositeAnswers = { ...(answersRef.current[parentQuestionId] || {}) }
     const currentSubResponse = { ...(compositeAnswers[subQuestionId] || {}) }
     const nextSubResponse = { ...currentSubResponse, [blankId]: text }
     const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextSubResponse }
-    const nextAnswers = { ...answers, [parentQuestionId]: nextCompositeAnswers }
+    const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -723,6 +756,23 @@ export function useSubjectWorkspaceState() {
     if (!quiz || submitted || mode !== 'practice') return
     const currentItem = quiz.items[currentIndex]
     if (!currentItem || currentItem.answer?.type !== 'objective') return
+    if (currentItem.type === 'cloze') {
+      const currentResponse = answers[currentItem.id]
+      if (!isObjectiveAnswered(currentItem, currentResponse)) return
+
+      const nextRevealed = { ...revealedMap, [currentItem.id]: true }
+      setRevealedMap(nextRevealed)
+
+      let nextIndex = currentIndex
+      if (autoAdvance && isObjectiveResponseCorrect(currentItem, currentResponse) && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
+
+      void persistNow({ revealedMap: nextRevealed, currentIndex: nextIndex })
+      return
+    }
+
     if (currentItem.type !== 'multiple_choice') return
 
     const currentResponse = answers[currentItem.id]
@@ -760,7 +810,7 @@ export function useSubjectWorkspaceState() {
 
   const handleTextChange = (questionId, text) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
-    const nextAnswers = { ...answers, [questionId]: { text } }
+    const nextAnswers = { ...answersRef.current, [questionId]: { text } }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
     void persistNow({ answers: nextAnswers })
@@ -773,10 +823,10 @@ export function useSubjectWorkspaceState() {
     if (currentItem?.type !== 'composite' || currentItem.id !== parentQuestionId) return
 
     const nextCompositeAnswers = {
-      ...(answers[parentQuestionId] || {}),
+      ...(answersRef.current[parentQuestionId] || {}),
       [subQuestionId]: { text },
     }
-    const nextAnswers = { ...answers, [parentQuestionId]: nextCompositeAnswers }
+    const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
     void persistNow({ answers: nextAnswers })
@@ -910,6 +960,7 @@ export function useSubjectWorkspaceState() {
     handleRevealCurrentObjective,
     handleRevealCompositeQuestion,
     handleSelectReadingOption,
+    handleSelectClozeOption,
     handleFillBlankChange,
     handleCompositeFillBlankChange,
     handleTextChange,

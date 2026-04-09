@@ -33,6 +33,13 @@ export function getItemScoreBreakdown(item) {
     return summary
   }
 
+  if (item.type === 'cloze') {
+    const clozeScore = (item.blanks || []).reduce((sum, blank) => sum + parseScore(blank.score, 0), 0)
+    summary.objectiveTotal += clozeScore
+    summary.paperTotal += clozeScore
+    return summary
+  }
+
   if (item.type === 'fill_blank') {
     const fillBlankScore = (item.blanks || []).reduce((sum, blank) => sum + parseScore(blank.score, 0), 0)
     summary.objectiveTotal += fillBlankScore

@@ -97,8 +97,13 @@ describe('quizSchema boundary', () => {
 
     expect(result.items).toHaveLength(2)
     expect(result.items[0].type).toBe('reading')
-    expect(result.items[1].type).toBe('single_choice')
-    expect(result.items[1].context).toContain('____(1)____')
+    expect(result.items[1].type).toBe('cloze')
+    expect(result.items[1].article).toContain('Hello [[1]] world')
+    expect(result.items[1].blanks).toHaveLength(1)
+    expect(result.items[1].blanks[0].options).toEqual([
+      { key: 'A', text: 'big' },
+      { key: 'B', text: 'small' },
+    ])
     expect(result.items[0].questions[0].score).toBe(2.5)
     expect(result.items[1].score).toBe(2)
   })

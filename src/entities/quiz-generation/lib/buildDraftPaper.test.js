@@ -97,7 +97,7 @@ describe('buildDraftPaper', () => {
     expect(normalized.quiz.items[0].prompt).toBe('Choose the correct conjunction.')
   })
 
-  it('expands generated cloze drafts from normalizedItems when composing the saved paper', () => {
+  it('keeps generated cloze drafts as a single cloze question when composing the saved paper', () => {
     const draft = buildDraftPaper({
       subject: 'english',
       title: 'Generated Cloze Draft',
@@ -115,48 +115,43 @@ describe('buildDraftPaper', () => {
             id: 'q_cloze_001',
             type: 'cloze',
             prompt: 'Complete the passage.',
-          },
-          normalizedItems: [
-            {
-              id: 'q_cloze_001_blank_1',
-              type: 'single_choice',
-              source_type: 'cloze',
-              prompt: 'Complete the passage (1).',
-              score: 2,
-              options: [
-                { key: 'A', text: 'go' },
-                { key: 'B', text: 'goes' },
-              ],
-              answer: {
-                type: 'objective',
+            title: 'Cloze A',
+            article: 'He [[1]] to school and [[2]] hard.',
+            score: 4,
+            blanks: [
+              {
+                blank_id: 1,
+                score: 2,
+                options: [
+                  { key: 'A', text: 'go' },
+                  { key: 'B', text: 'goes' },
+                ],
                 correct: 'B',
                 rationale: 'Third-person singular.',
               },
-            },
-            {
-              id: 'q_cloze_001_blank_2',
-              type: 'single_choice',
-              source_type: 'cloze',
-              prompt: 'Complete the passage (2).',
-              score: 2,
-              options: [
-                { key: 'A', text: 'study' },
-                { key: 'B', text: 'studies' },
-              ],
-              answer: {
-                type: 'objective',
+              {
+                blank_id: 2,
+                score: 2,
+                options: [
+                  { key: 'A', text: 'study' },
+                  { key: 'B', text: 'studies' },
+                ],
                 correct: 'A',
                 rationale: 'Plural subject.',
               },
+            ],
+            answer: {
+              type: 'objective',
+              correct: ['B', 'A'],
             },
-          ],
+          },
         },
       ],
     })
 
-    expect(draft.questions).toHaveLength(2)
-    expect(draft.questions[0].source_type).toBe('cloze')
-    expect(draft.questions[1].id).toBe('q_cloze_001_blank_2')
+    expect(draft.questions).toHaveLength(1)
+    expect(draft.questions[0].type).toBe('cloze')
+    expect(draft.questions[0].blanks).toHaveLength(2)
     expect(draft.scoreBreakdown.paperTotal).toBe(4)
   })
 })

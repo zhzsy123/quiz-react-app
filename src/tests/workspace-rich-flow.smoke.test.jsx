@@ -58,24 +58,39 @@ const richQuizFixture = {
   duration_minutes: 90,
   items: [
     {
-      id: 'cloze_1_blank_1',
-      type: 'single_choice',
-      source_type: 'cloze',
-      prompt: 'Cloze blank 1',
-      context_title: 'Cloze A',
-      context: 'A short cloze passage with one missing blank.',
-      options: [
-        { key: 'A', text: 'Correct cloze answer' },
-        { key: 'B', text: 'Wrong cloze answer' },
-        { key: 'C', text: 'Distractor one' },
-        { key: 'D', text: 'Distractor two' },
+      id: 'cloze_1',
+      type: 'cloze',
+      title: '完形填空 A',
+      prompt: '根据短文内容完成完形填空。',
+      article: 'A short cloze passage [[1]] one missing blank and [[2]] another blank.',
+      blanks: [
+        {
+          blank_id: 1,
+          score: 2,
+          options: [
+            { key: 'A', text: 'with' },
+            { key: 'B', text: 'for' },
+            { key: 'C', text: 'to' },
+            { key: 'D', text: 'by' },
+          ],
+          correct: 'A',
+          rationale: '固定搭配为 with one missing blank。',
+        },
+        {
+          blank_id: 2,
+          score: 2,
+          options: [
+            { key: 'A', text: 'has' },
+            { key: 'B', text: 'have' },
+            { key: 'C', text: 'having' },
+            { key: 'D', text: 'had' },
+          ],
+          correct: 'A',
+          rationale: '主语 another blank 视为单数，使用 has。',
+        },
       ],
-      answer: {
-        type: 'objective',
-        correct: 'A',
-        rationale: 'cloze-rationale',
-      },
-      score: 2,
+      answer: { type: 'objective', correct: ['A', 'A'] },
+      score: 4,
       tags: ['cloze'],
     },
     {
@@ -147,7 +162,7 @@ const richQuizFixture = {
       type: 'composite',
       prompt: 'Composite root prompt',
       material_title: 'Composite material',
-      material: 'Composite material body.',
+      material: 'SELECT * FROM tree WHERE height > 3;',
       questions: [
         {
           id: 'composite_multi',
@@ -195,9 +210,9 @@ const richQuizFixture = {
 const richQuizDocument = {
   quiz: richQuizFixture,
   scoreBreakdown: {
-    objectiveTotal: 12,
+    objectiveTotal: 14,
     subjectiveTotal: 0,
-    paperTotal: 12,
+    paperTotal: 14,
   },
   validation: {
     warnings: [],
@@ -286,7 +301,7 @@ vi.mock('../entities/subject/model/subjects', () => {
     description: 'English paper library and mock exam.',
     route: '/exam/english',
     workspaceRoute: '/workspace/english',
-    expectedPaperTotal: 12,
+    expectedPaperTotal: 14,
     defaultDurationMinutes: 90,
     isAvailable: true,
     questionTypeKeys: questionTypeOptions.map((item) => item.key),
@@ -297,7 +312,7 @@ vi.mock('../entities/subject/model/subjects', () => {
       defaultCounts: [5],
       defaultDifficulty: 'medium',
       defaultDurationMinutes: 90,
-      defaultPaperTotal: 12,
+      defaultPaperTotal: 14,
       promptProfile: 'english',
     },
     downloadDocs: [],
@@ -308,12 +323,13 @@ vi.mock('../entities/subject/model/subjects', () => {
     getSubjectMeta: () => subjectMeta,
     getSubjectMetaByRouteParam: () => subjectMeta,
     getSubjectQuestionTypeOptions: () => questionTypeOptions,
-    getQuestionTypeMeta: (type) => questionTypeOptions.find((item) => item.key === type) || {
-      key: type,
-      label: type,
-      shortLabel: type,
-      family: 'objective',
-    },
+    getQuestionTypeMeta: (type) =>
+      questionTypeOptions.find((item) => item.key === type) || {
+        key: type,
+        label: type,
+        shortLabel: type,
+        family: 'objective',
+      },
     buildQuestionPlan: () => ({}),
     normalizeQuestionPlan: () => ({}),
   }
@@ -438,13 +454,22 @@ describe('workspace rich smoke flow', () => {
   it('covers cloze, reading and composite interactions from navigation to submit', async () => {
     const { container, root } = await renderWorkspace('/workspace/english?paper=paper-rich&mode=practice')
 
-    await waitFor(() => container.textContent?.includes('Cloze blank 1'))
+    await waitFor(() => container.textContent?.includes('根据短文内容完成完形填空。'))
+    expect(container.textContent).toContain('(1) ______')
+    expect(container.textContent).toContain('(2) ______')
 
     await act(async () => {
-      findButtonByText(container, 'Correct cloze answer').click()
+      findButtonByText(container, 'with').click()
+      findButtonByText(container, 'has').click()
     })
 
-    await waitFor(() => container.textContent?.includes('cloze-rationale'))
+    await waitFor(() => container.textContent?.includes('检查整篇完形'))
+
+    await act(async () => {
+      findButtonByText(container, '检查整篇完形').click()
+    })
+
+    await waitFor(() => container.textContent?.includes('固定搭配为 with one missing blank。'))
     expect(saveSessionProgressMock.mock.calls.length).toBeGreaterThan(0)
 
     await act(async () => {

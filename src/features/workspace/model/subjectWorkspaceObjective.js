@@ -44,6 +44,10 @@ export function isResponseAnswered(item, response) {
     if (!response || typeof response !== 'object') return false
     return item.questions.every((question) => isNonEmptyText(response[question.id]))
   }
+  if (item.type === 'cloze') {
+    if (!response || typeof response !== 'object') return false
+    return (item.blanks || []).every((blank) => isNonEmptyText(response[blank.blank_id]))
+  }
   if (item.answer?.type === 'subjective') {
     return Boolean(response?.text?.trim())
   }
@@ -57,6 +61,9 @@ export function getObjectiveItemTotal(item) {
   }
   if (item.type === 'reading') {
     return item.questions.reduce((sum, question) => sum + (question.score || 0), 0)
+  }
+  if (item.type === 'cloze') {
+    return (item.blanks || []).reduce((sum, blank) => sum + (blank.score || 0), 0)
   }
   if (item.type === 'fill_blank') {
     return item.blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)
@@ -77,6 +84,12 @@ export function getObjectiveItemScore(item, response) {
     if (!response || typeof response !== 'object') return 0
     return item.questions.reduce((sum, question) => {
       return sum + (response[question.id] === question.answer?.correct ? question.score || 0 : 0)
+    }, 0)
+  }
+  if (item.type === 'cloze') {
+    if (!response || typeof response !== 'object') return 0
+    return (item.blanks || []).reduce((sum, blank) => {
+      return sum + (String(response[blank.blank_id] || '').trim() === String(blank.correct || '').trim() ? blank.score || 0 : 0)
     }, 0)
   }
   if (item.type === 'fill_blank') {
@@ -111,6 +124,13 @@ export function getObjectiveWrongCount(item, response) {
       (sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1),
       0
     )
+  }
+  if (item.type === 'cloze') {
+    const blanks = Array.isArray(item.blanks) ? item.blanks : []
+    if (!response || typeof response !== 'object') return blanks.length
+    return blanks.reduce((sum, blank) => {
+      return sum + (String(response[blank.blank_id] || '').trim() === String(blank.correct || '').trim() ? 0 : 1)
+    }, 0)
   }
   if (item.type === 'fill_blank') {
     if (!response || typeof response !== 'object') return item.blanks.length
