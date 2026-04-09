@@ -11,6 +11,7 @@ import {
 import {
   normalizeEssayQuestion,
   normalizeGenericSubjectiveQuestion,
+  normalizeRelationalAlgebraQuestion,
   normalizeTranslationQuestion,
 } from './subjectiveNormalizers'
 
@@ -88,6 +89,10 @@ const QUESTION_NORMALIZERS = {
     const converted = normalizeGenericSubjectiveQuestion(question, 'er_diagram')
     return converted ? [converted] : []
   },
+  relational_algebra: (question) => {
+    const converted = normalizeRelationalAlgebraQuestion(question)
+    return converted ? [converted] : []
+  },
   composite: (question) => {
     const converted = normalizeCompositeQuestion(question)
     return converted ? [converted] : []
@@ -134,10 +139,10 @@ export function normalizeQuizPayload(data) {
       )
     }
 
-    throw new Error(
-      '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、function_fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation、programming、sql、er_diagram、composite。'
-    )
-  }
+      throw new Error(
+        '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、function_fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation、programming、sql、er_diagram、relational_algebra、composite。'
+      )
+    }
 
   return {
     title: data.title || '未命名试卷',

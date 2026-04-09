@@ -168,6 +168,42 @@ function sanitizeClozeBlank(blank = {}, index = 0, defaultScore = 2) {
   }
 }
 
+function sanitizeRelationalAlgebraSchema(schema = {}) {
+  if (!schema || typeof schema !== 'object') return null
+
+  const attributes = Array.isArray(schema.attributes)
+    ? schema.attributes
+    : Array.isArray(schema.fields)
+      ? schema.fields
+      : Array.isArray(schema.columns)
+        ? schema.columns
+        : []
+
+  return {
+    name: schema.name || schema.table || schema.relation || '',
+    attributes: [...new Set(attributes.map((attribute) => String(attribute || '').trim()).filter(Boolean))],
+  }
+}
+
+function sanitizeRelationalAlgebraSubquestion(subquestion = {}, index = 0, defaultScore = 5) {
+  if (!subquestion || typeof subquestion !== 'object') return null
+
+  return {
+    id: String(subquestion.id || index + 1),
+    label: subquestion.label || `（${index + 1}）`,
+    prompt: subquestion.prompt || subquestion.stem || subquestion.title || '',
+    score: Number(subquestion.score) > 0 ? Number(subquestion.score) : defaultScore,
+    reference_answer:
+      subquestion.reference_answer ||
+      subquestion.referenceAnswer ||
+      subquestion.answer?.reference_answer ||
+      subquestion.answer?.referenceAnswer ||
+      subquestion.standard_answer ||
+      subquestion.standardAnswer ||
+      '',
+  }
+}
+
 export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
   if (!rawQuestion || typeof rawQuestion !== 'object') {
     return null
@@ -284,6 +320,45 @@ export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
         }
       )
     )
+  }
+
+  if (normalizedType === 'relational_algebra') {
+    const schemas = (
+      rawQuestion.schemas ||
+      rawQuestion.relations ||
+      rawQuestion.schema_definitions ||
+      []
+    )
+      .map((schema) => sanitizeRelationalAlgebraSchema(schema))
+      .filter((schema) => schema?.name && schema.attributes.length > 0)
+
+    const subquestions = (
+      rawQuestion.subquestions ||
+      rawQuestion.questions ||
+      rawQuestion.items ||
+      []
+    )
+      .map((subquestion, index) =>
+        sanitizeRelationalAlgebraSubquestion(
+          subquestion,
+          index,
+          Number(rawQuestion.score) > 0 && Array.isArray(rawQuestion.subquestions || rawQuestion.questions || rawQuestion.items)
+            ? Number(rawQuestion.score) / (rawQuestion.subquestions || rawQuestion.questions || rawQuestion.items).length
+            : 5
+        )
+      )
+      .filter((subquestion) => subquestion?.prompt)
+
+    question.schemas = schemas
+    question.subquestions = subquestions
+    question.questions = subquestions
+    question.tooling = {
+      symbols: ['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ', 'AND', 'OR', '=', '!=', '>', '<', '>=', '<='],
+      wrap_symbols: ['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ'],
+      default_join_symbol: '⋈',
+      ...(rawQuestion.tooling && typeof rawQuestion.tooling === 'object' ? rawQuestion.tooling : {}),
+    }
+    question.answer_mode = rawQuestion.answer_mode || rawQuestion.answerMode || 'per_subquestion_expression'
   }
 
   question.answer = normalizeAnswerShape(rawQuestion, normalizedType)

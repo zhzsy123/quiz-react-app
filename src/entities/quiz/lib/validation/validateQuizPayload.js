@@ -12,6 +12,7 @@ const SUPPORTED_TOP_LEVEL_TYPES = new Set([
   'programming',
   'sql',
   'er_diagram',
+  'relational_algebra',
   'case_analysis',
   'calculation',
   'operation',
@@ -30,6 +31,7 @@ const SUPPORTED_COMPOSITE_CHILD_TYPES = new Set([
   'programming',
   'sql',
   'er_diagram',
+  'relational_algebra',
   'case_analysis',
   'calculation',
   'operation',
@@ -126,6 +128,37 @@ export function validateQuizPayload(payload) {
           errors.push(`${questionLabel} 是 reading，但缺少非空 questions 子题数组。`)
         } else if (subQuestions.some((subQuestion) => !getCorrectValue(subQuestion))) {
           appendMissingAnswerWarning(warnings, questionLabel, questionType)
+        }
+      }
+
+      if (questionType === 'relational_algebra') {
+        const schemas = question?.schemas || question?.relations || question?.schema_definitions || []
+        const subquestions = question?.subquestions || question?.questions || question?.items || []
+
+        if (!Array.isArray(schemas) || schemas.length === 0) {
+          errors.push(`${questionLabel} 是 relational_algebra，但缺少非空 schemas 关系模式数组。`)
+        }
+
+        if (!Array.isArray(subquestions) || subquestions.length === 0) {
+          errors.push(`${questionLabel} 是 relational_algebra，但缺少非空 subquestions 数组。`)
+        } else {
+          subquestions.forEach((subQuestion, subIndex) => {
+            const subLabel = subQuestion?.id || `${questionLabel}.subquestions[${subIndex}]`
+            if (!String(subQuestion?.prompt || '').trim()) {
+              errors.push(`${subLabel} 缺少 prompt。`)
+            }
+            if (
+              !String(
+                subQuestion?.reference_answer ||
+                  subQuestion?.referenceAnswer ||
+                  subQuestion?.answer?.reference_answer ||
+                  subQuestion?.standard_answer ||
+                  ''
+              ).trim()
+            ) {
+              warnings.push(`${subLabel} 缺少 reference_answer，导入后可显示但无法进行关系代数等价判题。`)
+            }
+          })
         }
       }
 

@@ -91,4 +91,28 @@ describe('buildGenerationPrompt', () => {
     expect(result.userPrompt).toContain('"requiredFields":["id","type","prompt","article","blanks[]"]')
     expect(result.userPrompt).toContain('target_question_type')
   })
+
+  it('adds database relational algebra contract rules to the generation prompt', () => {
+    const result = buildGenerationPrompt({
+      subjectKey: 'database_principles',
+      requestId: 'req_ra_001',
+      params: {
+        mode: 'practice',
+        count: 1,
+        questionTypes: ['relational_algebra'],
+      },
+      planItem: {
+        typeKey: 'relational_algebra',
+        score: 20,
+        label: '关系代数题',
+      },
+      questionIndex: 1,
+      totalQuestions: 1,
+    })
+
+    expect(result.userPrompt).toContain('"target_question_type":"relational_algebra"')
+    expect(result.userPrompt).toContain('"requiredFields":["id","type","prompt","score","schemas[]","subquestions[]","subquestions[].reference_answer"]')
+    expect(result.userPrompt).toContain('Use schemas plus subquestions structure.')
+    expect(result.userPrompt).toContain('reference_answer must be a relational algebra expression')
+  })
 })

@@ -121,3 +121,84 @@ export function normalizeGenericSubjectiveQuestion(question, fallbackType) {
     },
   })
 }
+
+function normalizeRelationalAlgebraSchema(schema = {}) {
+  if (!schema || typeof schema !== 'object') return null
+
+  const attributes = Array.isArray(schema.attributes)
+    ? schema.attributes
+    : Array.isArray(schema.fields)
+      ? schema.fields
+      : []
+
+  const normalizedAttributes = [...new Set(attributes.map((attribute) => String(attribute || '').trim()).filter(Boolean))]
+  const name = String(schema.name || schema.table || schema.relation || '').trim()
+
+  if (!name || normalizedAttributes.length === 0) return null
+
+  return {
+    name,
+    attributes: normalizedAttributes,
+  }
+}
+
+function normalizeRelationalAlgebraSubquestion(subquestion = {}, index = 0) {
+  if (!subquestion || typeof subquestion !== 'object') return null
+
+  const prompt = String(subquestion.prompt || subquestion.stem || subquestion.title || '').trim()
+  const referenceAnswer = String(
+    subquestion.reference_answer ||
+      subquestion.referenceAnswer ||
+      subquestion.answer?.reference_answer ||
+      subquestion.answer?.referenceAnswer ||
+      subquestion.standard_answer ||
+      ''
+  ).trim()
+
+  if (!prompt || !referenceAnswer) return null
+
+  return {
+    id: String(subquestion.id ?? index + 1),
+    label: String(subquestion.label || `（${index + 1}）`).trim(),
+    prompt,
+    score: Number(subquestion.score) > 0 ? Number(subquestion.score) : 5,
+    reference_answer: referenceAnswer,
+  }
+}
+
+export function normalizeRelationalAlgebraQuestion(question) {
+  const prompt = String(question.prompt || question.title || '').trim()
+  const schemas = (question.schemas || question.relations || question.schema_definitions || [])
+    .map((schema) => normalizeRelationalAlgebraSchema(schema))
+    .filter(Boolean)
+  const sourceSubquestions = question.subquestions || question.questions || question.items || []
+  const subquestions = sourceSubquestions
+    .map((subquestion, index) => normalizeRelationalAlgebraSubquestion(subquestion, index))
+    .filter(Boolean)
+
+  if (!prompt || schemas.length === 0 || subquestions.length === 0) return null
+
+  return appendSubjectiveMeta(question, {
+    ...ensureQuestionBase(question, 'relational_algebra', getDefaultScoreByType('relational_algebra')),
+    prompt,
+    schemas,
+    subquestions,
+    questions: subquestions,
+    tooling: {
+      symbols: Array.isArray(question.tooling?.symbols)
+        ? question.tooling.symbols
+        : ['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ', 'AND', 'OR', '=', '!=', '>', '<', '>=', '<='],
+      wrap_symbols: Array.isArray(question.tooling?.wrap_symbols)
+        ? question.tooling.wrap_symbols
+        : ['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ'],
+      default_join_symbol: question.tooling?.default_join_symbol || '⋈',
+    },
+    answer_mode: question.answer_mode || question.answerMode || 'per_subquestion_expression',
+    answer: {
+      type: 'subjective',
+      reference_answer: '',
+      scoring_points: [],
+      ai_scoring: { enabled: true, mode: 'relational_algebra_equivalence' },
+    },
+  })
+}

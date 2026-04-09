@@ -31,6 +31,7 @@ const QUESTION_TYPE_PROMPT_LABELS = {
   sql: 'SQL 题',
   er_diagram: 'E-R 图题',
   composite: '综合题',
+  relational_algebra: '关系代数题',
 }
 
 const PROFILE_GUIDANCE = {
@@ -126,6 +127,14 @@ const TYPE_SPECIFIC_RULES = {
   er_diagram: [
     'Provide context text.',
     'answer.type must be subjective with reference_answer and scoring_points.',
+  ],
+  relational_algebra: [
+    'Use schemas plus subquestions structure.',
+    'schemas must be an array of {name, attributes}.',
+    'subquestions must be an array, and every subquestion must contain id, prompt, score, and reference_answer.',
+    'reference_answer must be a relational algebra expression, not natural language prose.',
+    'Provide tooling.symbols, tooling.wrap_symbols, and tooling.default_join_symbol when possible.',
+    'Do not convert relational algebra into short_answer, sql, or composite.',
   ],
   composite: [
     'Use material plus questions structure.',

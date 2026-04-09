@@ -339,6 +339,62 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
   })
 
+  it('normalizes relational algebra generation for database_principles', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        id: 'ra_001',
+        type: 'relational_algebra',
+        prompt: '已知关系模式：学生、课程、学习。请用关系代数表达式完成下列查询。',
+        score: 20,
+        schemas: [
+          {
+            name: '学生',
+            attributes: ['学号', '姓名', '专业'],
+          },
+          {
+            name: '学习',
+            attributes: ['学号', '课程号', '分数'],
+          },
+        ],
+        subquestions: [
+          {
+            id: '1',
+            prompt: '检索英语专业学生信息。',
+            score: 10,
+            reference_answer: "Π[学号,姓名](σ[专业='英语'](学生 ⋈ 学习))",
+          },
+          {
+            id: '2',
+            prompt: '检索不及格学生信息。',
+            score: 10,
+            reference_answer: 'Π[学号](σ[分数<60](学习))',
+          },
+        ],
+      },
+    })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'database_principles',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['relational_algebra'],
+      },
+      meta: {
+        requestId: 'gen_ra_001',
+      },
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions).toHaveLength(1)
+    expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].normalizedQuestion.type).toBe('relational_algebra')
+    expect(result.draftQuestions[0].normalizedQuestion.schemas).toHaveLength(2)
+    expect(result.draftQuestions[0].normalizedQuestion.subquestions).toHaveLength(2)
+    expect(result.draftPaper.questions[0].type).toBe('relational_algebra')
+  })
+
   it('falls back to the planned cloze type when AI returns an unknown type label', async () => {
     requestAiJsonMock.mockResolvedValueOnce({
       content: {

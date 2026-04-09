@@ -10,6 +10,7 @@ export const DEFAULT_QUESTION_SCORES = {
   programming: 20,
   sql: 12,
   er_diagram: 12,
+  relational_algebra: 20,
   case_analysis: 20,
   calculation: 6,
   operation: 16,
