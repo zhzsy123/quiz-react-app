@@ -79,7 +79,7 @@ function collectQuestionsFromRawPayload(rawPayload) {
     return candidate.questions
   }
 
-  if (candidate.type && candidate.prompt) {
+  if (candidate.type) {
     return [candidate]
   }
 
@@ -105,6 +105,39 @@ function buildCombinedImportPayload({ subjectKey, documentDraft, sectionResults 
   }
 }
 
+function countQuestionsInSectionResult(sectionResult) {
+  return collectQuestionsFromRawPayload(sectionResult?.rawAiPayload).length
+}
+
+function buildImportDiagnostics({
+  documentDraft,
+  strategy,
+  detection = null,
+  sectionResults = [],
+  skippedCount = 0,
+  skippedTypes = [],
+}) {
+  return {
+    strategy,
+    ocrUsed: Boolean(documentDraft?.ocrUsed),
+    characterCount: Number(documentDraft?.stats?.characterCount) || 0,
+    pageCount: Number(documentDraft?.stats?.pageCount) || 0,
+    sectionCount: detection?.sections?.length || 0,
+    coverage: Number(detection?.coverage) || 0,
+    skippedCount,
+    skippedTypes,
+    sections: sectionResults.map((sectionResult) => ({
+      key: sectionResult.section.key,
+      label: sectionResult.section.label,
+      targetQuestionTypes: sectionResult.section.targetQuestionTypes || [],
+      itemCount: countQuestionsInSectionResult(sectionResult),
+      repaired: Boolean(sectionResult.repaired),
+      warnings: sectionResult.warnings || [],
+      sourceLength: String(sectionResult.section.text || '').length,
+    })),
+  }
+}
+
 function emitSectionActivity(onStageChange, section, status, summary, detail = '') {
   onStageChange?.(
     {
@@ -119,6 +152,28 @@ function emitSectionActivity(onStageChange, section, status, summary, detail = '
   )
 }
 
+function validateSectionImportPayload(rawAiPayload, subjectKey, targetQuestionTypes = []) {
+  const normalizedDocument = normalizeImportResultPayload(rawAiPayload, subjectKey)
+  const items = normalizedDocument?.quiz?.items || []
+
+  if (!items.length) {
+    throw new Error('本 section 未生成任何可用题目。')
+  }
+
+  if (targetQuestionTypes.length > 0) {
+    const matchedCount = items.filter((item) => {
+      const typeKey = item?.source_type || item?.type
+      return targetQuestionTypes.includes(typeKey)
+    }).length
+
+    if (matchedCount === 0) {
+      throw new Error(`本 section 未生成预期题型：${targetQuestionTypes.join('、')}。`)
+    }
+  }
+
+  return normalizedDocument
+}
+
 async function requestSectionAi({
   provider,
   subjectMeta,
@@ -127,41 +182,79 @@ async function requestSectionAi({
   signal,
   onStageChange,
 }) {
-  emitSectionActivity(onStageChange, section, 'running', '正在调用 AI 处理该 section', `开始解析 ${section.label}`)
+  emitSectionActivity(onStageChange, section, 'running', '正在调用 AI 处理该 section。', `开始解析 ${section.label}`)
 
   const sectionDraft = buildSectionDocumentDraft(documentDraft, section)
-  const prompt = buildImportPrompt({
-    documentDraft: sectionDraft,
-    subjectKey: subjectMeta.key,
-    targetQuestionTypes: section.targetQuestionTypes,
-    sectionLabel: section.label,
-  })
 
-  try {
+  const runSectionImport = async (repairHint = '') => {
+    const prompt = buildImportPrompt({
+      documentDraft: sectionDraft,
+      subjectKey: subjectMeta.key,
+      targetQuestionTypes: section.targetQuestionTypes,
+      sectionLabel: section.label,
+      repairHint,
+    })
+
     const response = await requestAiJson({
       provider,
-      feature: 'document_import_section',
-      title: `${documentDraft.fileName || subjectMeta.shortLabel || subjectMeta.key} · ${section.label}`,
+      feature: repairHint ? 'document_import_section_repair' : 'document_import_section',
+      title: `${documentDraft.fileName || subjectMeta.shortLabel || subjectMeta.key} / ${section.label}`,
       subject: subjectMeta.key,
       systemPrompt: prompt.systemPrompt,
       userPrompt: prompt.userPrompt,
-      temperature: 0.1,
+      temperature: repairHint ? 0.05 : 0.1,
       signal,
     })
 
-    emitSectionActivity(onStageChange, section, 'completed', '该 section 已解析完成', `${section.label} 解析完成`)
+    validateSectionImportPayload(response.content, subjectMeta.key, section.targetQuestionTypes)
 
     return {
       section,
       rawAiPayload: response.content,
       warnings: prompt.warnings || [],
+      repaired: Boolean(repairHint),
     }
+  }
+
+  try {
+    const result = await runSectionImport()
+    emitSectionActivity(onStageChange, section, 'completed', '该 section 已解析完成。', `${section.label} 解析完成`)
+    return result
   } catch (error) {
+    const canRepair = section.targetQuestionTypes?.length === 1
+
+    if (canRepair) {
+      emitSectionActivity(
+        onStageChange,
+        section,
+        'running',
+        '首轮结果结构不稳定，正在定向修复本 section。',
+        `${section.label} 首轮失败：${error?.message || '结构不稳定'}`
+      )
+
+      try {
+        const repairedResult = await runSectionImport(
+          `上一轮 section 解析失败：${error?.message || '结构无效'}。请严格按当前 section 的唯一题型 contract 重写，并确保结构完整。`
+        )
+        emitSectionActivity(onStageChange, section, 'completed', '该 section 已解析完成。', `${section.label} 修复后解析完成`)
+      return repairedResult
+      } catch (repairError) {
+        emitSectionActivity(
+          onStageChange,
+          section,
+          'failed',
+          repairError?.message || '该 section 解析失败。',
+          `${section.label} 解析失败`
+        )
+        throw repairError
+      }
+    }
+
     emitSectionActivity(
       onStageChange,
       section,
       'failed',
-      error?.message || '该 section 解析失败',
+      error?.message || '该 section 解析失败。',
       `${section.label} 解析失败`
     )
     throw error
@@ -182,7 +275,7 @@ async function importEnglishDocumentBySections({
 
   onStageChange?.(
     'calling_ai',
-    `正在并行解析英语试卷各部分，共 ${detection.sections.length} 个 section`
+    `正在并行解析英语试卷各部分，共 ${detection.sections.length} 个 section。`
   )
 
   const sectionResults = await Promise.all(
@@ -231,9 +324,10 @@ export async function importDocumentWithAi({
   const requestId = createImportRequestId(subjectMeta.key)
   let rawAiPayload = null
   let promptWarnings = []
+  let sectionedImport = null
 
   try {
-    const sectionedImport =
+    sectionedImport =
       subjectMeta.key === 'english'
         ? await importEnglishDocumentBySections({
             documentDraft,
@@ -268,7 +362,7 @@ export async function importDocumentWithAi({
       })
       promptWarnings = prompt.warnings || []
 
-      onStageChange?.('calling_ai', '正在调用 AI 解析试卷结构')
+      onStageChange?.('calling_ai', '正在调用 AI 解析试卷结构。')
       const response = await requestAiJson({
         provider,
         feature: 'document_import',
@@ -290,7 +384,7 @@ export async function importDocumentWithAi({
 
   let normalizedDocument = null
   try {
-    onStageChange?.('validating', '正在校验并标准化题库结构')
+    onStageChange?.('validating', '正在校验并标准化题库结构。')
     normalizedDocument = normalizeImportResultPayload(rawAiPayload?.combinedPayload || rawAiPayload, subjectMeta.key)
   } catch (error) {
     throw createDocumentImportError('validating', error.message, {
@@ -309,16 +403,25 @@ export async function importDocumentWithAi({
   }
 
   const warnings = [...promptWarnings, ...(normalizedDocument?.validation?.warnings || [])]
-
   if (skippedTypes.length > 0) {
     warnings.push(`检测到未支持题型：${skippedTypes.join('、')}。`)
   }
+
+  const diagnostics = buildImportDiagnostics({
+    documentDraft,
+    strategy: sectionedImport ? 'english_section_detection' : 'single_pass',
+    detection: sectionedImport?.detection || null,
+    sectionResults: sectionedImport?.sectionResults || [],
+    skippedCount,
+    skippedTypes,
+  })
 
   const preview = buildImportPreview({
     normalizedDocument,
     subjectKey: subjectMeta.key,
     warnings,
     invalidReasons,
+    diagnostics,
   })
   const persistedPayload = buildPersistedImportPayload(normalizedDocument.quiz)
 
@@ -334,6 +437,7 @@ export async function importDocumentWithAi({
     warnings,
     errors: [],
     invalidReasons,
+    diagnostics,
   }
 }
 

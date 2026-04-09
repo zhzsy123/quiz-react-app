@@ -49,6 +49,7 @@ export function rebuildDocumentImportResult({
     normalizedDocument,
     persistedPayload,
     scoreBreakdown,
+    diagnostics: importResult.diagnostics || null,
     warnings: warnings || importResult.warnings || [],
     errors: errors || importResult.errors || [],
     invalidReasons: nextInvalidReasons,
@@ -57,6 +58,7 @@ export function rebuildDocumentImportResult({
       subjectKey,
       warnings: warnings || importResult.warnings || [],
       invalidReasons: nextInvalidReasons,
+      diagnostics: importResult.diagnostics || null,
     }),
   }
 }

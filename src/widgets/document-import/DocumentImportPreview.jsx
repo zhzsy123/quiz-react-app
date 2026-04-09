@@ -1,6 +1,57 @@
 import React, { useMemo, useState } from 'react'
 import ActivityTimeline from '../feedback/ActivityTimeline.jsx'
 
+function normalizeExcerpt(value, fallback = '题干预览不可用') {
+  const text = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!text) return fallback
+  return text.length > 120 ? `${text.slice(0, 120)}...` : text
+}
+
+function buildQuestionExcerpt(item = {}) {
+  if (item.type === 'reading') {
+    return normalizeExcerpt(
+      item.passage?.content || item.passage?.body || item.passage?.text || item.prompt,
+      '阅读材料预览不可用'
+    )
+  }
+
+  if (item.type === 'cloze') {
+    return normalizeExcerpt(item.article || item.prompt, '完形文章预览不可用')
+  }
+
+  if (item.type === 'composite') {
+    return normalizeExcerpt(item.prompt || item.context || item.material, '综合题预览不可用')
+  }
+
+  return normalizeExcerpt(item.prompt || item.context || item.material)
+}
+
+function buildQuestionContent(item = {}) {
+  if (item.type === 'reading') {
+    return item.passage?.content || item.passage?.body || item.passage?.text || ''
+  }
+
+  if (item.type === 'cloze') {
+    return item.article || ''
+  }
+
+  if (item.type === 'composite') {
+    return item.material || item.context || ''
+  }
+
+  return item.context || ''
+}
+
+function getSubQuestionCount(item = {}) {
+  if (item.type === 'reading') return Array.isArray(item.questions) ? item.questions.length : 0
+  if (item.type === 'cloze') return Array.isArray(item.blanks) ? item.blanks.length : 0
+  if (item.type === 'composite') return Array.isArray(item.questions) ? item.questions.length : 0
+  return 0
+}
+
 function renderPreviewStats(preview) {
   if (!preview) return null
 
@@ -43,6 +94,74 @@ function renderIssueList(title, items = [], tone = 'warning') {
           <li key={`${item}-${index}`}>{item}</li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+function renderDiagnosticsPanel(diagnostics) {
+  if (!diagnostics) return null
+
+  const sections = diagnostics.sections || []
+  const hasSections = sections.length > 0
+
+  return (
+    <div className="document-import-diagnostics" data-testid="document-import-diagnostics">
+      <div className="document-import-diagnostics-head">
+        <strong>导入诊断</strong>
+        <span className="section-header-tip">
+          {diagnostics.strategy === 'english_section_detection' ? '英语分段解析' : '整卷解析'}
+          {diagnostics.ocrUsed ? ' · 已启用 OCR' : ''}
+        </span>
+      </div>
+
+      <div className="document-import-diagnostics-summary">
+        <span>文本 {diagnostics.characterCount || 0} 字</span>
+        <span>页数 {diagnostics.pageCount || 0}</span>
+        {hasSections ? <span>切出 {diagnostics.sectionCount || 0} 个 section</span> : null}
+        {hasSections ? <span>覆盖率 {Math.round((diagnostics.coverage || 0) * 100)}%</span> : null}
+        {diagnostics.skippedCount ? <span>跳过 {diagnostics.skippedCount} 道</span> : null}
+      </div>
+
+      {hasSections ? (
+        <div className="document-import-diagnostic-section-list">
+          {sections.map((section) => (
+            <article key={section.key} className="document-import-diagnostic-section">
+              <div className="document-import-diagnostic-section-head">
+                <strong>{section.label}</strong>
+                <div className="document-import-diagnostic-badges">
+                  <span className="tag blue">{(section.targetQuestionTypes || []).join(' / ') || '未分类'}</span>
+                  <span className="tag blue">{section.itemCount || 0} 题</span>
+                  {section.repaired ? <span className="tag green">已修复</span> : null}
+                </div>
+              </div>
+              <p>
+                源文本 {section.sourceLength || 0} 字
+                {section.warnings?.length ? ` · 警告 ${section.warnings.length}` : ''}
+              </p>
+              {section.warnings?.length ? (
+                <ul>
+                  {section.warnings.map((warning, index) => (
+                    <li key={`${section.key}-${index}`}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {diagnostics.skippedTypes?.length ? (
+        <div className="document-import-diagnostic-skipped">
+          <strong>被跳过的题型</strong>
+          <div className="document-import-diagnostic-badges">
+            {diagnostics.skippedTypes.map((type) => (
+              <span key={type} className="tag red">
+                {type}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -103,7 +222,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
     try {
       await handlers?.onRepairQuestion?.(questionId)
     } catch {
-      // 错误状态由 hook 内部维护
+      // 错误态由 hook 内部维护
     }
   }
 
@@ -112,7 +231,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
       <div className="document-import-question-preview-head">
         <strong>题目预览</strong>
         {questionPreviews.length < totalCount ? (
-          <span className="section-header-tip">仅展示前 {questionPreviews.length} 题</span>
+          <span className="section-header-tip">仅显示前 {questionPreviews.length} 题</span>
         ) : (
           <span className="section-header-tip">共 {totalCount} 题</span>
         )}
@@ -124,9 +243,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
               <div>
                 <strong>第 {item.index} 题</strong>
                 <span className="tag blue">{item.label}</span>
-                {item.subQuestionCount > 0 ? (
-                  <span className="tag blue">含 {item.subQuestionCount} 个子题</span>
-                ) : null}
+                {item.subQuestionCount > 0 ? <span className="tag blue">含 {item.subQuestionCount} 个子题</span> : null}
               </div>
               <span>{item.score} 分</span>
             </div>
@@ -170,7 +287,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
               </div>
             ) : (
               <>
-                <p>{item.excerpt}</p>
+                <p>{item.excerpt || buildQuestionExcerpt(item)}</p>
                 <div className="document-import-question-actions">
                   <button type="button" className="secondary-btn small-btn" onClick={() => startEdit(item)}>
                     编辑
@@ -227,13 +344,15 @@ export default function DocumentImportPreview({
 
   const isPreviewReady = ['preview_ready', 'saving', 'launching', 'completed'].includes(status)
 
-  const fallbackEntries = (activityEntries?.length ? activityEntries : progressLog.map((line, index) => ({
-    id: `log-${index + 1}`,
-    title: `步骤 ${index + 1}`,
-    status: index === progressLog.length - 1 && !isPreviewReady ? 'running' : 'completed',
-    summary: line,
-    detail: line,
-  })))
+  const fallbackEntries = (activityEntries?.length
+    ? activityEntries
+    : progressLog.map((line, index) => ({
+        id: `log-${index + 1}`,
+        title: `步骤 ${index + 1}`,
+        status: index === progressLog.length - 1 && !isPreviewReady ? 'running' : 'completed',
+        summary: line,
+        detail: line,
+      })))
 
   return (
     <div className="document-import-preview-panel" data-testid="document-import-preview">
@@ -272,6 +391,7 @@ export default function DocumentImportPreview({
       {renderIssueList('警告', warnings, 'warning')}
       {renderIssueList('错误', errors, 'error')}
       {renderIssueList('无效原因', invalidReasons, 'error')}
+      {isPreviewReady ? renderDiagnosticsPanel(preview?.diagnostics) : null}
       {isPreviewReady
         ? renderQuestionPreviewList(preview, {
             onRemoveQuestion,
@@ -283,3 +403,4 @@ export default function DocumentImportPreview({
     </div>
   )
 }
+

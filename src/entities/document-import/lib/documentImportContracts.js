@@ -91,6 +91,7 @@ export function createEmptyImportPreview() {
     invalidCount: 0,
     typeStats: [],
     questionPreviews: [],
+    diagnostics: null,
   }
 }
 
@@ -105,5 +106,6 @@ export function createEmptyImportDraftResult() {
     warnings: [],
     errors: [],
     invalidReasons: [],
+    diagnostics: null,
   }
 }

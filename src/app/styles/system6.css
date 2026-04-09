@@ -88,6 +88,16 @@
 .document-import-question-card p{margin:0;color:#94a3b8;line-height:1.7}
 .document-import-question-actions{display:flex;gap:8px;flex-wrap:wrap}
 .document-import-question-edit-form{display:flex;flex-direction:column;gap:12px}
+.document-import-diagnostics{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:16px;background:rgba(15,23,42,.68);border:1px solid rgba(148,163,184,.12)}
+.document-import-diagnostics-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.document-import-diagnostics-summary{display:flex;gap:12px;flex-wrap:wrap;color:#cbd5e1;font-size:.92rem}
+.document-import-diagnostic-section-list{display:flex;flex-direction:column;gap:10px}
+.document-import-diagnostic-section{padding:12px;border-radius:14px;background:rgba(2,6,23,.35);border:1px solid rgba(148,163,184,.12)}
+.document-import-diagnostic-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.document-import-diagnostic-section p{margin:8px 0 0;color:#94a3b8;line-height:1.6}
+.document-import-diagnostic-section ul{margin:8px 0 0;padding-left:18px;color:#fde68a;line-height:1.6}
+.document-import-diagnostic-badges{display:flex;gap:8px;flex-wrap:wrap}
+.document-import-diagnostic-skipped{display:flex;flex-direction:column;gap:8px}
 .no-top-margin{margin-top:0}
 .document-import-log-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;color:#cbd5e1;line-height:1.6}
 .document-import-inline-panel{display:flex;flex-direction:column;gap:14px;margin-top:18px;padding:16px;border-radius:18px;background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.14)}

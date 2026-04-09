@@ -24,7 +24,7 @@ describe('DocumentImportDialog', () => {
     vi.clearAllMocks()
   })
 
-  it('renders preview information and allows selecting a file', async () => {
+  it('renders preview information, diagnostics, and allows selecting a file', async () => {
     const onFileSelect = vi.fn()
     const props = {
       open: true,
@@ -36,6 +36,7 @@ describe('DocumentImportDialog', () => {
         subject: 'english',
         extractedText: 'text',
         documentDraft: {
+          ocrUsed: true,
           stats: {
             characterCount: 1200,
             pageCount: 2,
@@ -52,6 +53,27 @@ describe('DocumentImportDialog', () => {
           warningCount: 1,
           invalidCount: 0,
           typeStats: [{ type: 'reading', label: '阅读理解', count: 4 }],
+          diagnostics: {
+            strategy: 'english_section_detection',
+            ocrUsed: true,
+            characterCount: 1200,
+            pageCount: 2,
+            sectionCount: 4,
+            coverage: 0.92,
+            skippedCount: 0,
+            skippedTypes: [],
+            sections: [
+              {
+                key: 'reading_a',
+                label: '阅读 A',
+                targetQuestionTypes: ['reading'],
+                itemCount: 1,
+                repaired: false,
+                warnings: [],
+                sourceLength: 2600,
+              },
+            ],
+          },
           questionPreviews: [
             {
               id: 'q1',
@@ -96,6 +118,7 @@ describe('DocumentImportDialog', () => {
     expect(container.textContent).toContain('英语模拟卷')
     expect(container.textContent).toContain('阅读理解')
     expect(container.textContent).toContain('阅读理解 A')
+    expect(container.textContent).toContain('导入诊断')
     expect(container.querySelector('[data-testid="document-import-save"]').disabled).toBe(false)
     expect(container.querySelector('[data-testid="document-import-launch"]').disabled).toBe(false)
 
@@ -116,3 +139,4 @@ describe('DocumentImportDialog', () => {
     })
   })
 })
+

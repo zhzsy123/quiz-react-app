@@ -74,7 +74,13 @@ function buildQuestionPreviews(items = []) {
   })
 }
 
-export function buildImportPreview({ normalizedDocument, subjectKey, warnings = [], invalidReasons = [] } = {}) {
+export function buildImportPreview({
+  normalizedDocument,
+  subjectKey,
+  warnings = [],
+  invalidReasons = [],
+  diagnostics = null,
+} = {}) {
   const preview = createEmptyImportPreview()
   if (!normalizedDocument?.quiz) {
     return preview
@@ -107,5 +113,6 @@ export function buildImportPreview({ normalizedDocument, subjectKey, warnings = 
         count,
       }
     }),
+    diagnostics,
   }
 }

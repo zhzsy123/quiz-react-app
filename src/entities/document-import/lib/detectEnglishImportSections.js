@@ -1,188 +1,288 @@
+const SECTION_DEFINITIONS = [
+  {
+    key: 'single_choice',
+    label: '\u5355\u9879\u9009\u62e9',
+    targetQuestionTypes: ['single_choice'],
+    patterns: [
+      /\bpart\s*i(?![a-z])\b/i,
+      /\bpart\s*1\b/i,
+      /\bgrammar(?:\s+and\s+vocabulary)?\b/i,
+      /\bvocabulary\s+and\s+structure\b/i,
+      /choose\s+the\s+best\s+answer/i,
+      /from\s+the\s+four\s+choices/i,
+    ],
+  },
+  {
+    key: 'cloze',
+    label: '\u5b8c\u5f62\u586b\u7a7a',
+    targetQuestionTypes: ['cloze'],
+    patterns: [
+      /\bpart\s*ii\b/i,
+      /\bpart\s*2\b/i,
+      /\bcloze\b/i,
+      /choose\s+the\s+best\s+(?:word|phrase|answer).*?blank/i,
+      /for\s+each\s+blank/i,
+      /complete\s+the\s+passage/i,
+      /read\s+the\s+following\s+passage\s+and\s+choose/i,
+    ],
+  },
+  {
+    key: 'reading',
+    label: '\u9605\u8bfb\u7406\u89e3',
+    targetQuestionTypes: ['reading'],
+    patterns: [
+      /\bpart\s*iii\b/i,
+      /\bpart\s*3\b/i,
+      /\breading\s+comprehension\b/i,
+      /\bpassage\s+[a-d]\b/i,
+      /\btext\s+[a-d]\b/i,
+      /read\s+passage\s+[a-d]/i,
+    ],
+  },
+  {
+    key: 'translation',
+    label: '\u7ffb\u8bd1',
+    targetQuestionTypes: ['translation'],
+    patterns: [
+      /\bpart\s*iv\b/i,
+      /\bpart\s*4\b/i,
+      /\btranslation\b/i,
+      /translate\s+the\s+following/i,
+      /put\s+the\s+following.*?into\s+(?:chinese|english)/i,
+    ],
+  },
+  {
+    key: 'essay',
+    label: '\u4f5c\u6587',
+    targetQuestionTypes: ['essay'],
+    patterns: [
+      /\bpart\s*v\b/i,
+      /\bpart\s*5\b/i,
+      /\bwriting\b/i,
+      /\bcomposition\b/i,
+      /write\s+(?:an?\s+)?(?:essay|composition)/i,
+      /write\s+at\s+least\s+\d+\s+words?/i,
+      /your\s+composition\s+should/i,
+    ],
+  },
+]
+
+const PASSAGE_PATTERNS = [/\bpassage\s+([a-d])\b/gi, /\btext\s+([a-d])\b/gi]
+
 function normalizeText(text) {
   return String(text || '')
     .replace(/\r\n/g, '\n')
     .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
 function findFirstPatternIndex(text, patterns = []) {
-  let minIndex = -1
+  let bestIndex = -1
 
   patterns.forEach((pattern) => {
-    const match = pattern.exec(text)
-    pattern.lastIndex = 0
-    if (!match) return
-    if (minIndex === -1 || match.index < minIndex) {
-      minIndex = match.index
+    const match = text.match(pattern)
+    if (!match?.index && match?.index !== 0) return
+    if (bestIndex === -1 || match.index < bestIndex) {
+      bestIndex = match.index
     }
   })
 
-  return minIndex
+  return bestIndex
+}
+
+function buildSectionMarkers(text) {
+  return SECTION_DEFINITIONS.map((definition) => ({
+    ...definition,
+    start: findFirstPatternIndex(text, definition.patterns),
+  }))
+    .filter((item) => item.start >= 0)
+    .sort((left, right) => left.start - right.start)
+    .filter(
+      (item, index, list) =>
+        list.findIndex((candidate) => candidate.key === item.key && candidate.start === item.start) === index
+    )
+}
+
+function hasOptionBlock(text) {
+  const matches = text.match(/(?:^|\n)\s*[a-d][\.\)\u3001]\s+/gim) || []
+  return matches.length >= 2
+}
+
+function inferResidualSection(text) {
+  const sample = normalizeText(text)
+  if (!sample || sample.length < 80) return null
+
+  const candidateMatchers = [
+    {
+      definition: SECTION_DEFINITIONS.find((item) => item.key === 'cloze'),
+      score: () =>
+        (/\[\[\d+\]\]/.test(sample) ? 2 : 0) +
+        (/blank/i.test(sample) ? 2 : 0) +
+        (/choose\s+the\s+best\s+(?:word|phrase|answer)/i.test(sample) ? 2 : 0) +
+        (hasOptionBlock(sample) ? 1 : 0),
+    },
+    {
+      definition: SECTION_DEFINITIONS.find((item) => item.key === 'reading'),
+      score: () =>
+        (/\bpassage\s+[a-d]\b/i.test(sample) ? 2 : 0) +
+        (/\breading\s+comprehension\b/i.test(sample) ? 2 : 0),
+    },
+    {
+      definition: SECTION_DEFINITIONS.find((item) => item.key === 'translation'),
+      score: () =>
+        (/translate\s+the\s+following/i.test(sample) ? 2 : 0) +
+        (/put\s+the\s+following.*?into\s+(?:chinese|english)/i.test(sample) ? 2 : 0),
+    },
+    {
+      definition: SECTION_DEFINITIONS.find((item) => item.key === 'essay'),
+      score: () =>
+        (/write\s+(?:an?\s+)?(?:essay|composition)/i.test(sample) ? 2 : 0) +
+        (/write\s+at\s+least\s+\d+\s+words?/i.test(sample) ? 2 : 0) +
+        (/\bcomposition\b/i.test(sample) ? 1 : 0),
+    },
+    {
+      definition: SECTION_DEFINITIONS.find((item) => item.key === 'single_choice'),
+      score: () =>
+        (/choose\s+the\s+best\s+answer/i.test(sample) ? 2 : 0) +
+        (/from\s+the\s+four\s+choices/i.test(sample) ? 2 : 0) +
+        (hasOptionBlock(sample) ? 1 : 0),
+    },
+  ]
+
+  const ranked = candidateMatchers
+    .map((item) => ({ definition: item.definition, score: item.score() }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+
+  return ranked[0]?.definition || null
+}
+
+function buildBaseSections(text, markers) {
+  if (!markers.length) return []
+
+  const sections = []
+  const firstMarker = markers[0]
+  const leadingText = normalizeText(text.slice(0, firstMarker.start))
+  const inferredLeading = inferResidualSection(leadingText)
+
+  if (leadingText && inferredLeading) {
+    sections.push({
+      key: inferredLeading.key,
+      label: inferredLeading.label,
+      targetQuestionTypes: inferredLeading.targetQuestionTypes,
+      text: leadingText,
+      start: 0,
+      end: firstMarker.start,
+      inferred: true,
+    })
+  }
+
+  markers.forEach((marker, index) => {
+    const nextMarker = markers[index + 1]
+    const sectionText = normalizeText(text.slice(marker.start, nextMarker ? nextMarker.start : text.length))
+    if (!sectionText) return
+
+    sections.push({
+      key: marker.key,
+      label: marker.label,
+      targetQuestionTypes: marker.targetQuestionTypes,
+      text: sectionText,
+      start: marker.start,
+      end: nextMarker ? nextMarker.start : text.length,
+      inferred: false,
+    })
+  })
+
+  return sections
 }
 
 function findPassageMatches(text) {
-  const regex = /(?:^|\n)\s*(?:passage|text)\s*([A-D])\b|(?:^|\n)\s*([A-D])\s*[篇段]\b|(?:^|\n)\s*阅读\s*([A-D])/gim
   const matches = []
-  let match = regex.exec(text)
-  while (match) {
-    const label = (match[1] || match[2] || match[3] || '').toUpperCase()
-    if (label) {
+
+  PASSAGE_PATTERNS.forEach((pattern) => {
+    for (const match of text.matchAll(pattern)) {
       matches.push({
-        index: match.index,
-        label,
+        label: String(match[1] || '').toUpperCase(),
+        start: match.index ?? -1,
       })
     }
-    match = regex.exec(text)
-  }
-
-  return matches.filter(
-    (item, index, list) => list.findIndex((candidate) => candidate.index === item.index && candidate.label === item.label) === index
-  )
-}
-
-const MAJOR_SECTION_PATTERNS = {
-  single_choice: [
-    /part\s*i\b[\s\S]{0,80}?(?:grammar|vocabulary|structure|single\s*choice|multiple\s*choice)/i,
-    /单项选择/i,
-    /语法(?:与|和)?词汇/i,
-    /grammar\s*(?:and|&)?\s*vocabulary/i,
-  ],
-  cloze: [
-    /part\s*ii\b[\s\S]{0,80}?cloze/i,
-    /完形填空/i,
-    /完型填空/i,
-    /\bcloze\b/i,
-  ],
-  reading: [
-    /part\s*iii\b[\s\S]{0,80}?(?:reading|comprehension)/i,
-    /阅读理解/i,
-    /reading\s+comprehension/i,
-    /\bpassage\s*A\b/i,
-    /\btext\s*A\b/i,
-  ],
-  translation: [
-    /part\s*iv\b[\s\S]{0,80}?translation/i,
-    /翻译/i,
-    /\btranslation\b/i,
-    /translate the following/i,
-  ],
-  essay: [
-    /part\s*v\b[\s\S]{0,80}?(?:writing|essay|composition)/i,
-    /作文/i,
-    /写作/i,
-    /\bwriting\b/i,
-    /\bessay\b/i,
-    /\bcomposition\b/i,
-  ],
-}
-
-function buildMajorMarkers(text) {
-  return Object.entries(MAJOR_SECTION_PATTERNS)
-    .map(([key, patterns]) => ({
-      key,
-      index: findFirstPatternIndex(text, patterns),
-    }))
-    .filter((item) => item.index >= 0)
-    .sort((a, b) => a.index - b.index)
-}
-
-function createSection(key, label, text, targetQuestionTypes, index) {
-  return {
-    key,
-    label,
-    text: normalizeText(text),
-    targetQuestionTypes,
-    order: index,
-  }
-}
-
-function buildSectionsFromMarkers(text, markers) {
-  const sections = []
-
-  markers.forEach((marker, index) => {
-    const start = marker.index
-    const end = markers[index + 1]?.index ?? text.length
-    const sectionText = normalizeText(text.slice(start, end))
-    if (!sectionText) return
-
-    if (marker.key === 'reading') {
-      const passageMatches = findPassageMatches(sectionText)
-      if (passageMatches.length > 0) {
-        passageMatches.forEach((passageMatch, passageIndex) => {
-          const sectionStart = passageMatch.index
-          const sectionEnd = passageMatches[passageIndex + 1]?.index ?? sectionText.length
-          const passageText = normalizeText(sectionText.slice(sectionStart, sectionEnd))
-          if (!passageText) return
-          sections.push(
-            createSection(`reading_${passageMatch.label.toLowerCase()}`, `阅读 ${passageMatch.label}`, passageText, ['reading'], sections.length)
-          )
-        })
-      } else {
-        sections.push(createSection('reading', '阅读理解', sectionText, ['reading'], sections.length))
-      }
-      return
-    }
-
-    const labelMap = {
-      single_choice: '单项选择',
-      cloze: '完形填空',
-      translation: '翻译',
-      essay: '作文',
-    }
-
-    const typeMap = {
-      single_choice: ['single_choice'],
-      cloze: ['cloze'],
-      translation: ['translation'],
-      essay: ['essay'],
-    }
-
-    sections.push(createSection(marker.key, labelMap[marker.key] || marker.key, sectionText, typeMap[marker.key] || [], sections.length))
   })
 
-  return sections.filter((section) => section.text)
+  return matches
+    .filter((item) => item.start >= 0 && item.label)
+    .sort((left, right) => left.start - right.start)
+    .filter(
+      (item, index, list) =>
+        list.findIndex((candidate) => candidate.label === item.label && candidate.start === item.start) === index
+    )
+    .filter((item, index, list) => {
+      const previous = list[index - 1]
+      if (!previous) return true
+      if (previous.label !== item.label) return true
+      return item.start - previous.start > 40
+    })
 }
 
-function buildCoverage(text, sections) {
-  const totalLength = normalizeText(text).length || 1
-  const coveredLength = sections.reduce((sum, section) => sum + section.text.length, 0)
-  return coveredLength / totalLength
+function splitReadingSection(section) {
+  const matches = findPassageMatches(section.text)
+  if (!matches.length) {
+    return [section]
+  }
+
+  return matches
+    .map((match, index) => {
+      const nextMatch = matches[index + 1]
+      const text = normalizeText(section.text.slice(match.start, nextMatch ? nextMatch.start : section.text.length))
+      if (!text) return null
+      return {
+        key: `reading_${match.label.toLowerCase()}`,
+        label: `\u9605\u8bfb ${match.label}`,
+        targetQuestionTypes: ['reading'],
+        text,
+        start: section.start + match.start,
+        end: nextMatch ? section.start + nextMatch.start : section.end,
+        inferred: false,
+      }
+    })
+    .filter(Boolean)
+}
+
+function expandSections(sections) {
+  return sections.flatMap((section) => {
+    if (section.key !== 'reading') {
+      return [section]
+    }
+    return splitReadingSection(section)
+  })
+}
+
+function calculateCoverage(text, sections) {
+  if (!text) return 0
+  const coveredLength = sections.reduce((total, section) => total + String(section.text || '').length, 0)
+  return Math.min(1, coveredLength / text.length)
 }
 
 export function detectEnglishImportSections(documentDraft) {
-  const plainText = normalizeText(documentDraft?.plainText)
+  const plainText = normalizeText(documentDraft?.plainText || '')
   if (!plainText) {
     return {
       shouldSplit: false,
       sections: [],
-      reason: 'empty_text',
       coverage: 0,
+      strategy: 'empty',
     }
   }
 
-  const markers = buildMajorMarkers(plainText)
-  if (markers.length < 2) {
-    return {
-      shouldSplit: false,
-      sections: [],
-      reason: 'insufficient_markers',
-      coverage: 0,
-    }
-  }
-
-  const sections = buildSectionsFromMarkers(plainText, markers)
-  const coverage = buildCoverage(plainText, sections)
-
-  const hasCloze = sections.some((section) => section.key === 'cloze')
-  const hasReading = sections.some((section) => section.key.startsWith('reading'))
-  const hasObjective = sections.some((section) => section.key === 'single_choice')
-
-  const shouldSplit = sections.length >= 3 && coverage >= 0.45 && (hasReading || hasCloze || hasObjective)
+  const markers = buildSectionMarkers(plainText)
+  const baseSections = buildBaseSections(plainText, markers)
+  const sections = expandSections(baseSections)
 
   return {
-    shouldSplit,
+    shouldSplit: sections.length >= 2,
     sections,
-    coverage,
-    reason: shouldSplit ? 'english_sections_detected' : 'low_confidence',
+    coverage: calculateCoverage(plainText, sections),
+    strategy: sections.length >= 2 ? 'english_section_detection' : 'fallback_single_pass',
   }
 }

@@ -9,7 +9,7 @@ export const DEFAULT_DOCUMENT_IMPORT_CHUNK_OPTIONS = {
 
 const SUBJECT_GUIDANCE = {
   english:
-    '英语只允许 single_choice、cloze、reading、translation、essay。阅读理解必须是一篇文章配 3 到 5 个子题；完形填空必须使用 article 加 blanks，并在 article 中标出文内空位。',
+    '英语只允许 single_choice、cloze、reading、translation、essay。阅读理解必须是一篇文章配 3 到 5 个子题；完形填空必须使用 article + blanks，并在 article 中标出文内空位。',
   data_structure:
     '数据结构只允许 single_choice、true_false、fill_blank、function_fill_blank、short_answer、programming、composite。',
   database_principles:
@@ -158,6 +158,54 @@ function buildQuestionTypeLabelMap(subjectMeta, allowedQuestionTypes = subjectMe
   )
 }
 
+function buildSectionSpecificRules(allowedQuestionTypes = []) {
+  if (allowedQuestionTypes.length !== 1) return []
+
+  const [typeKey] = allowedQuestionTypes
+
+  if (typeKey === 'cloze') {
+    return [
+      '当前 section 必须且只能输出 1 道顶层 cloze 大题。',
+      '不得输出 single_choice、reading、translation 或 essay。',
+      '必须把文内空位直接嵌入 article，使用 [[1]]、[[2]] 这种占位符。',
+      '如果原文是 OCR 结果，也必须尽力重建带文内空位的 article。',
+    ]
+  }
+
+  if (typeKey === 'reading') {
+    return [
+      '当前 section 必须且只能输出 1 篇顶层 reading 大题。',
+      '不得把本篇阅读拆成多个顶层单选题。',
+      'questions 中每个子题都必须带 answer.correct。',
+    ]
+  }
+
+  if (typeKey === 'translation') {
+    return [
+      '当前 section 只能输出 translation 题。',
+      '不得把作文或阅读内容误写成 translation。',
+      '必须显式给出 direction。',
+    ]
+  }
+
+  if (typeKey === 'essay') {
+    return [
+      '当前 section 只能输出 1 道 essay 题。',
+      '不得把作文内容误写成 translation。',
+      '必须保留写作要求，并给出 answer.scoring_points。',
+    ]
+  }
+
+  if (typeKey === 'single_choice') {
+    return [
+      '当前 section 只能输出 single_choice 题。',
+      '每道题必须提供 4 个选项和 answer.correct。',
+    ]
+  }
+
+  return []
+}
+
 function buildProtocolPayload(subjectKey, allowedQuestionTypes = null) {
   const protocol = getDocumentImportProtocol(subjectKey)
   if (!protocol) return null
@@ -187,11 +235,11 @@ export function buildImportPrompt({
   chunkOptions,
   targetQuestionTypes = null,
   sectionLabel = '',
+  repairHint = '',
 } = {}) {
   const subjectMeta = getSubjectMeta(subjectKey)
-  const allowedQuestionTypes = Array.isArray(targetQuestionTypes) && targetQuestionTypes.length
-    ? targetQuestionTypes
-    : subjectMeta.questionTypeKeys || []
+  const allowedQuestionTypes =
+    Array.isArray(targetQuestionTypes) && targetQuestionTypes.length ? targetQuestionTypes : subjectMeta.questionTypeKeys || []
   const segments = buildSourceSegments(documentDraft)
   const chunks = chunkSegments(segments, chunkOptions)
   const chunkSelection = selectChunks(chunks, chunkOptions)
@@ -224,6 +272,12 @@ export function buildImportPrompt({
     if (allowedQuestionTypes.length > 0) {
       systemPromptParts.push(`本次 section 仅允许输出这些题型：${allowedQuestionTypes.join('、')}。`)
     }
+    systemPromptParts.push(...buildSectionSpecificRules(allowedQuestionTypes))
+  }
+
+  if (repairHint) {
+    systemPromptParts.push(`上一轮解析失败原因：${repairHint}`)
+    systemPromptParts.push('请根据上一轮失败原因直接修正结构，不要重写无关内容。')
   }
 
   const userPayload = {
@@ -233,6 +287,7 @@ export function buildImportPrompt({
     section_label: sectionLabel || '',
     subject_guidance: SUBJECT_GUIDANCE[subjectMeta.key] || '',
     protocol: protocolPayload,
+    repair_hint: repairHint || '',
     file_name: documentDraft?.fileName || '',
     source_type: documentDraft?.sourceType || '',
     output_contract: {

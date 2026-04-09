@@ -51,5 +51,22 @@ describe('buildImportPrompt', () => {
     expect(result.userPrompt).toContain('"reading"')
     expect(result.systemPrompt).toContain('当前只解析英语试卷中的一个局部 section：阅读 A。')
     expect(result.systemPrompt).toContain('本次 section 仅允许输出这些题型：reading。')
+    expect(result.systemPrompt).toContain('当前 section 必须且只能输出 1 篇顶层 reading 大题。')
+  })
+
+  it('adds stronger single-type rules for cloze sections', () => {
+    const result = buildImportPrompt({
+      subjectKey: 'english',
+      sectionLabel: '完形填空',
+      targetQuestionTypes: ['cloze'],
+      documentDraft: {
+        fileName: 'cloze.pdf',
+        sourceType: 'pdf',
+        plainText: 'Read the following passage and choose the best word or phrase for each blank.',
+      },
+    })
+
+    expect(result.systemPrompt).toContain('当前 section 必须且只能输出 1 道顶层 cloze 大题。')
+    expect(result.systemPrompt).toContain('如果原文是 OCR 结果，也必须尽力重建带文内空位的 article。')
   })
 })

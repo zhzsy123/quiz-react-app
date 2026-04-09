@@ -36,4 +36,26 @@ Write a composition.
       'essay',
     ])
   })
+
+  it('infers a leading cloze section before the first clear marker', () => {
+    const result = detectEnglishImportSections({
+      plainText: `
+Read the following passage and choose the best word or phrase for each blank.
+One day, Tom [[1]] to school and [[2]] a wonderful teacher.
+A. went B. go C. goes D. going
+A. met B. meet C. meets D. meeting
+
+Passage A
+Read Passage A and answer the questions.
+
+Part IV Translation
+Translate the following sentences.
+
+Write an essay of about 120 words.
+      `,
+    })
+
+    expect(result.shouldSplit).toBe(true)
+    expect(result.sections.map((item) => item.key)).toEqual(['cloze', 'reading_a', 'translation', 'essay'])
+  })
 })
