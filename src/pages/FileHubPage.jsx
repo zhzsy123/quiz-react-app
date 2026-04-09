@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useFileHubPageState } from '../features/file-hub/model/useFileHubPageState'
+import DocumentImportDialog from '../widgets/document-import/DocumentImportDialog.jsx'
 import QuizImporter from '../widgets/quiz-importer/QuizImporter'
 import AiQuestionGeneratorDialog from '../widgets/question-generator/AiQuestionGeneratorDialog.jsx'
 
@@ -24,6 +25,8 @@ export default function FileHubPage() {
     loading,
     query,
     setQuery,
+    showJsonImporter,
+    setShowJsonImporter,
     filteredEntries,
     handleQuizLoaded,
     handleRename,
@@ -31,10 +34,15 @@ export default function FileHubPage() {
     handleDelete,
     openWorkspace,
     generator,
+    documentImport,
+    availableSubjectOptions,
+    openDocumentImportDialog,
     openGeneratorDialog,
     startGenerator,
     saveGeneratedPaper,
     startPracticeWithGeneratedPaper,
+    saveImportedPaper,
+    startPracticeWithImportedPaper,
   } = useFileHubPageState()
 
   return (
@@ -49,12 +57,30 @@ export default function FileHubPage() {
             <div className="dashboard-action-row">
               <button
                 type="button"
+                className="primary-btn small-btn"
+                onClick={openDocumentImportDialog}
+                data-testid="open-document-import"
+              >
+                <FileText size={14} />
+                导入 PDF / DOCX
+              </button>
+              <button
+                type="button"
                 className="secondary-btn small-btn"
                 onClick={openGeneratorDialog}
                 data-testid="open-ai-generator"
               >
                 <Sparkles size={14} />
                 AI 生成题目
+              </button>
+              <button
+                type="button"
+                className="secondary-btn small-btn"
+                onClick={() => setShowJsonImporter((current) => !current)}
+                data-testid="toggle-json-importer"
+              >
+                <FileText size={14} />
+                高级导入（JSON）
               </button>
               <Link className="secondary-btn small-btn" to="/">
                 <ArrowLeft size={16} />
@@ -71,7 +97,20 @@ export default function FileHubPage() {
             <div className="hub-mode-pill">{subjectMeta.label}</div>
           </div>
 
-          <QuizImporter onQuizLoaded={handleQuizLoaded} />
+          {showJsonImporter ? (
+            <div className="document-import-inline-panel" data-testid="json-importer-panel">
+              <div className="document-import-inline-copy">
+                <strong>高级导入（JSON）</strong>
+                <p>适合手动维护题库结构，或导入已经通过 AI 清洗好的 JSON 文件。</p>
+              </div>
+              <QuizImporter onQuizLoaded={handleQuizLoaded} />
+            </div>
+          ) : (
+            <div className="document-import-inline-copy" data-testid="document-import-primary-hint">
+              <strong>推荐直接导入 PDF / DOCX</strong>
+              <p>拖入试卷文件，系统会先提取文本，再调用 AI 解析成题库结构。</p>
+            </div>
+          )}
         </section>
 
         <section className="profile-card compact-card">
@@ -176,6 +215,23 @@ export default function FileHubPage() {
         onSaveGeneratedPaper={saveGeneratedPaper}
         onStartPracticeWithGeneratedPaper={startPracticeWithGeneratedPaper}
         onRemoveQuestion={generator.removeQuestion}
+      />
+
+      <DocumentImportDialog
+        open={documentImport.state.open}
+        state={documentImport.state}
+        subjectOptions={availableSubjectOptions}
+        onClose={() => documentImport.setOpen(false)}
+        onFileSelect={documentImport.selectFile}
+        onSubjectChange={documentImport.setSubject}
+        onStartImport={documentImport.startImport}
+        onCancelImport={documentImport.cancelImport}
+        onReset={documentImport.resetImport}
+        onSaveImportedPaper={saveImportedPaper}
+        onStartPracticeWithImportedPaper={startPracticeWithImportedPaper}
+        onRemoveQuestion={documentImport.removeQuestion}
+        onUpdateQuestion={documentImport.updateQuestion}
+        onRepairQuestion={documentImport.repairQuestion}
       />
     </div>
   )

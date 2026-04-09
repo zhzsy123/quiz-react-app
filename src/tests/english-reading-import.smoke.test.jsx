@@ -376,6 +376,10 @@ describe('english reading import smoke flow', () => {
     const { container, root } = await renderAt('/exam/english')
 
     await act(async () => {
+      findButton(container, '高级导入').click()
+    })
+
+    await act(async () => {
       findButton(container, 'Import reading fixture').click()
     })
 

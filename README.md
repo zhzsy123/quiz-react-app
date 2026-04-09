@@ -2,15 +2,25 @@
 
 一个基于 `Vite + React` 的本地题库与模考系统，主要面向个人使用和 GitHub Pages 静态部署。
 
-当前工作流是：
+## 当前主路径
 
-1. 用 AI 把 `PDF / DOCX` 试卷清洗成 JSON。
-2. 按科目导入题库。
-3. 在本站完成刷题、模考、历史回看、错题复习、收藏管理和 AI 辅助。
+当前推荐工作流已经切到：
+
+1. 进入某个科目的题库页
+2. 点击 `导入 PDF / DOCX`
+3. 拖入试卷文件并选择科目
+4. 查看解析进度与预览结果
+5. 选择：
+   - `保存到题库`
+   - `立即开始练习`
+
+`JSON` 导入仍然保留，但已经降级成 `高级导入（JSON）`，主要用于兼容旧题库、调试和手工维护结构化题目。
 
 ## 当前功能
 
-- 本地题库导入
+- `PDF / DOCX` 直导入试卷
+- `JSON` 高级导入
+- AI 生成题目
 - 刷题模式
 - 考试模式
 - 自动保存与恢复进度
@@ -18,11 +28,11 @@
 - 错题本
 - 收藏夹
 - 多本地档案切换
-- AI 解释、AI 核题、AI 同类题
+- AI 解释、AI 核题、AI 批改、AI 控制中心
 
 ## 当前结构
 
-项目已经落到下面这套分层，不再是旧的单层页面结构：
+项目主结构已经稳定在下面这套分层上：
 
 ```text
 src/
@@ -32,6 +42,7 @@ src/
   features/
   entities/
   shared/
+  tests/
 ```
 
 ### 分层职责
@@ -41,31 +52,70 @@ src/
 - `pages`
   - 路由页与页面级组装
 - `widgets`
-  - 页面内可复用视图组件
+  - 页面内复用视图组件
 - `features`
-  - 页面场景逻辑、状态编排、AI 交互
+  - 页面场景逻辑、状态编排、AI 交互、文件导入
 - `entities`
   - 领域对象、题库标准化、repository、科目能力模型
 - `shared`
-  - 存储适配、API client、偏好项、基础设施
+  - 存储适配、API client、文档提取、基础设施
+- `tests`
+  - 页面级 smoke、主链回归、组件与服务测试
 
 ## 关键入口
 
-- 应用入口: [src/app/main.jsx](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/app/main.jsx)
-- 路由入口: [src/app/router/AppRouter.jsx](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/app/router/AppRouter.jsx)
-- 题库导入主入口: [src/entities/quiz/lib/quizPipeline.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/quiz/lib/quizPipeline.js)
-- 科目能力模型: [src/entities/subject/model/subjectCatalog.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/subject/model/subjectCatalog.js)
-- repository 主入口:
-  - [profileRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/profile/api/profileRepository.js)
-  - [libraryRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/library/api/libraryRepository.js)
-  - [historyRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/history/api/historyRepository.js)
-  - [favoriteRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/favorite/api/favoriteRepository.js)
-  - [wrongbookRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/wrongbook/api/wrongbookRepository.js)
-  - [sessionRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/session/api/sessionRepository.js)
+- 应用入口：
+  - [src/app/main.jsx](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/app/main.jsx)
+- 路由入口：
+  - [src/app/router/AppRouter.jsx](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/app/router/AppRouter.jsx)
+- 题库页主入口：
+  - [src/pages/FileHubPage.jsx](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/pages/FileHubPage.jsx)
+- 文件直导入状态机：
+  - [src/features/document-import/model/useDocumentImport.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/features/document-import/model/useDocumentImport.js)
+- 文件直导入服务：
+  - [src/features/document-import/api/documentImportService.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/features/document-import/api/documentImportService.js)
+- 文档提取层：
+  - [src/shared/document/extractDocumentDraft.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/shared/document/extractDocumentDraft.js)
+- 题库导入主入口：
+  - [src/entities/quiz/lib/quizPipeline.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/quiz/lib/quizPipeline.js)
+- 科目能力模型：
+  - [src/entities/subject/model/subjects.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/subject/model/subjects.js)
+  - [src/entities/subject/model/subjectCatalogV2.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/subject/model/subjectCatalogV2.js)
+
+## 文件直导入链路
+
+当前已经落地的主链是：
+
+```text
+PDF / DOCX
+  -> shared/document/*
+  -> DocumentDraft
+  -> documentImportService
+  -> quizPipeline
+  -> 导入预览
+  -> 保存到题库 / 立即开始练习
+```
+
+### 具体职责
+
+- `shared/document/*`
+  - 负责读取文件、提取文本、构建 `DocumentDraft`
+- `features/document-import/api/documentImportService.js`
+  - 负责调用 AI、组织失败阶段、交给 `quizPipeline`
+- `entities/quiz/lib/quizPipeline.js`
+  - 负责 `parse -> validate -> normalize -> scoreBreakdown`
+- `features/document-import/model/useDocumentImport.js`
+  - 负责状态机、进度日志、预览、保存、开刷
+
+### 门禁策略
+
+- 如果文件提取不出足够文本，不会调用 AI
+- 如果预览中存在阻断错误，不允许保存到题库
+- `立即开始练习` 会复用同一次保存结果，不会重复保存第二次
 
 ## 科目能力模型
 
-当前支持的科目由 [src/entities/subject/model/subjectCatalog.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/subject/model/subjectCatalog.js) 统一描述，首页下载项、错题本题型筛选、科目元数据都从这里派生。
+当前支持的科目由 [src/entities/subject/model/subjects.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/subject/model/subjects.js) 和 [src/entities/subject/model/subjectCatalogV2.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/subject/model/subjectCatalogV2.js) 统一描述。
 
 当前已支持的科目：
 
@@ -74,18 +124,13 @@ src/
 - 数据库原理
 - 国际贸易
 
-## 题库导入链路
+科目模型承担：
 
-题库导入与标准化主入口是 [quizPipeline.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/quiz/lib/quizPipeline.js)。
-
-固定顺序：
-
-1. `parseQuizJsonText`
-2. `validateQuizPayload`
-3. `normalizeQuizDocument`
-4. `getQuizScoreBreakdown`
-
-`quizSchema.js` 仍然存在，但只作为兼容入口，不再是新业务代码的主调用点。
+- 路由元数据
+- 题型子集
+- AI 出题配置
+- 文件直导入的科目选项
+- 下载资料描述
 
 ## 数据访问边界
 
@@ -96,7 +141,7 @@ pages / widgets / features
   -> entities/*/api/*Repository.js
     -> shared/storage/adapters/*
       -> shared/storage/indexedDb/*
-      -> shared/storage/browserStorageAdapter
+      -> browser storage
 ```
 
 偏好项通过：
@@ -109,24 +154,29 @@ features / shared/api
 ## AI 链路
 
 ```text
-features/ai/reviewService.js
+features/*
   -> shared/api/aiGateway.js
     -> shared/api/deepseekClient.js
       -> shared/api/httpClient.js
 ```
 
-目前只有 DeepSeek provider，但 `shared/api` 已经预留了未来接入其他 provider 或远端后端的入口。
+当前接入场景包括：
+
+- AI 出题
+- 文件直导入结构化解析
+- AI 解释
+- AI 核题
+- 主观题批改
+- AI 控制中心的调用统计
 
 ## 兼容层
 
-以下文件仍然保留，但都属于兼容层，不应再作为新功能主入口：
+以下入口仍然保留，但都属于兼容层或过渡层，不应再作为新功能主入口：
 
 - [src/entities/quiz/lib/quizSchema.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/quiz/lib/quizSchema.js)
 - [src/shared/storage/compat/legacyStorageFacade.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/shared/storage/compat/legacyStorageFacade.js)
 - [src/shared/lib/storage/storageFacade.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/shared/lib/storage/storageFacade.js)
-- [src/entities/attempt/api/attemptRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/attempt/api/attemptRepository.js)
-- [src/entities/workspace/api/workspaceSessionRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/workspace/api/workspaceSessionRepository.js)
-- [src/entities/wrong-book/api/wrongBookRepository.js](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/src/entities/wrong-book/api/wrongBookRepository.js)
+- `高级导入（JSON）`
 
 ## 开发命令
 
@@ -142,7 +192,7 @@ npm run preview
 
 - [docs/architecture.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/architecture.md)
 - [docs/migration.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/migration.md)
+- [docs/direct-import-design.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/direct-import-design.md)
+- [docs/direct-import-phase1.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/direct-import-phase1.md)
 - [docs/current-architecture.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/current-architecture.md)
 - [docs/json-schema.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/json-schema.md)
-- [docs/quiz-model-ds-db.md](E:/VorinsFile/BaiduSyncdisk/Github项目/quiz-react-app/docs/quiz-model-ds-db.md)
-

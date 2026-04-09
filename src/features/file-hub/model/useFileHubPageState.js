@@ -10,10 +10,13 @@ import {
 import { buildPaperId } from '../../../entities/quiz/lib/paperId'
 import {
   buildQuestionPlan,
+  getSubjectMeta,
   getSubjectMetaByRouteParam,
   getSubjectQuestionTypeOptions,
   normalizeQuestionPlan,
+  SUBJECT_REGISTRY,
 } from '../../../entities/subject/model/subjects'
+import { useDocumentImport } from '../../document-import/model/useDocumentImport'
 import { startQuestionGeneration } from '../../question-generator/api/questionGenerationService'
 import { useAiQuestionGenerator } from '../../question-generator/model/useAiQuestionGenerator'
 
@@ -44,6 +47,30 @@ function areQuestionTypesEqual(current = [], next = []) {
   )
 }
 
+function buildImportedPaperPayload({ importResult, subjectKey, profileId }) {
+  const rawPayload =
+    importResult?.persistedPayload ||
+    importResult?.normalizedDocument?.rawPayload ||
+    importResult?.rawAiPayload
+  if (!rawPayload || typeof rawPayload !== 'object') {
+    throw new Error('当前导入结果缺少可持久化的题库数据。')
+  }
+
+  const rawText = JSON.stringify(rawPayload, null, 2)
+  const preview = importResult?.preview || {}
+
+  return {
+    rawText,
+    paperId: buildPaperId(rawText),
+    subject: subjectKey,
+    profileId,
+    title: preview.title || importResult?.normalizedDocument?.quiz?.title || '文档导入试卷',
+    schemaVersion: rawPayload.schema_version || 'document-import-ai-v1',
+    questionCount: preview.questionCount || importResult?.normalizedDocument?.quiz?.items?.length || 0,
+    tags: ['文档导入'],
+  }
+}
+
 export function useFileHubPageState() {
   const { subjectParam = 'english' } = useParams()
   const subjectMeta = getSubjectMetaByRouteParam(subjectParam)
@@ -55,12 +82,14 @@ export function useFileHubPageState() {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
+  const [showJsonImporter, setShowJsonImporter] = useState(false)
 
   const questionTypeOptions = useMemo(() => getSubjectQuestionTypeOptions(subjectKey), [subjectKey])
 
   const generationDefaults = useMemo(() => {
     const generation = subjectMeta.generation || {}
     const supportedQuestionTypes = generation.supportedQuestionTypes || subjectMeta.questionTypeKeys || []
+
     return {
       subject: subjectKey,
       mode: generation.supportedModes?.[0] || 'practice',
@@ -142,6 +171,57 @@ export function useFileHubPageState() {
     },
   })
 
+  const availableSubjectOptions = useMemo(
+    () =>
+      SUBJECT_REGISTRY.filter((item) => item.isAvailable).map((item) => ({
+        key: item.key,
+        label: item.label,
+        shortLabel: item.shortLabel,
+      })),
+    []
+  )
+
+  const documentImport = useDocumentImport({
+    initialSubject: subjectKey,
+    onSaveImportedPaper: async ({ importResult, subject }) => {
+      if (!activeProfile?.id) {
+        throw new Error('当前没有可用的本地档案。')
+      }
+
+      const payload = buildImportedPaperPayload({
+        importResult,
+        subjectKey: subject,
+        profileId: activeProfile.id,
+      })
+
+      await upsertLibraryEntry({
+        profileId: payload.profileId,
+        subject: payload.subject,
+        paperId: payload.paperId,
+        title: payload.title,
+        rawText: payload.rawText,
+        tags: payload.tags,
+        schemaVersion: payload.schemaVersion,
+        questionCount: payload.questionCount,
+      })
+
+      if (subject === subjectKey) {
+        await refreshEntries()
+      }
+
+      return {
+        paperId: payload.paperId,
+        title: payload.title,
+        subject: payload.subject,
+      }
+    },
+    onStartPracticeWithImportedPaper: async ({ saveResult, subject }) => {
+      const targetMeta = getSubjectMeta(subject)
+      navigate(`/workspace/${targetMeta.routeSlug}?paper=${encodeURIComponent(saveResult.paperId)}&mode=practice`)
+      return saveResult
+    },
+  })
+
   useEffect(() => {
     generator.setConfig((current) => {
       const nextConfig = {
@@ -201,6 +281,10 @@ export function useFileHubPageState() {
     generationDefaults.title,
     questionTypeOptions,
   ])
+
+  useEffect(() => {
+    documentImport.setSubject(subjectKey)
+  }, [documentImport.setSubject, subjectKey])
 
   const handleQuizLoaded = async ({ parsed, rawText, quizDocument }) => {
     if (!activeProfile?.id) return
@@ -268,6 +352,10 @@ export function useFileHubPageState() {
     generator.setOpen(true)
   }
 
+  const openDocumentImportDialog = () => {
+    documentImport.setOpen(true)
+  }
+
   const startGenerator = () =>
     generator.startGeneration({
       config: {
@@ -301,6 +389,26 @@ export function useFileHubPageState() {
     return result
   }
 
+  const saveImportedPaper = async () => {
+    const result = await documentImport.saveImportedPaper()
+    if (result?.subject && result.subject !== subjectKey) {
+      const targetMeta = getSubjectMeta(result.subject)
+      documentImport.setOpen(false)
+      navigate(targetMeta.route)
+    } else if (result?.paperId) {
+      documentImport.setOpen(false)
+    }
+    return result
+  }
+
+  const startPracticeWithImportedPaper = async () => {
+    const result = await documentImport.startPracticeWithImportedPaper()
+    if (result?.paperId) {
+      documentImport.setOpen(false)
+    }
+    return result
+  }
+
   return {
     activeProfile,
     subjectMeta: {
@@ -310,6 +418,8 @@ export function useFileHubPageState() {
     loading,
     query,
     setQuery,
+    showJsonImporter,
+    setShowJsonImporter,
     filteredEntries,
     handleQuizLoaded,
     handleRename,
@@ -317,9 +427,14 @@ export function useFileHubPageState() {
     handleDelete,
     openWorkspace,
     generator,
+    documentImport,
+    availableSubjectOptions,
+    openDocumentImportDialog,
     openGeneratorDialog,
     startGenerator,
     saveGeneratedPaper,
     startPracticeWithGeneratedPaper,
+    saveImportedPaper,
+    startPracticeWithImportedPaper,
   }
 }

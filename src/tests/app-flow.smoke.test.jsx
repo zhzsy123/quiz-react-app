@@ -427,6 +427,10 @@ describe('page smoke flow', () => {
     const { container, root } = await renderAt('/exam/english')
 
     await act(async () => {
+      findButton(container, '高级导入').click()
+    })
+
+    await act(async () => {
       findButton(container, 'Import fixture').click()
     })
 
@@ -463,6 +467,10 @@ describe('page smoke flow', () => {
 
   it('submits the paper and exposes the attempt on the history page', async () => {
     const { container, root } = await renderAt('/exam/english')
+
+    await act(async () => {
+      findButton(container, '高级导入').click()
+    })
 
     await act(async () => {
       findButton(container, 'Import fixture').click()

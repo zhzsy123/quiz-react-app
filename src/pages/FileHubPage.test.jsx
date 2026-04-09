@@ -24,6 +24,12 @@ vi.mock('../widgets/question-generator/AiQuestionGeneratorDialog.jsx', () => ({
   },
 }))
 
+vi.mock('../widgets/document-import/DocumentImportDialog.jsx', () => ({
+  default: function MockDocumentImportDialog({ open }) {
+    return open ? <div data-testid="mock-document-import-dialog">Document import dialog</div> : null
+  },
+}))
+
 import FileHubPage from './FileHubPage.jsx'
 
 async function renderComponent() {
@@ -48,7 +54,7 @@ describe('FileHubPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renders file hub actions and local library entries', async () => {
+  it('renders file hub primary actions and local library entries', async () => {
     useFileHubPageStateMock.mockReturnValue({
       activeProfile: { id: 'profile-1', name: 'Vorin' },
       subjectMeta: {
@@ -59,6 +65,8 @@ describe('FileHubPage', () => {
       loading: false,
       query: '',
       setQuery: vi.fn(),
+      showJsonImporter: false,
+      setShowJsonImporter: vi.fn(),
       filteredEntries: [
         {
           id: 'entry-1',
@@ -88,16 +96,36 @@ describe('FileHubPage', () => {
         resetGenerator: vi.fn(),
         removeQuestion: vi.fn(),
       },
+      documentImport: {
+        state: {
+          open: false,
+          canSave: false,
+          canStartPractice: false,
+        },
+        setOpen: vi.fn(),
+        setSubject: vi.fn(),
+        selectFile: vi.fn(),
+        startImport: vi.fn(),
+        cancelImport: vi.fn(),
+        resetImport: vi.fn(),
+      },
+      availableSubjectOptions: [{ key: 'english', shortLabel: '英语', label: '英语' }],
+      openDocumentImportDialog: vi.fn(),
       openGeneratorDialog: vi.fn(),
       startGenerator: vi.fn(),
       saveGeneratedPaper: vi.fn(),
       startPracticeWithGeneratedPaper: vi.fn(),
+      saveImportedPaper: vi.fn(),
+      startPracticeWithImportedPaper: vi.fn(),
     })
 
     const { container, root } = await renderComponent()
 
     expect(container.textContent).toContain('英语本地题库')
+    expect(container.textContent).toContain('导入 PDF / DOCX')
     expect(container.textContent).toContain('AI 生成题目')
+    expect(container.textContent).toContain('高级导入（JSON）')
+    expect(container.textContent).toContain('推荐直接导入 PDF / DOCX')
     expect(container.textContent).toContain('英语模拟卷一')
     expect(container.textContent).toContain('刷题模式')
     expect(container.textContent).toContain('考试模式')
