@@ -106,6 +106,7 @@ export function normalizeQuizPayload(data) {
   const items = []
   let skippedCount = 0
   const skippedTypes = []
+  const failedSupportedTypes = []
 
   data.questions.forEach((question) => {
     const normalizeQuestion = QUESTION_NORMALIZERS[question?.type]
@@ -123,9 +124,14 @@ export function normalizeQuizPayload(data) {
 
     skippedCount += 1
     skippedTypes.push(question?.type || 'unknown')
+    failedSupportedTypes.push(question?.type || 'unknown')
   })
 
   if (!items.length) {
+    if (failedSupportedTypes.includes('cloze')) {
+      throw new Error('完形填空结构不完整，必须提供 article 文本和 blanks 数组，且每个 blank 都要有 options、correct 与 rationale。')
+    }
+
     throw new Error(
       '当前 JSON 规范仅支持 single_choice、multiple_choice、true_false、fill_blank、function_fill_blank、reading、cloze、translation、essay、short_answer、case_analysis、calculation、operation、programming、sql、er_diagram、composite。'
     )

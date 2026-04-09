@@ -203,9 +203,31 @@ export function normalizeReadingQuestion(question) {
 }
 
 export function normalizeClozeQuestion(question) {
-  if (!question?.article || !Array.isArray(question?.blanks)) return null
+  const article =
+    question?.article ||
+    question?.content ||
+    question?.body ||
+    (typeof question?.passage === 'string' ? question.passage : '') ||
+    question?.passage?.content ||
+    question?.passage?.body ||
+    question?.passage?.text ||
+    question?.context ||
+    question?.material ||
+    ''
 
-  const blanks = question.blanks
+  const rawBlanks = Array.isArray(question?.blanks)
+    ? question.blanks
+    : Array.isArray(question?.questions)
+      ? question.questions
+      : Array.isArray(question?.sub_questions)
+        ? question.sub_questions
+        : Array.isArray(question?.subQuestions)
+          ? question.subQuestions
+          : []
+
+  if (!article || !rawBlanks.length) return null
+
+  const blanks = rawBlanks
     .map((blank, index) => {
       const optionList = getOptionList(blank)
       const correct = getObjectiveCorrectValue(blank)
@@ -228,7 +250,7 @@ export function normalizeClozeQuestion(question) {
   return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'cloze', totalScore),
     title: question.title || '完形填空',
-    article: question.article,
+    article,
     blanks,
     answer: {
       type: 'objective',

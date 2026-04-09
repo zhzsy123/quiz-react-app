@@ -392,6 +392,60 @@ describe('questionGenerationService', () => {
     expect(result.draftPaper.questions[0].type).toBe('cloze')
   })
 
+  it('normalizes cloze questions when AI returns passage text and sub questions instead of article + blanks', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        id: 'cq_variant',
+        type: '完型填空',
+        prompt: 'Read the passage and choose the best answers.',
+        score: 20,
+        passage: 'Alice [[1]] to school early and [[2]] her homework on time.',
+        questions: [
+          {
+            id: 'cq_variant_1',
+            options: {
+              A: 'go',
+              B: 'goes',
+              C: 'went',
+              D: 'going',
+            },
+            answer: { correct: 'B', rationale: 'Third-person singular.' },
+          },
+          {
+            id: 'cq_variant_2',
+            options: {
+              A: 'finish',
+              B: 'finishes',
+              C: 'finished',
+              D: 'finishing',
+            },
+            answer: { correct: 'B', rationale: 'Third-person singular.' },
+          },
+        ],
+      },
+    })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      meta: {
+        requestId: 'gen_cloze_variant_001',
+      },
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions).toHaveLength(1)
+    expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].normalizedQuestion.type).toBe('cloze')
+    expect(result.draftQuestions[0].normalizedQuestion.article).toContain('Alice')
+    expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
+  })
+
   it('retries duplicate generated questions within the same batch', async () => {
     requestAiJsonMock
       .mockResolvedValueOnce({

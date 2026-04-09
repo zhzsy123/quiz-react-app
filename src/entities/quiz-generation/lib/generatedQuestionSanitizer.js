@@ -219,7 +219,14 @@ export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
   }
 
   if (normalizedType === 'cloze') {
-    const rawBlanks = rawQuestion.blanks || rawQuestion.answers || rawQuestion.items || []
+    const rawBlanks =
+      rawQuestion.blanks ||
+      rawQuestion.answers ||
+      rawQuestion.items ||
+      rawQuestion.questions ||
+      rawQuestion.sub_questions ||
+      rawQuestion.subQuestions ||
+      []
     const totalScore = Number(question.score) > 0 ? Number(question.score) : Number(planItem?.score) || 0
     const defaultBlankScore =
       rawBlanks.length > 0 && totalScore > 0 ? Math.max(1, totalScore / rawBlanks.length) : 2
@@ -229,9 +236,12 @@ export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
       rawQuestion.article ||
       rawQuestion.content ||
       rawQuestion.body ||
+      (typeof rawQuestion.passage === 'string' ? rawQuestion.passage : '') ||
       rawQuestion.passage?.content ||
       rawQuestion.passage?.body ||
       rawQuestion.passage?.text ||
+      rawQuestion.context ||
+      rawQuestion.material ||
       ''
     question.blanks = rawBlanks
       .map((blank, index) =>
