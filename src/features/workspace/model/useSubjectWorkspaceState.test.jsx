@@ -145,6 +145,33 @@ function createCompositeQuizFixture() {
   }
 }
 
+function createMultipleChoiceQuizFixture() {
+  return {
+    title: '英语多选练习卷',
+    subject: 'english',
+    duration_minutes: 90,
+    items: [
+      {
+        id: 'multi_1',
+        type: 'multiple_choice',
+        prompt: '选择所有正确选项',
+        options: [
+          { key: 'A', text: 'Option A' },
+          { key: 'B', text: 'Option B' },
+          { key: 'C', text: 'Option C' },
+          { key: 'D', text: 'Option D' },
+        ],
+        answer: {
+          type: 'objective',
+          correct: ['A', 'C'],
+          rationale: 'A 和 C 正确',
+        },
+        score: 4,
+      },
+    ],
+  }
+}
+
 vi.mock('../../../app/providers/AppContext', () => ({
   useAppContext: () => ({
     activeProfile: { id: 'profile-1' },
@@ -544,6 +571,39 @@ describe('useSubjectWorkspaceState practice persistence', () => {
         }),
       ])
     )
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('does not reveal top-level multiple-choice items until explicit reveal in practice mode', async () => {
+    setQuizFixture(createMultipleChoiceQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleSelectOption('multi_1', 'A')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.answers.multi_1).toEqual(['A'])
+    expect(stateRef.current.revealedMap.multi_1).toBeUndefined()
+
+    await act(async () => {
+      stateRef.current.handleSelectOption('multi_1', 'C')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.answers.multi_1).toEqual(['A', 'C'])
+    expect(stateRef.current.revealedMap.multi_1).toBeUndefined()
+
+    await act(async () => {
+      stateRef.current.handleRevealCurrentObjective()
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.revealedMap.multi_1).toBe(true)
 
     await act(async () => {
       root.unmount()

@@ -555,8 +555,11 @@ export function useSubjectWorkspaceState() {
     answersRef.current = nextAnswers
 
     if (mode === 'practice') {
-      const nextRevealed = { ...revealedMap, [questionId]: true }
-      setRevealedMap(nextRevealed)
+      const shouldRevealNow = currentItem.type !== 'multiple_choice'
+      const nextRevealed = shouldRevealNow ? { ...revealedMap, [questionId]: true } : revealedMap
+      if (shouldRevealNow) {
+        setRevealedMap(nextRevealed)
+      }
       let nextIndex = currentIndex
       const isCorrectNow = currentItem.type !== 'multiple_choice' && isObjectiveResponseCorrect(currentItem, nextValue)
       if (autoAdvance && isCorrectNow && currentIndex < quiz.items.length - 1) {
