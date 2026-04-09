@@ -174,8 +174,9 @@ export async function startQuestionGeneration({
         }
 
         try {
-          let sanitizedQuestion = null
+          let finalizedEntry = null
           let duplicateError = null
+          let previousErrorMessage = ''
 
           for (let attempt = 0; attempt < 3; attempt += 1) {
             const { systemPrompt, userPrompt } = buildGenerationPrompt({
@@ -186,6 +187,7 @@ export async function startQuestionGeneration({
               questionIndex: planIndex + 1,
               totalQuestions: generationPlan.length,
               avoidQuestionSignatures: getRecentSignatures(signatureMap, planItem.typeKey),
+              previousErrorMessage,
             })
 
             const response = await requestAiJson({
@@ -206,30 +208,35 @@ export async function startQuestionGeneration({
               continue
             }
 
+            const entry = buildGenerationDraftEntry(candidate, {
+              requestId,
+              subjectKey: subjectMeta.key,
+              paperTitle: generationMeta.paperTitle,
+              durationMinutes: generationMeta.durationMinutes,
+              streamIndex: planIndex + 1,
+            })
+
+            if (entry.status === 'invalid') {
+              previousErrorMessage = entry.errors?.[0] || entry.error || '题目结构无效，请修正后重新生成。'
+              continue
+            }
+
             rememberSignature(signatureMap, planItem.typeKey, signature)
-            sanitizedQuestion = candidate
+            finalizedEntry = entry
             break
           }
 
-          if (!sanitizedQuestion) {
-            throw duplicateError || new Error('AI 生成失败')
+          if (!finalizedEntry) {
+            throw duplicateError || new Error(previousErrorMessage || 'AI 生成失败')
           }
 
-          const entry = buildGenerationDraftEntry(sanitizedQuestion, {
-            requestId,
-            subjectKey: subjectMeta.key,
-            paperTitle: generationMeta.paperTitle,
-            durationMinutes: generationMeta.durationMinutes,
-            streamIndex: planIndex + 1,
-          })
-
-          draftQuestions[planIndex] = entry
-          onQuestion?.(entry.rawQuestion, {
+          draftQuestions[planIndex] = finalizedEntry
+          onQuestion?.(finalizedEntry.rawQuestion, {
             requestId,
             streamIndex: planIndex + 1,
             meta: generationMeta,
             planItem,
-            entry,
+            entry: finalizedEntry,
           })
         } catch (error) {
           const message = String(error?.message || '').trim() || 'AI 生成失败'

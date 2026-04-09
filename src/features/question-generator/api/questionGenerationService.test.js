@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { requestAiJsonMock } = vi.hoisted(() => ({
   requestAiJsonMock: vi.fn(),
@@ -11,6 +11,10 @@ vi.mock('../../../shared/api/aiGateway.js', () => ({
 import { buildDraftPaper, startQuestionGeneration } from './questionGenerationService.js'
 
 describe('questionGenerationService', () => {
+  beforeEach(() => {
+    requestAiJsonMock.mockReset()
+  })
+
   it('builds a draft paper from generated questions', () => {
     const draftPaper = buildDraftPaper({
       config: {
@@ -443,6 +447,74 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[0].status).toBe('valid')
     expect(result.draftQuestions[0].normalizedQuestion.type).toBe('cloze')
     expect(result.draftQuestions[0].normalizedQuestion.article).toContain('Alice')
+    expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
+  })
+
+  it('retries cloze generation when the first response has an incomplete structure', async () => {
+    requestAiJsonMock
+      .mockResolvedValueOnce({
+        content: {
+          id: 'cq_retry_bad',
+          type: 'cloze',
+          prompt: 'Complete the passage.',
+          score: 20,
+          article: '',
+          blanks: [],
+        },
+      })
+      .mockResolvedValueOnce({
+        content: {
+          id: 'cq_retry_good',
+          type: 'cloze',
+          prompt: 'Complete the passage.',
+          score: 20,
+          article: 'Mike [[1]] breakfast and [[2]] to school.',
+          blanks: [
+            {
+              blank_id: 1,
+              options: [
+                { key: 'A', text: 'eat' },
+                { key: 'B', text: 'eats' },
+                { key: 'C', text: 'ate' },
+                { key: 'D', text: 'eating' },
+              ],
+              correct: 'B',
+              rationale: 'Third-person singular.',
+            },
+            {
+              blank_id: 2,
+              options: [
+                { key: 'A', text: 'go' },
+                { key: 'B', text: 'goes' },
+                { key: 'C', text: 'went' },
+                { key: 'D', text: 'going' },
+              ],
+              correct: 'B',
+              rationale: 'Third-person singular.',
+            },
+          ],
+        },
+      })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      meta: {
+        requestId: 'gen_cloze_retry_001',
+      },
+    })
+
+    expect(requestAiJsonMock).toHaveBeenCalledTimes(2)
+    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).toContain('previous_generation_error')
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions).toHaveLength(1)
+    expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].normalizedQuestion.type).toBe('cloze')
     expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
   })
 

@@ -169,6 +169,7 @@ export function buildGenerationPrompt({
   questionIndex = 1,
   totalQuestions = 1,
   avoidQuestionSignatures = [],
+  previousErrorMessage = '',
 } = {}) {
   const { subjectMeta, generation, normalized } = normalizeGenerationParams(subjectKey, params)
   const profile = generation.promptProfile || 'generic'
@@ -204,6 +205,7 @@ export function buildGenerationPrompt({
     allowed_question_types: allowedQuestionTypes,
     question_type_contract: getContractPayload(questionTypeMeta),
     avoid_question_signatures: avoidQuestionSignatures,
+    previous_generation_error: previousErrorMessage,
     extra_prompt: normalized.extraPrompt,
     rules: [
       'type 字段必须严格使用系统规定的英文 key，不要输出中文题型名，也不要输出自定义变体。',
@@ -218,6 +220,7 @@ export function buildGenerationPrompt({
       '不要生成当前科目未支持的题型。',
       '不要省略 score，不要生成无法判分的空题。',
       '解析和评分点使用中文。',
+      '如果 previous_generation_error 不为空，你必须修正上一次结构错误后再输出新的完整 JSON。',
     ],
   })
 
