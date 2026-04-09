@@ -167,11 +167,13 @@ describe('useAiQuestionGenerator', () => {
     expect(stateRef.current.draftQuestions).toHaveLength(0)
 
     let emptySaveError = null
-    try {
-      await stateRef.current.saveGeneratedPaper()
-    } catch (error) {
-      emptySaveError = error
-    }
+    await act(async () => {
+      try {
+        await stateRef.current.saveGeneratedPaper()
+      } catch (error) {
+        emptySaveError = error
+      }
+    })
 
     expect(emptySaveError).toBeTruthy()
     expect(emptySaveError.message).toContain('当前没有可保存的有效题目')
