@@ -603,8 +603,11 @@ export function useSubjectWorkspaceState() {
 
     if (mode === 'practice') {
       const revealKey = `${parentQuestionId}:${subQuestionId}`
-      const nextRevealed = { ...revealedMap, [revealKey]: true }
-      setRevealedMap(nextRevealed)
+      const shouldRevealNow = subQuestion.type !== 'multiple_choice'
+      const nextRevealed = shouldRevealNow ? { ...revealedMap, [revealKey]: true } : revealedMap
+      if (shouldRevealNow) {
+        setRevealedMap(nextRevealed)
+      }
       void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
       return
     }
