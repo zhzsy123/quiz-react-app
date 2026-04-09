@@ -1,6 +1,10 @@
 import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
-import { normalizeChoiceArray, renderOptionLabel } from '../../entities/quiz/lib/objectiveAnswers'
+import {
+  isObjectiveGradable,
+  normalizeChoiceArray,
+  renderOptionLabel,
+} from '../../entities/quiz/lib/objectiveAnswers'
 
 function InvalidObjectiveFallback({ message }) {
   return (
@@ -21,6 +25,7 @@ function ObjectiveOptionsBlock({
 }) {
   const options = Array.isArray(item.options) ? item.options : []
   const selectedValues = item.type === 'multiple_choice' ? normalizeChoiceArray(userResponse) : []
+  const isGradable = isObjectiveGradable(item)
 
   if (!options.length) {
     return <InvalidObjectiveFallback message="当前客观题缺少可作答的选项，无法继续作答。" />
@@ -39,7 +44,7 @@ function ObjectiveOptionsBlock({
         let className = 'option'
         let icon = null
 
-        if (!objectiveReveal) {
+        if (!objectiveReveal || !isGradable) {
           if (selected) className += ' selected'
         } else if (isCorrect) {
           className += ' correct'
@@ -171,11 +176,19 @@ export default function QuizObjectiveBlock({
 
       {objectiveReveal && item.type !== 'fill_blank' && (
         <div className="analysis-box">
-          <div>
-            正确答案：
-            <strong>{Array.isArray(item.answer?.correct) ? item.answer.correct.join(' / ') : item.answer?.correct}</strong>
-          </div>
-          <div>解析：{item.answer?.rationale || '暂无解析'}</div>
+          {isObjectiveGradable(item) ? (
+            <>
+              <div>
+                正确答案：
+                <strong>
+                  {Array.isArray(item.answer?.correct) ? item.answer.correct.join(' / ') : item.answer?.correct}
+                </strong>
+              </div>
+              <div>解析：{item.answer?.rationale || '暂无解析'}</div>
+            </>
+          ) : (
+            <div>当前题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
+          )}
         </div>
       )}
     </>

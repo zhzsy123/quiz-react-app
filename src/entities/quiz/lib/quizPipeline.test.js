@@ -47,4 +47,109 @@ describe('quizPipeline', () => {
       paperTotal: 17,
     })
   })
+
+  it('keeps objective questions without standard answers as ungradable instead of dropping them', () => {
+    const result = buildQuizDocumentFromText(`{
+      "schema_version": "2026-04",
+      "title": "English import",
+      "subject": "english",
+      "questions": [
+        {
+          "id": "q1",
+          "type": "single_choice",
+          "prompt": "Choose one",
+          "score": 2,
+          "options": [
+            { "key": "A", "text": "one" },
+            { "key": "B", "text": "two" }
+          ]
+        },
+        {
+          "id": "reading_1",
+          "type": "reading",
+          "passage": {
+            "title": "Passage 1",
+            "content": "A short passage."
+          },
+          "questions": [
+            {
+              "id": "reading_1_q1",
+              "type": "single_choice",
+              "prompt": "Question 1",
+              "score": 2,
+              "options": [
+                { "key": "A", "text": "one" },
+                { "key": "B", "text": "two" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "translation_1",
+          "type": "translation",
+          "prompt": "Translate the following paragraph.",
+          "context": "This is the source paragraph."
+        },
+        {
+          "id": "essay_1",
+          "type": "essay",
+          "prompt": "Write an essay.",
+          "answer": {
+            "type": "subjective",
+            "scoring_points": ["切题", "结构完整"]
+          }
+        }
+      ]
+    }`)
+
+    expect(result.quiz.items).toHaveLength(4)
+    expect(result.validation.warnings).toEqual(
+      expect.arrayContaining([
+        'q1 缺少标准答案，导入后可以展示和作答，但暂时无法自动判分。',
+        'reading_1 中至少有一个小题缺少标准答案，导入后可以展示和作答，但暂时无法自动判分。',
+      ])
+    )
+
+    expect(result.quiz.items[0]).toEqual(
+      expect.objectContaining({
+        type: 'single_choice',
+        answer: expect.objectContaining({
+          correct: '',
+          is_gradable: false,
+          missing_answer: true,
+        }),
+      })
+    )
+
+    expect(result.quiz.items[1]).toEqual(
+      expect.objectContaining({
+        type: 'reading',
+        questions: [
+          expect.objectContaining({
+            answer: expect.objectContaining({
+              correct: '',
+              is_gradable: false,
+              missing_answer: true,
+            }),
+          }),
+        ],
+      })
+    )
+
+    expect(result.quiz.items[2]).toEqual(
+      expect.objectContaining({
+        type: 'translation',
+        source_text: 'This is the source paragraph.',
+      })
+    )
+
+    expect(result.quiz.items[3]).toEqual(
+      expect.objectContaining({
+        type: 'essay',
+        answer: expect.objectContaining({
+          scoring_points: ['切题', '结构完整'],
+        }),
+      })
+    )
+  })
 })

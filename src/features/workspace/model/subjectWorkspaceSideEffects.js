@@ -3,6 +3,7 @@ import {
   formatObjectiveCorrectAnswerLabel,
   formatOptionLabel,
   getObjectiveAnswerLabel,
+  isObjectiveGradable,
 } from '../../../entities/quiz/lib/objectiveAnswers'
 import { buildCompositeContext, clipText, isObjectiveResponseCorrect } from './subjectWorkspaceObjective.js'
 
@@ -45,6 +46,7 @@ export function buildWrongItems(items, answers, meta) {
       const compositeAnswers = answers[item.id] || {}
       item.questions.forEach((question) => {
         if (question.answer?.type !== 'objective') return
+        if (!isObjectiveGradable(question)) return
         const userAnswer = compositeAnswers[question.id]
         if (isObjectiveResponseCorrect(question, userAnswer)) return
         const compositeContext = buildCompositeContext(item)
@@ -86,6 +88,7 @@ export function buildWrongItems(items, answers, meta) {
     if (item.type === 'reading') {
       const readingAnswers = answers[item.id] || {}
       item.questions.forEach((question) => {
+        if (!isObjectiveGradable(question)) return
         const userAnswer = readingAnswers[question.id] || ''
         if (userAnswer === question.answer?.correct) return
         wrongItems.push({
@@ -117,6 +120,7 @@ export function buildWrongItems(items, answers, meta) {
     }
 
     if (item.answer?.type !== 'objective') return
+    if (!isObjectiveGradable(item)) return
     const userAnswer = answers[item.id]
     if (isObjectiveResponseCorrect(item, userAnswer)) return
 

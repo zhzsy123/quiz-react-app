@@ -52,6 +52,7 @@ export function normalizeTranslationQuestion(question) {
   const sourceText =
     question.source_text ||
     question.sourceText ||
+    question.context ||
     question.text ||
     question.content ||
     question.body ||
@@ -59,12 +60,7 @@ export function normalizeTranslationQuestion(question) {
 
   if (!sourceText) return null
 
-  const prompt =
-    question.translation_prompt ||
-    question.instruction ||
-    (question.source_text || question.sourceText || question.text || question.content || question.body
-      ? question.prompt || '请完成翻译'
-      : '请完成翻译')
+  const prompt = question.translation_prompt || question.instruction || question.prompt || '请完成翻译。'
 
   return appendSubjectiveMeta(question, {
     ...ensureQuestionBase(question, 'translation', getDefaultScoreByType('translation')),
@@ -90,6 +86,7 @@ export function normalizeEssayQuestion(question) {
       type: 'subjective',
       reference_answer: resolveReferenceAnswer(question),
       outline: question?.answer?.outline || [],
+      scoring_points: normalizeScoringPoints(question?.answer || {}),
       scoring_rubric: question?.answer?.scoring_rubric || null,
       common_errors: question?.answer?.common_errors || [],
       ai_scoring: question?.answer?.ai_scoring || { enabled: false },
@@ -98,7 +95,7 @@ export function normalizeEssayQuestion(question) {
 }
 
 export function normalizeGenericSubjectiveQuestion(question, fallbackType) {
-  const prompt = question.prompt || question.title || '请完成作答'
+  const prompt = question.prompt || question.title || '请完成作答。'
   if (!prompt) return null
 
   return appendSubjectiveMeta(question, {

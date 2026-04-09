@@ -35,6 +35,8 @@ const SUPPORTED_COMPOSITE_CHILD_TYPES = new Set([
   'operation',
 ])
 
+const OBJECTIVE_TYPES = new Set(['single_choice', 'multiple_choice', 'true_false'])
+
 function parseScoreValue(value) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -42,6 +44,27 @@ function parseScoreValue(value) {
 
 function sumCompositeChildScores(questions = []) {
   return questions.reduce((sum, question) => sum + parseScoreValue(question?.score), 0)
+}
+
+function getCorrectValue(question) {
+  return (
+    question?.answer?.correct ??
+    question?.answer?.answer ??
+    question?.correct_answer ??
+    question?.correctAnswer ??
+    question?.correct_option ??
+    question?.correctOption ??
+    question?.correct
+  )
+}
+
+function appendMissingAnswerWarning(warnings, questionLabel, questionType) {
+  if (questionType === 'reading') {
+    warnings.push(`${questionLabel} 中至少有一个小题缺少标准答案，导入后可以展示和作答，但暂时无法自动判分。`)
+    return
+  }
+
+  warnings.push(`${questionLabel} 缺少标准答案，导入后可以展示和作答，但暂时无法自动判分。`)
 }
 
 export function validateQuizPayload(payload) {
@@ -93,6 +116,19 @@ export function validateQuizPayload(payload) {
         return
       }
 
+      if (OBJECTIVE_TYPES.has(questionType) && !getCorrectValue(question)) {
+        appendMissingAnswerWarning(warnings, questionLabel, questionType)
+      }
+
+      if (questionType === 'reading') {
+        const subQuestions = question?.questions || question?.sub_questions || question?.subQuestions || []
+        if (!Array.isArray(subQuestions) || subQuestions.length === 0) {
+          errors.push(`${questionLabel} 是 reading，但缺少非空 questions 子题数组。`)
+        } else if (subQuestions.some((subQuestion) => !getCorrectValue(subQuestion))) {
+          appendMissingAnswerWarning(warnings, questionLabel, questionType)
+        }
+      }
+
       if (questionType !== 'composite') return
 
       if (!Array.isArray(question.questions) || question.questions.length === 0) {
@@ -119,6 +155,10 @@ export function validateQuizPayload(payload) {
 
         if (!SUPPORTED_COMPOSITE_CHILD_TYPES.has(childType)) {
           warnings.push(`${childLabel} 使用了 composite 当前未支持的子题类型 ${childType}，标准化阶段可能会跳过。`)
+        }
+
+        if (OBJECTIVE_TYPES.has(childType) && !getCorrectValue(childQuestion)) {
+          appendMissingAnswerWarning(warnings, childLabel, childType)
         }
       })
 

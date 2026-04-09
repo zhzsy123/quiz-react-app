@@ -1,7 +1,12 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../../app/providers/AppContext'
-import { isObjectiveAnswered, isObjectiveResponseCorrect, normalizeChoiceArray } from '../../../entities/quiz/lib/objectiveAnswers'
+import {
+  isObjectiveAnswered,
+  isObjectiveGradable,
+  isObjectiveResponseCorrect,
+  normalizeChoiceArray,
+} from '../../../entities/quiz/lib/objectiveAnswers'
 import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/scoring/getQuizScoreBreakdown.js'
 import {
   auditQuizQuestionCompliance,
@@ -271,6 +276,7 @@ export function useSubjectWorkspaceState() {
         const response = answers[item.id] || {}
         const readingQuestions = Array.isArray(item.questions) ? item.questions : []
         readingQuestions.forEach((question) => {
+          if (!isObjectiveGradable(question)) return
           if (isNonEmptyText(response[question.id])) {
             answered += 1
             if (response[question.id] === question.answer?.correct) correct += 1
@@ -279,7 +285,7 @@ export function useSubjectWorkspaceState() {
         return
       }
 
-      if (item.answer?.type === 'objective' && isObjectiveAnswered(item, answers[item.id])) {
+      if (item.answer?.type === 'objective' && isObjectiveGradable(item) && isObjectiveAnswered(item, answers[item.id])) {
         answered += 1
         if (isObjectiveResponseCorrect(item, answers[item.id])) correct += 1
       }
@@ -568,7 +574,10 @@ export function useSubjectWorkspaceState() {
         setRevealedMap(nextRevealed)
       }
       let nextIndex = currentIndex
-      const isCorrectNow = currentItem.type !== 'multiple_choice' && isObjectiveResponseCorrect(currentItem, nextValue)
+      const isCorrectNow =
+        currentItem.type !== 'multiple_choice' &&
+        isObjectiveGradable(currentItem) &&
+        isObjectiveResponseCorrect(currentItem, nextValue)
       if (autoAdvance && isCorrectNow && currentIndex < quiz.items.length - 1) {
         nextIndex = currentIndex + 1
         setCurrentIndex(nextIndex)
@@ -668,9 +677,11 @@ export function useSubjectWorkspaceState() {
       const nextRevealed = { ...revealedMap, [`${questionId}:${subQuestionId}`]: true }
       setRevealedMap(nextRevealed)
       const answeredCount = readingQuestions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
+      const gradableReadingQuestions = readingQuestions.filter((question) => isObjectiveGradable(question))
       const allCorrect =
         answeredCount === readingQuestions.length &&
-        readingQuestions.every((question) => nextItemResponse[question.id] === question.answer?.correct)
+        gradableReadingQuestions.length > 0 &&
+        gradableReadingQuestions.every((question) => nextItemResponse[question.id] === question.answer?.correct)
       let nextIndex = currentIndex
       if (autoAdvance && allCorrect && currentIndex < quiz.items.length - 1) {
         nextIndex = currentIndex + 1

@@ -70,23 +70,27 @@ function appendObjectiveMeta(question, normalizedQuestion) {
 export function normalizeSingleChoiceQuestion(question, options = {}) {
   const optionList = getOptionList(question)
   const correct = getObjectiveCorrectValue(question)
-  if (!optionList.length || !correct) return null
+  const allowMissingCorrect = options.allowMissingCorrect === true
+  if (!optionList.length || (!correct && !allowMissingCorrect)) return null
 
   return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'single_choice', options.defaultScore || getDefaultScoreByType('single_choice')),
     options: optionList.map(normalizeOption),
     answer: {
       type: 'objective',
-      correct,
+      correct: correct || '',
+      is_gradable: Boolean(correct),
+      missing_answer: !correct,
       rationale: question?.answer?.rationale || '暂无解析',
     },
   })
 }
 
-export function normalizeMultipleChoiceQuestion(question) {
+export function normalizeMultipleChoiceQuestion(question, options = {}) {
   const optionList = getOptionList(question)
   const correct = normalizeMultiCorrect(getObjectiveCorrectValue(question))
-  if (!optionList.length || !correct.length) return null
+  const allowMissingCorrect = options.allowMissingCorrect === true
+  if (!optionList.length || (!correct.length && !allowMissingCorrect)) return null
 
   return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'multiple_choice', getDefaultScoreByType('multiple_choice')),
@@ -94,14 +98,17 @@ export function normalizeMultipleChoiceQuestion(question) {
     answer: {
       type: 'objective',
       correct,
+      is_gradable: correct.length > 0,
+      missing_answer: correct.length === 0,
       rationale: question?.answer?.rationale || '暂无解析',
     },
   })
 }
 
-export function normalizeTrueFalseQuestion(question) {
+export function normalizeTrueFalseQuestion(question, options = {}) {
   const correct = normalizeTrueFalseCorrect(getObjectiveCorrectValue(question))
-  if (!correct) return null
+  const allowMissingCorrect = options.allowMissingCorrect === true
+  if (!correct && !allowMissingCorrect) return null
 
   return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'true_false', getDefaultScoreByType('true_false')),
@@ -111,7 +118,9 @@ export function normalizeTrueFalseQuestion(question) {
     ],
     answer: {
       type: 'objective',
-      correct,
+      correct: correct || '',
+      is_gradable: Boolean(correct),
+      missing_answer: !correct,
       rationale: question?.answer?.rationale || '暂无解析',
     },
   })
@@ -159,6 +168,7 @@ export function normalizeFillBlankQuestion(question, options = {}) {
     answer: {
       type: 'objective',
       correct: blanks.map((blank) => blank.accepted_answers),
+      is_gradable: true,
       rationale: question?.answer?.rationale || '',
     },
     score: totalScore,
@@ -188,13 +198,17 @@ export function normalizeReadingQuestion(question) {
 
   const normalizedQuestions = subQuestions
     .map((subQuestion) =>
-      normalizeSingleChoiceQuestion(subQuestion, { defaultScore: getDefaultScoreByType('reading') })
+      normalizeSingleChoiceQuestion(subQuestion, {
+        defaultScore: getDefaultScoreByType('reading'),
+        allowMissingCorrect: true,
+      })
     )
     .filter(Boolean)
 
   if (!normalizedQuestions.length) return null
 
   const totalScore = normalizedQuestions.reduce((sum, subQuestion) => sum + (subQuestion.score || 0), 0)
+  const isGradable = normalizedQuestions.every((subQuestion) => subQuestion.answer?.is_gradable !== false)
 
   return appendObjectiveMeta(question, {
     ...ensureQuestionBase(question, 'reading', totalScore),
@@ -203,6 +217,8 @@ export function normalizeReadingQuestion(question) {
     questions: normalizedQuestions,
     answer: {
       type: 'objective',
+      is_gradable: isGradable,
+      missing_answer: !isGradable,
     },
     score: totalScore,
   })
@@ -243,6 +259,7 @@ export function normalizeClozeQuestion(question) {
     answer: {
       type: 'objective',
       correct: blanks.map((blank) => blank.correct),
+      is_gradable: true,
       rationale: question?.answer?.rationale || '',
     },
     score: totalScore,

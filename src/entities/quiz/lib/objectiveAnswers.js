@@ -28,6 +28,35 @@ function isClozeLike(item) {
   return item?.type === 'cloze'
 }
 
+export function isObjectiveGradable(item) {
+  if (!item) return false
+
+  if (item.type === 'multiple_choice') {
+    return normalizeChoiceArray(item.answer?.correct).length > 0
+  }
+
+  if (isClozeLike(item)) {
+    const blanks = Array.isArray(item.blanks) ? item.blanks : []
+    return (
+      blanks.length > 0 &&
+      blanks.every(
+        (blank) =>
+          String(blank.correct || '').trim().length > 0 && Array.isArray(blank.options) && blank.options.length > 0
+      )
+    )
+  }
+
+  if (isFillBlankLike(item)) {
+    const blanks = Array.isArray(item.blanks) ? item.blanks : []
+    return (
+      blanks.length > 0 &&
+      blanks.every((blank) => Array.isArray(blank.accepted_answers) && blank.accepted_answers.length > 0)
+    )
+  }
+
+  return typeof item.answer?.correct === 'string' && item.answer.correct.trim().length > 0
+}
+
 export function formatObjectiveAnswerLabel(item, response, unansweredLabel = '未作答') {
   if (!item) return unansweredLabel
 
@@ -42,7 +71,10 @@ export function formatObjectiveAnswerLabel(item, response, unansweredLabel = '�
     if (!response || typeof response !== 'object') return unansweredLabel
     return (
       (item.blanks || [])
-        .map((blank, index) => `${index + 1}. ${getOptionText(blank.options || [], response[blank.blank_id] || '', unansweredLabel)}`)
+        .map(
+          (blank, index) =>
+            `${index + 1}. ${getOptionText(blank.options || [], response[blank.blank_id] || '', unansweredLabel)}`
+        )
         .join(' | ') || unansweredLabel
     )
   }
@@ -66,6 +98,7 @@ export function getObjectiveAnswerLabel(item, response, unansweredLabel = '未�
 
 export function formatObjectiveCorrectAnswerLabel(item, unansweredLabel = '未作答') {
   if (!item) return unansweredLabel
+  if (!isObjectiveGradable(item)) return '暂无标准答案'
 
   if (isClozeLike(item)) {
     return (item.blanks || [])
@@ -109,7 +142,7 @@ export function isObjectiveAnswered(item, response) {
 }
 
 export function isObjectiveCorrect(item, response) {
-  if (!item) return false
+  if (!item || !isObjectiveGradable(item)) return false
 
   if (item.type === 'multiple_choice') {
     const actual = normalizeChoiceArray(response)
@@ -144,5 +177,5 @@ export function isObjectiveResponseCorrect(item, response) {
 }
 
 export function isObjectiveWrong(item, response) {
-  return isObjectiveAnswered(item, response) && !isObjectiveCorrect(item, response)
+  return isObjectiveAnswered(item, response) && isObjectiveGradable(item) && !isObjectiveCorrect(item, response)
 }

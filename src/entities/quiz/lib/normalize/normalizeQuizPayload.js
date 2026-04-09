@@ -16,15 +16,15 @@ import {
 
 const QUESTION_NORMALIZERS = {
   single_choice: (question) => {
-    const converted = normalizeSingleChoiceQuestion(question)
+    const converted = normalizeSingleChoiceQuestion(question, { allowMissingCorrect: true })
     return converted ? [converted] : []
   },
   multiple_choice: (question) => {
-    const converted = normalizeMultipleChoiceQuestion(question)
+    const converted = normalizeMultipleChoiceQuestion(question, { allowMissingCorrect: true })
     return converted ? [converted] : []
   },
   true_false: (question) => {
-    const converted = normalizeTrueFalseQuestion(question)
+    const converted = normalizeTrueFalseQuestion(question, { allowMissingCorrect: true })
     return converted ? [converted] : []
   },
   fill_blank: (question) => {
@@ -129,7 +129,9 @@ export function normalizeQuizPayload(data) {
 
   if (!items.length) {
     if (failedSupportedTypes.includes('cloze')) {
-      throw new Error('完形填空结构不完整，必须提供带文内空位的 article 文本和 blanks 数组，且每个 blank 都要有 options、correct 与 rationale。')
+      throw new Error(
+        '完形填空结构不完整，必须提供带文内空位的 article 文本和 blanks 数组，且每个 blank 都要有 options、correct 与 rationale。'
+      )
     }
 
     throw new Error(

@@ -9,7 +9,11 @@ import {
   Minimize2,
   XCircle,
 } from 'lucide-react'
-import { normalizeChoiceArray, renderOptionLabel } from '../../entities/quiz/lib/objectiveAnswers'
+import {
+  isObjectiveGradable,
+  normalizeChoiceArray,
+  renderOptionLabel,
+} from '../../entities/quiz/lib/objectiveAnswers'
 import { AiExplainPanel } from './QuizAiPanels.jsx'
 import {
   countWords,
@@ -27,6 +31,7 @@ function TranslationBlock({ item, userResponse, disabled, submitted, onTextChang
         <Languages size={16} />
         <span>{item.direction === 'zh_to_en' ? '中译英' : '英译中'}</span>
       </div>
+      {item.prompt && <div className="essay-topic">{item.prompt}</div>}
       <div className="translation-source">{item.source_text}</div>
       <textarea
         className="subjective-textarea"
@@ -50,6 +55,7 @@ function TranslationBlock({ item, userResponse, disabled, submitted, onTextChang
 function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   const text = getSubjectiveText(userResponse)
   const wordCount = countWords(text)
+  const scoringPoints = Array.isArray(item.answer?.scoring_points) ? item.answer.scoring_points : []
 
   return (
     <div className="subjective-block essay-card">
@@ -57,7 +63,18 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
         <div className="essay-type-chip">{item.essay_type || 'writing'}</div>
         <div className="essay-word-count">{wordCount}</div>
       </div>
+      {item.prompt && <div className="essay-topic">{item.prompt}</div>}
       {item.requirements?.topic && <div className="essay-topic">{item.requirements.topic}</div>}
+      {scoringPoints.length > 0 && (
+        <div className="analysis-box">
+          <div className="analysis-section-title">评分要点</div>
+          <ul className="analysis-list">
+            {scoringPoints.map((point, index) => (
+              <li key={index}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <textarea
         className="subjective-textarea essay-textarea"
         value={text}
@@ -89,6 +106,7 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
     sql: 'SQL 题',
     er_diagram: 'E-R 图题',
   }
+  const scoringPoints = Array.isArray(item.answer?.scoring_points) ? item.answer.scoring_points : []
 
   return (
     <div className="subjective-block essay-card">
@@ -96,17 +114,24 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
         <div className="essay-type-chip">{typeLabelMap[item.type] || item.type}</div>
         <div className="essay-word-count">{scoreLabel}</div>
       </div>
+      {item.prompt && <div className="essay-topic">{item.prompt}</div>}
       {item.context_title && <div className="essay-topic">{item.context_title}</div>}
-      {item.context && (
-        <div className="analysis-box">
-          <div>{item.context}</div>
-        </div>
-      )}
+      {item.context && <div className="analysis-box">{renderFormattedMaterial(item.context, item.context_format)}</div>}
       {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 && (
         <div className="analysis-box">
           <div className="analysis-section-title">作答要点</div>
           <ul className="analysis-list">
             {item.requirements.points.map((point, index) => (
+              <li key={index}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {scoringPoints.length > 0 && (
+        <div className="analysis-box">
+          <div className="analysis-section-title">评分要点</div>
+          <ul className="analysis-list">
+            {scoringPoints.map((point, index) => (
               <li key={index}>{point}</li>
             ))}
           </ul>
@@ -189,6 +214,7 @@ function ReadingBlock({
             const explainEntry = aiExplainMap?.[`${item.id}:${subQuestion.id}`]
             const canUseAiTool = mode === 'practice' || submitted
             const subOptions = Array.isArray(subQuestion.options) ? subQuestion.options : []
+            const isGradable = isObjectiveGradable(subQuestion)
             const aiLabel =
               mode === 'exam'
                 ? explainEntry?.status === 'pending'
@@ -217,7 +243,7 @@ function ReadingBlock({
                     let className = 'option compact-option'
                     let icon = null
 
-                    if (!showFeedback) {
+                    if (!showFeedback || !isGradable) {
                       if (selected) className += ' selected'
                     } else if (option.key === subQuestion.answer?.correct) {
                       className += ' correct'
@@ -255,10 +281,16 @@ function ReadingBlock({
 
                 {showFeedback && (
                   <div className="analysis-box compact-analysis-box">
-                    <div>
-                      正确答案：<strong>{subQuestion.answer?.correct}</strong>
-                    </div>
-                    <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
+                    {isGradable ? (
+                      <>
+                        <div>
+                          正确答案：<strong>{subQuestion.answer?.correct}</strong>
+                        </div>
+                        <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
+                      </>
+                    ) : (
+                      <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
+                    )}
                   </div>
                 )}
 
@@ -335,6 +367,7 @@ function CompositeBlock({
             !submitted &&
             !objectiveReveal &&
             normalizeChoiceArray(questionResponse).length > 0
+          const isGradable = isObjectiveGradable(question)
 
           return (
             <article key={question.id} className="answer-review-card">
@@ -406,7 +439,7 @@ function CompositeBlock({
                       let className = 'option'
                       let icon = null
 
-                      if (!objectiveReveal) {
+                      if (!objectiveReveal || !isGradable) {
                         if (selected) className += ' selected'
                       } else if (isCorrect) {
                         className += ' correct'
@@ -441,15 +474,21 @@ function CompositeBlock({
                   )}
                   {objectiveReveal && (
                     <div className="analysis-box">
-                      <div>
-                        正确答案：
-                        <strong>
-                          {Array.isArray(question.answer?.correct)
-                            ? question.answer.correct.join(' / ')
-                            : question.answer?.correct}
-                        </strong>
-                      </div>
-                      <div>解析：{question.answer?.rationale || '暂无解析'}</div>
+                      {isGradable ? (
+                        <>
+                          <div>
+                            正确答案：
+                            <strong>
+                              {Array.isArray(question.answer?.correct)
+                                ? question.answer.correct.join(' / ')
+                                : question.answer?.correct}
+                            </strong>
+                          </div>
+                          <div>解析：{question.answer?.rationale || '暂无解析'}</div>
+                        </>
+                      ) : (
+                        <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
+                      )}
                     </div>
                   )}
                 </>

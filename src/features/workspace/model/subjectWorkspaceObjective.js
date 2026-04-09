@@ -3,6 +3,7 @@ import {
   formatOptionLabel,
   getObjectiveAnswerLabel,
   isObjectiveAnswered,
+  isObjectiveGradable,
   isObjectiveResponseCorrect,
 } from '../../../entities/quiz/lib/objectiveAnswers.js'
 
@@ -83,6 +84,7 @@ export function getObjectiveItemScore(item, response) {
   if (item.type === 'reading') {
     if (!response || typeof response !== 'object') return 0
     return item.questions.reduce((sum, question) => {
+      if (!isObjectiveGradable(question)) return sum
       return sum + (response[question.id] === question.answer?.correct ? question.score || 0 : 0)
     }, 0)
   }
@@ -119,9 +121,11 @@ export function getObjectiveWrongCount(item, response) {
   }
   if (item.type === 'reading') {
     const readingQuestions = Array.isArray(item.questions) ? item.questions : []
-    if (!response || typeof response !== 'object') return readingQuestions.length
+    const gradableQuestions = readingQuestions.filter((question) => isObjectiveGradable(question))
+    if (!response || typeof response !== 'object') return gradableQuestions.length
     return readingQuestions.reduce(
-      (sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1),
+      (sum, question) =>
+        sum + (!isObjectiveGradable(question) || response[question.id] === question.answer?.correct ? 0 : 1),
       0
     )
   }
@@ -140,7 +144,7 @@ export function getObjectiveWrongCount(item, response) {
       return sum + (isCorrect ? 0 : 1)
     }, 0)
   }
-  if (item.answer?.type === 'objective') {
+  if (item.answer?.type === 'objective' && isObjectiveGradable(item)) {
     return isObjectiveResponseCorrect(item, response) ? 0 : 1
   }
   return 0
