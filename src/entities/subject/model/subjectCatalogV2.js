@@ -1,4 +1,4 @@
-import {
+﻿import {
   buildQuestionTypeSummary,
   getQuestionTypeMeta,
   normalizeQuestionTypeKey,
@@ -66,10 +66,10 @@ export const SUBJECT_REGISTRY = [
     downloadDocs: [
       createDownloadDoc({
         key: 'english-json-spec',
-        title: '英语试题 JSON 解析规范文档',
-        href: './json-schema.md',
-        filename: '英语试题 JSON 解析规范文档.md',
-        description: '支持单选、完形填空、阅读理解、翻译题和作文题。',
+        title: '英语试卷解析规范',
+        href: './英语试卷解析规范.JSON',
+        filename: '英语试卷解析规范.JSON',
+        description: '仅支持单选题、阅读理解、完形填空、翻译题和作文题。',
       }),
     ],
   }),
@@ -311,3 +311,4 @@ export function normalizeQuestionPlan(typeKeys = [], questionPlan = {}, options 
     return plan
   }, {})
 }
+

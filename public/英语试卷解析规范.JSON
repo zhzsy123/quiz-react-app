@@ -1,0 +1,326 @@
+﻿{
+  "document_type": "quiz_import_spec",
+  "document_version": "2026-04-v1",
+  "title": "英语试卷解析规范",
+  "scope": {
+    "subject": "english",
+    "purpose": "将英语试卷解析为可导入 quiz-react-app 的合法 JSON",
+    "allowed_types": [
+      "single_choice",
+      "reading",
+      "cloze",
+      "translation",
+      "essay"
+    ]
+  },
+  "top_level_schema": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "title",
+      "subject",
+      "questions"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "2026-04"
+      },
+      "title": {
+        "type": "string",
+        "description": "试卷标题"
+      },
+      "subject": {
+        "type": "string",
+        "const": "english"
+      },
+      "description": {
+        "type": "string",
+        "description": "可选，试卷说明"
+      },
+      "duration_minutes": {
+        "type": "number",
+        "description": "可选，考试时长"
+      },
+      "questions": {
+        "type": "array",
+        "description": "题目数组"
+      }
+    }
+  },
+  "general_rules": [
+    "只输出单个 JSON 对象",
+    "不要输出 Markdown",
+    "不要输出代码围栏",
+    "不要输出解释文字",
+    "不要输出注释",
+    "不要发明未定义的题型",
+    "一份试卷只输出一个 JSON",
+    "同一份试卷的所有题目都放入同一个 questions 数组"
+  ],
+  "question_schema": {
+    "required_fields": [
+      "id",
+      "type",
+      "prompt",
+      "score"
+    ],
+    "common_optional_fields": [
+      "context",
+      "context_title",
+      "passage",
+      "article",
+      "options",
+      "answer",
+      "questions",
+      "blanks"
+    ]
+  },
+  "type_specs": {
+    "single_choice": {
+      "description": "普通单选题",
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "options",
+        "answer.correct"
+      ],
+      "example": {
+        "id": "q1",
+        "type": "single_choice",
+        "prompt": "Choose the best answer.",
+        "score": 2,
+        "options": [
+          { "key": "A", "text": "go" },
+          { "key": "B", "text": "goes" },
+          { "key": "C", "text": "went" },
+          { "key": "D", "text": "gone" }
+        ],
+        "answer": {
+          "type": "objective",
+          "correct": "C",
+          "rationale": "可选，答案解析"
+        }
+      }
+    },
+    "reading": {
+      "description": "一篇阅读理解文章及其子题",
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "passage",
+        "questions"
+      ],
+      "rules": [
+        "每篇阅读只写成一个 reading",
+        "阅读小题放在 questions 中",
+        "阅读小题默认仍使用 single_choice"
+      ],
+      "example": {
+        "id": "reading_1",
+        "type": "reading",
+        "prompt": "Read the passage and answer the questions.",
+        "score": 10,
+        "passage": {
+          "title": "Passage A",
+          "content": "Many students like reading in the library..."
+        },
+        "questions": [
+          {
+            "id": "reading_1_q1",
+            "type": "single_choice",
+            "prompt": "Where do many students like reading?",
+            "score": 2,
+            "options": [
+              { "key": "A", "text": "At home" },
+              { "key": "B", "text": "In the library" },
+              { "key": "C", "text": "In the park" },
+              { "key": "D", "text": "In the office" }
+            ],
+            "answer": {
+              "type": "objective",
+              "correct": "B"
+            }
+          }
+        ]
+      }
+    },
+    "cloze": {
+      "description": "整篇完形填空",
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score",
+        "article",
+        "blanks"
+      ],
+      "rules": [
+        "整篇完形只写成一个 cloze",
+        "文章中的空用 [[1]]、[[2]] 这类占位符标识",
+        "每个空写入 blanks 数组"
+      ],
+      "example": {
+        "id": "cloze_1",
+        "type": "cloze",
+        "prompt": "Read the passage and choose the best answers.",
+        "score": 20,
+        "article": "A long time ago, ... [[1]] ... [[2]] ...",
+        "blanks": [
+          {
+            "blank_id": 1,
+            "options": [
+              { "key": "A", "text": "..." },
+              { "key": "B", "text": "..." },
+              { "key": "C", "text": "..." },
+              { "key": "D", "text": "..." }
+            ],
+            "correct": "A",
+            "rationale": "可选"
+          },
+          {
+            "blank_id": 2,
+            "options": [
+              { "key": "A", "text": "..." },
+              { "key": "B", "text": "..." },
+              { "key": "C", "text": "..." },
+              { "key": "D", "text": "..." }
+            ],
+            "correct": "C"
+          }
+        ]
+      }
+    },
+    "translation": {
+      "description": "翻译题，中译英或英译中",
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score"
+      ],
+      "example": {
+        "id": "trans_1",
+        "type": "translation",
+        "prompt": "Translate the following sentence into Chinese.",
+        "score": 10,
+        "context": "Knowledge is power.",
+        "answer": {
+          "type": "subjective",
+          "reference_answer": "知识就是力量。",
+          "scoring_points": [
+            "核心语义准确",
+            "表达通顺"
+          ]
+        }
+      }
+    },
+    "essay": {
+      "description": "作文题",
+      "required": [
+        "id",
+        "type",
+        "prompt",
+        "score"
+      ],
+      "example": {
+        "id": "essay_1",
+        "type": "essay",
+        "prompt": "Write a short essay entitled 'My Best Friend'.",
+        "score": 15,
+        "answer": {
+          "type": "subjective",
+          "reference_answer": "可选，提供参考范文或写作方向",
+          "scoring_points": [
+            "切题",
+            "结构完整",
+            "语言准确",
+            "表达连贯"
+          ]
+        }
+      }
+    }
+  },
+  "hard_constraints": [
+    "英语试卷只允许 single_choice、reading、cloze、translation、essay 五种题型",
+    "不要输出 multiple_choice、true_false、fill_blank、short_answer 等其他题型",
+    "不要把一篇阅读拆成多个顶层单选题",
+    "不要把一篇完形拆成多个顶层单选题",
+    "所有题目 id 必须唯一",
+    "所有 score 必须是数字",
+    "JSON 必须可解析"
+  ],
+  "minimal_payload_example": {
+    "schema_version": "2026-04",
+    "title": "大学英语模拟试卷 01",
+    "subject": "english",
+    "description": "用于练习导入",
+    "duration_minutes": 120,
+    "questions": [
+      {
+        "id": "q1",
+        "type": "single_choice",
+        "prompt": "Choose the best answer.",
+        "score": 2,
+        "options": [
+          { "key": "A", "text": "go" },
+          { "key": "B", "text": "goes" },
+          { "key": "C", "text": "went" },
+          { "key": "D", "text": "gone" }
+        ],
+        "answer": {
+          "type": "objective",
+          "correct": "C"
+        }
+      },
+      {
+        "id": "reading_1",
+        "type": "reading",
+        "prompt": "Read the passage and answer the questions.",
+        "score": 10,
+        "passage": {
+          "title": "Passage A",
+          "content": "Many students like reading in the library..."
+        },
+        "questions": [
+          {
+            "id": "reading_1_q1",
+            "type": "single_choice",
+            "prompt": "Where do many students like reading?",
+            "score": 2,
+            "options": [
+              { "key": "A", "text": "At home" },
+              { "key": "B", "text": "In the library" },
+              { "key": "C", "text": "In the park" },
+              { "key": "D", "text": "In the office" }
+            ],
+            "answer": {
+              "type": "objective",
+              "correct": "B"
+            }
+          }
+        ]
+      },
+      {
+        "id": "essay_1",
+        "type": "essay",
+        "prompt": "Write a short essay entitled 'My Best Friend'.",
+        "score": 15,
+        "answer": {
+          "type": "subjective",
+          "scoring_points": [
+            "切题",
+            "结构完整",
+            "语言准确",
+            "表达连贯"
+          ]
+        }
+      }
+    ]
+  },
+  "deepseek_prompt_template": "请把这份英语试卷整理成符合本规范的合法 JSON，并且只输出 JSON，不要输出解释。顶层必须包含 schema_version、title、subject、questions，其中 schema_version 固定为 2026-04，subject 固定为 english。英语试卷只允许使用 single_choice、reading、cloze、translation、essay 五种题型。单选题用 single_choice；一篇阅读理解用 reading，阅读小题放到 questions；一整篇完形填空用 cloze，文章中的空用 [[1]]、[[2]] 这类占位符标识并写入 blanks；翻译题用 translation；作文题用 essay。每道题必须有 id、type、prompt、score。不要输出 Markdown、代码围栏、注释，不要发明新题型，不要把一篇阅读拆成多个顶层单选题，不要把一篇完形拆成多个顶层单选题。如果原卷信息不完整，不要乱编，尽量输出合法 JSON。"
+}
