@@ -5,16 +5,131 @@ import {
   getSubjectQuestionTypeOptions,
 } from '../../subject/model/subjects.js'
 
+const SUBJECT_PROMPT_LABELS = {
+  english: '英语',
+  data_structure: '数据结构',
+  database_principles: '数据库原理',
+  international_trade: '国际贸易',
+  generic: '通用科目',
+}
+
+const QUESTION_TYPE_PROMPT_LABELS = {
+  single_choice: '单项选择题',
+  multiple_choice: '多项选择题',
+  true_false: '判断题',
+  fill_blank: '填空题',
+  function_fill_blank: '函数填空题',
+  cloze: '完形填空',
+  reading: '阅读理解',
+  translation: '翻译题',
+  essay: '作文题',
+  short_answer: '简答题',
+  case_analysis: '案例分析题',
+  calculation: '计算题',
+  operation: '操作题',
+  programming: '程序设计题',
+  sql: 'SQL 题',
+  er_diagram: 'E-R 图题',
+  composite: '综合题',
+}
+
 const PROFILE_GUIDANCE = {
   english:
-    '题干和选项允许使用英文，但解析、评分点和说明必须使用中文。不要生成英语科目未支持的题型。',
+    'Question stems and options may be in English. Rationales, scoring points, and all structured explanations must be in Chinese.',
   data_structure:
-    '统一使用中文术语，题目要贴近专升本或课程考试场景，过程题必须可拆成评分点。',
+    'Use Chinese. Questions should match专升本或课程考试场景，过程题必须能拆成明确评分点。',
   database_principles:
-    '统一使用中文术语。SQL 题要给出清晰的数据背景，E-R 图题要说明实体、联系和属性。',
+    'Use Chinese. SQL and E-R questions must include enough schema or business context for grading.',
   international_trade:
-    '统一使用中文术语，重点覆盖国际贸易术语、案例、计算与操作场景，确保答案适合 AI 评分。',
-  generic: '统一使用中文说明，题目、答案、解析和评分点都要结构化。',
+    'Use Chinese. Cover trade terms, case analysis, calculations, and operation scenarios with AI-gradeable answers.',
+  generic:
+    'Use Chinese for explanations, scoring points, and grading notes. Keep the question structure explicit and complete.',
+}
+
+const COMMON_RULES = [
+  'Return exactly one JSON object and nothing else.',
+  'The object must be directly parseable by JSON.parse.',
+  'Do not wrap the result in markdown, arrays, comments, or extra prose.',
+  'The type field must exactly equal target_question_type.',
+  'Do not generate any unsupported question type.',
+  'Do not omit score.',
+  'All rationale, scoring points, and structured explanations must be in Chinese.',
+]
+
+const TYPE_SPECIFIC_RULES = {
+  single_choice: [
+    'options must be an array of {key,text}.',
+    'answer.type must be objective.',
+    'answer.correct must be a single option key such as "A".',
+  ],
+  multiple_choice: [
+    'options must be an array of {key,text}.',
+    'answer.type must be objective.',
+    'answer.correct must be an array of option keys.',
+  ],
+  true_false: [
+    'answer.type must be objective.',
+    'answer.correct must be either "T" or "F".',
+  ],
+  fill_blank: [
+    'Use a blanks array.',
+    'Each blank must contain blank_id, accepted_answers, score, and rationale.',
+  ],
+  function_fill_blank: [
+    'Use a blanks array and provide context or code snippet text.',
+    'Each blank must contain blank_id, accepted_answers, score, and rationale.',
+  ],
+  cloze: [
+    'Use article plus blanks structure.',
+    'article must contain the full passage text.',
+    'blanks must be an array, and every blank must contain blank_id, options, correct, score, and rationale.',
+    'Do not convert a cloze question into ordinary single_choice questions.',
+  ],
+  reading: [
+    'Use passage plus questions structure.',
+    'passage must be an object with content text.',
+    'questions must be an array of single_choice child questions.',
+  ],
+  translation: [
+    'answer.type must be subjective.',
+    'Provide answer.reference_answer and answer.scoring_points.',
+  ],
+  essay: [
+    'answer.type must be subjective.',
+    'Provide answer.reference_answer and answer.scoring_points.',
+  ],
+  short_answer: [
+    'answer.type must be subjective.',
+    'Provide answer.reference_answer and answer.scoring_points.',
+  ],
+  case_analysis: [
+    'Provide context text.',
+    'answer.type must be subjective with reference_answer and scoring_points.',
+  ],
+  calculation: [
+    'answer.type must be subjective.',
+    'Provide reference_answer and scoring_points that reflect the solving steps.',
+  ],
+  operation: [
+    'answer.type must be subjective.',
+    'Provide reference_answer and scoring_points that reflect the operation steps.',
+  ],
+  programming: [
+    'answer.type must be subjective.',
+    'Provide reference_answer and scoring_points.',
+  ],
+  sql: [
+    'Provide context text.',
+    'answer.type must be subjective with reference_answer and scoring_points.',
+  ],
+  er_diagram: [
+    'Provide context text.',
+    'answer.type must be subjective with reference_answer and scoring_points.',
+  ],
+  composite: [
+    'Use material plus questions structure.',
+    'questions must be an array of valid child questions.',
+  ],
 }
 
 function clampPositiveInt(value, fallback) {
@@ -109,6 +224,10 @@ function expandMockExamPlan(typeKeys, questionPlan = {}) {
   return plan
 }
 
+function typeKeysOrFallback(typeKeys = []) {
+  return Array.isArray(typeKeys) ? typeKeys : []
+}
+
 export function normalizeGenerationParams(subjectKey, params = {}) {
   const subjectMeta = getSubjectMeta(subjectKey)
   const generation = getSubjectGenerationConfig(subjectKey)
@@ -148,17 +267,32 @@ export function normalizeGenerationParams(subjectKey, params = {}) {
   }
 }
 
-function typeKeysOrFallback(typeKeys = []) {
-  return Array.isArray(typeKeys) ? typeKeys : []
-}
-
 function getContractPayload(questionTypeMeta) {
   if (!questionTypeMeta?.generationContract) return null
   return {
-    summary: questionTypeMeta.generationContract.summary,
     requiredFields: questionTypeMeta.generationContract.requiredFields,
-    example: questionTypeMeta.generationContract.example,
   }
+}
+
+function getSubjectPromptLabel(subjectMeta) {
+  return SUBJECT_PROMPT_LABELS[subjectMeta.key] || subjectMeta.key || SUBJECT_PROMPT_LABELS.generic
+}
+
+function getQuestionTypePromptLabel(typeKey) {
+  return QUESTION_TYPE_PROMPT_LABELS[typeKey] || typeKey
+}
+
+function buildRules(typeKey, isRepairAttempt) {
+  const typeRules = TYPE_SPECIFIC_RULES[typeKey] || []
+  if (isRepairAttempt) {
+    return [
+      'Fix the previous structure error first.',
+      'Keep the same target_question_type and do not change the question family.',
+      ...typeRules,
+    ]
+  }
+
+  return [...COMMON_RULES, ...typeRules]
 }
 
 export function buildGenerationPrompt({
@@ -176,60 +310,57 @@ export function buildGenerationPrompt({
   const guidance = PROFILE_GUIDANCE[profile] || PROFILE_GUIDANCE.generic
   const questionTypeMeta = getQuestionTypeMeta(planItem?.typeKey)
   const allowedQuestionTypes = getSubjectQuestionTypeOptions(subjectMeta.key).map((item) => item.key)
+  const isRepairAttempt = Boolean(previousErrorMessage)
+  const cleanSubjectLabel = getSubjectPromptLabel(subjectMeta)
+  const cleanTypeLabel = getQuestionTypePromptLabel(planItem?.typeKey)
 
-  const systemPrompt = [
-    '你是题库出题助手。',
-    '这次只生成 1 道题，并且只返回 1 个 JSON 对象。',
-    '不要输出 markdown、解释性文字、代码块、数组外壳、前后缀或注释。',
-    '返回内容必须能被 JSON.parse 直接解析。',
-    '字段要紧凑，不要 pretty print，不要额外换行。',
-    '题目必须符合指定科目和指定题型，答案、解析、评分点必须自洽。',
-    '新题必须和同批已生成题目明显不同，不得只换数字、顺序或个别表述。',
-    guidance,
-  ].join(' ')
+  const systemPrompt = isRepairAttempt
+    ? [
+        'You repair exactly one malformed quiz question JSON object.',
+        'Return only the corrected JSON object.',
+        'Do not output markdown, comments, arrays, or any explanation.',
+        guidance,
+      ].join(' ')
+    : [
+        'You generate exactly one quiz question JSON object.',
+        'Return only the JSON object.',
+        'Do not output markdown, comments, arrays, or any explanation.',
+        'The object must be directly parseable by JSON.parse.',
+        guidance,
+      ].join(' ')
 
-  const userPrompt = JSON.stringify({
+  const payload = {
     request_id: requestId || `gen_${Date.now()}`,
     subject: subjectMeta.key,
-    subject_label: subjectMeta.label,
+    subject_label: cleanSubjectLabel,
     mode: normalized.mode,
     difficulty: normalized.difficulty,
     question_index: questionIndex,
     total_questions: totalQuestions,
     target_question_type: planItem?.typeKey,
-    target_question_type_label: questionTypeMeta.label,
+    target_question_type_label: cleanTypeLabel,
     target_score: planItem?.score,
-    paper_title: normalized.paperTitle || subjectMeta.label,
+    paper_title: normalized.paperTitle || cleanSubjectLabel,
     duration_minutes: normalized.durationMinutes,
     target_paper_total: normalized.targetPaperTotal,
-    allowed_question_types: allowedQuestionTypes,
     question_type_contract: getContractPayload(questionTypeMeta),
     avoid_question_signatures: avoidQuestionSignatures,
-    previous_generation_error: previousErrorMessage,
     extra_prompt: normalized.extraPrompt,
-    rules: [
-      'type 字段必须严格使用系统规定的英文 key，不要输出中文题型名，也不要输出自定义变体。',
-      '当前这道题的 type 必须严格等于 target_question_type。',
-      '客观题的 answer.type 必须是 objective，主观题的 answer.type 必须是 subjective。',
-      'single_choice 和 reading 子题的 options 必须是数组，元素必须是 {key,text}。',
-      'single_choice 的 answer.correct 必须是单个选项 key，例如 A。',
-      'cloze 必须使用 article + blanks 结构，blanks 中每一空都要有 options、correct、rationale，不能把 cloze 写成普通单选。',
-      'true_false 的 answer.correct 只能是 T 或 F。',
-      'fill_blank / function_fill_blank 必须提供 blanks 数组，每个 blank 都有 blank_id、accepted_answers、score。',
-      'translation / essay / short_answer / programming / sql / er_diagram 必须提供 reference_answer 和 scoring_points。',
-      '不要生成当前科目未支持的题型。',
-      '不要省略 score，不要生成无法判分的空题。',
-      '解析和评分点使用中文。',
-      '如果 previous_generation_error 不为空，你必须修正上一次结构错误后再输出新的完整 JSON。',
-    ],
-  })
+    rules: buildRules(planItem?.typeKey, isRepairAttempt),
+  }
+
+  if (isRepairAttempt) {
+    payload.previous_generation_error = previousErrorMessage
+  } else {
+    payload.allowed_question_types = allowedQuestionTypes
+  }
 
   return {
     subjectMeta,
     generation,
     normalized,
     systemPrompt,
-    userPrompt,
+    userPrompt: JSON.stringify(payload),
     questionTypeMeta,
     typeContract: getContractPayload(questionTypeMeta),
   }

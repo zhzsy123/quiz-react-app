@@ -178,7 +178,7 @@ export async function startQuestionGeneration({
           let duplicateError = null
           let previousErrorMessage = ''
 
-          for (let attempt = 0; attempt < 3; attempt += 1) {
+          for (let attempt = 0; attempt < 2; attempt += 1) {
             const { systemPrompt, userPrompt } = buildGenerationPrompt({
               subjectKey,
               params: config,
@@ -194,7 +194,7 @@ export async function startQuestionGeneration({
               provider: 'deepseek',
               systemPrompt,
               userPrompt,
-              temperature: attempt === 0 ? 0.2 : 0.35,
+              temperature: attempt === 0 ? 0.2 : 0.1,
             })
 
             const candidate = sanitizeGeneratedQuestion(response.content, {

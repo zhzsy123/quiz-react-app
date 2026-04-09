@@ -40,7 +40,7 @@ describe('buildGenerationPrompt', () => {
     })
   })
 
-  it('builds a single-question json prompt with duplicate-avoidance hints', () => {
+  it('builds a compact single-question prompt with duplicate-avoidance hints', () => {
     const result = buildGenerationPrompt({
       subjectKey: 'english',
       requestId: 'req_001',
@@ -60,13 +60,14 @@ describe('buildGenerationPrompt', () => {
       avoidQuestionSignatures: ['grammar question about conjunctions'],
     })
 
-    expect(result.systemPrompt).toContain('只生成 1 道题')
-    expect(result.systemPrompt).not.toContain('NDJSON')
+    expect(result.systemPrompt).toContain('generate exactly one quiz question JSON object')
     expect(result.userPrompt).toContain('"target_question_type":"single_choice"')
     expect(result.userPrompt).toContain('"target_score":2')
     expect(result.userPrompt).toContain('偏重语法和连词辨析')
     expect(result.userPrompt).toContain('"avoid_question_signatures":["grammar question about conjunctions"]')
+    expect(result.userPrompt).toContain('"allowed_question_types"')
   })
+
   it('locks cloze generation to the cloze contract instead of plain single choice', () => {
     const result = buildGenerationPrompt({
       subjectKey: 'english',
@@ -79,14 +80,15 @@ describe('buildGenerationPrompt', () => {
       planItem: {
         typeKey: 'cloze',
         score: 20,
-        label: '瀹屽舰濉┖',
+        label: '完形填空',
       },
       questionIndex: 1,
       totalQuestions: 1,
     })
 
     expect(result.userPrompt).toContain('"target_question_type":"cloze"')
-    expect(result.userPrompt).toContain('article + blanks')
+    expect(result.userPrompt).toContain('Use article plus blanks structure.')
+    expect(result.userPrompt).toContain('"requiredFields":["id","type","prompt","article","blanks[]"]')
     expect(result.userPrompt).toContain('target_question_type')
   })
 })

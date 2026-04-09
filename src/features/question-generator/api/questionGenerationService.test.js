@@ -156,7 +156,7 @@ describe('questionGenerationService', () => {
     })
 
     expect(requestAiJsonMock).toHaveBeenCalledTimes(2)
-    expect(requestAiJsonMock.mock.calls[0][0].systemPrompt).toContain('只生成 1 道题')
+    expect(requestAiJsonMock.mock.calls[0][0].systemPrompt).toContain('generate exactly one quiz question JSON object')
     expect(requestAiJsonMock.mock.calls[0][0].userPrompt).toContain('"target_question_type":"single_choice"')
 
     expect(result.status).toBe('completed')
@@ -510,7 +510,11 @@ describe('questionGenerationService', () => {
     })
 
     expect(requestAiJsonMock).toHaveBeenCalledTimes(2)
+    expect(requestAiJsonMock.mock.calls[0][0].userPrompt).toContain('allowed_question_types')
     expect(requestAiJsonMock.mock.calls[1][0].userPrompt).toContain('previous_generation_error')
+    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).not.toContain('allowed_question_types')
+    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).not.toContain('"example"')
+    expect(requestAiJsonMock.mock.calls[1][0].systemPrompt).toContain('repair exactly one malformed quiz question JSON object')
     expect(result.status).toBe('completed')
     expect(result.draftQuestions).toHaveLength(1)
     expect(result.draftQuestions[0].status).toBe('valid')
