@@ -1,6 +1,7 @@
 import React from 'react'
 import {
   ArrowRight,
+  Bot,
   BookOpen,
   Download,
   FileJson,
@@ -121,7 +122,6 @@ export default function DashboardSplitPage() {
     switchProfile,
     handleCreateProfile,
     handleRenameProfile,
-    handleUpdateApiKey,
   } = useDashboardSplitPageState()
 
   if (loading) {
@@ -155,9 +155,10 @@ export default function DashboardSplitPage() {
               <button type="button" className="secondary-btn" onClick={() => setShowDownloadDialog(true)}>
                 下载资料
               </button>
-              <button type="button" className="secondary-btn" onClick={handleUpdateApiKey}>
-                更新 API Key
-              </button>
+              <Link className="secondary-btn" to="/ai-center">
+                <Bot size={16} />
+                AI 控制中心
+              </Link>
             </div>
 
             <div className="dashboard-stat-strip">

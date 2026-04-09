@@ -1,5 +1,5 @@
 export const DB_NAME = 'vorin-local-exam-db'
-export const DB_VERSION = 1
+export const DB_VERSION = 2
 export const ACTIVE_PROFILE_KEY = 'vorin:activeProfileId'
 
 export function openDb() {
@@ -27,6 +27,10 @@ export function openDb() {
 
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'key' })
+      }
+
+      if (!db.objectStoreNames.contains('ai_usage')) {
+        db.createObjectStore('ai_usage', { keyPath: 'id' })
       }
     }
 

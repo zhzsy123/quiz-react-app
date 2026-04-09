@@ -1,3 +1,5 @@
+import { createAiUsageRecord } from '../lib/ai/aiUsageRepository'
+import { calculateDeepSeekCost } from '../lib/ai/deepseekPricing'
 import { getPreference, setPreference } from '../lib/preferences/preferenceRepository'
 import { postJson, postStream } from './httpClient'
 import { createNdjsonStreamParser } from './streamParser'
@@ -5,9 +7,10 @@ import { createNdjsonStreamParser } from './streamParser'
 const API_KEY_PREF = 'ai:deepseekApiKey'
 const BASE_URL_PREF = 'ai:deepseekBaseUrl'
 const MODEL_PREF = 'ai:deepseekModel'
+const ACTIVE_PROFILE_KEY = 'vorin:activeProfileId'
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com'
-const DEFAULT_MODEL = 'deepseek-chat'
+const DEFAULT_MODEL = 'deepseek-reasoner'
 
 function cleanBaseUrl(baseUrl) {
   return String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '')
@@ -15,7 +18,7 @@ function cleanBaseUrl(baseUrl) {
 
 function parseJsonContent(content) {
   const text = String(content || '').trim()
-  if (!text) throw new Error('AI 返回为空')
+  if (!text) throw new Error('AI 返回为空。')
 
   try {
     return JSON.parse(text)
@@ -31,7 +34,98 @@ function parseJsonContent(content) {
       return JSON.parse(text.slice(firstBrace, lastBrace + 1))
     }
 
-    throw new Error('AI 返回内容不是合法 JSON')
+    throw new Error('AI 返回内容不是合法 JSON。')
+  }
+}
+
+function getActiveProfileId() {
+  return getPreference(ACTIVE_PROFILE_KEY, 'default') || 'default'
+}
+
+function buildUsageMetadata(payload = {}) {
+  const usage = payload?.usage || {}
+  const promptTokens = Number(usage.prompt_tokens) || 0
+  const completionTokens = Number(usage.completion_tokens) || 0
+  const promptCacheHitTokens = Number(usage.prompt_cache_hit_tokens) || 0
+  const promptCacheMissTokens =
+    Number(usage.prompt_cache_miss_tokens) || Math.max(0, promptTokens - promptCacheHitTokens)
+  const reasoningTokens = Number(usage?.completion_tokens_details?.reasoning_tokens) || 0
+
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens: Number(usage.total_tokens) || promptTokens + completionTokens,
+    promptCacheHitTokens,
+    promptCacheMissTokens,
+    reasoningTokens,
+    rawUsage: usage,
+  }
+}
+
+async function recordAiUsage({
+  status = 'completed',
+  provider = 'deepseek',
+  model = DEFAULT_MODEL,
+  feature = 'general',
+  subject = '',
+  title = '',
+  mode = 'json',
+  requestMeta = {},
+  usageMeta = null,
+  startedAt = Date.now(),
+  endedAt = Date.now(),
+  errorMessage = '',
+} = {}) {
+  try {
+    if (typeof indexedDB === 'undefined') {
+      return
+    }
+
+    const pricing = usageMeta
+      ? calculateDeepSeekCost({
+          model,
+          promptTokens: usageMeta.promptTokens,
+          completionTokens: usageMeta.completionTokens,
+          promptCacheHitTokens: usageMeta.promptCacheHitTokens,
+          promptCacheMissTokens: usageMeta.promptCacheMissTokens,
+        })
+      : calculateDeepSeekCost({ model })
+
+    await createAiUsageRecord({
+      profileId: getActiveProfileId(),
+      provider,
+      feature,
+      status,
+      model,
+      subject,
+      mode,
+      title,
+      startedAt,
+      endedAt,
+      errorMessage,
+      request: {
+        temperature: requestMeta.temperature,
+        responseFormat: requestMeta.responseFormat,
+        stream: requestMeta.stream,
+        promptChars: requestMeta.promptChars,
+        userPromptChars: requestMeta.userPromptChars,
+        systemPromptChars: requestMeta.systemPromptChars,
+      },
+      usage: usageMeta
+        ? {
+            promptTokens: usageMeta.promptTokens,
+            completionTokens: usageMeta.completionTokens,
+            totalTokens: usageMeta.totalTokens,
+            promptCacheHitTokens: usageMeta.promptCacheHitTokens,
+            promptCacheMissTokens: usageMeta.promptCacheMissTokens,
+            reasoningTokens: usageMeta.reasoningTokens,
+          }
+        : undefined,
+      pricing,
+      rawUsage: usageMeta?.rawUsage || null,
+    })
+  } catch (error) {
+    console.error('AI usage logging failed', error)
   }
 }
 
@@ -77,10 +171,28 @@ export function ensureDeepSeekConfigInteractive() {
   }
 }
 
-export async function callDeepSeekJson({ systemPrompt, userPrompt, temperature = 0.2, signal } = {}) {
+export async function callDeepSeekJson({
+  systemPrompt,
+  userPrompt,
+  temperature = 0.2,
+  signal,
+  feature = 'general',
+  title = '',
+  subject = '',
+} = {}) {
   const config = ensureDeepSeekConfigInteractive()
   if (!config?.apiKey) {
     throw new Error('未配置 DeepSeek API Key')
+  }
+
+  const startedAt = Date.now()
+  const requestMeta = {
+    temperature,
+    responseFormat: 'json_object',
+    stream: false,
+    systemPromptChars: String(systemPrompt || '').length,
+    userPromptChars: String(userPrompt || '').length,
+    promptChars: String(systemPrompt || '').length + String(userPrompt || '').length,
   }
 
   try {
@@ -100,12 +212,40 @@ export async function callDeepSeekJson({ systemPrompt, userPrompt, temperature =
       signal,
     })
 
-    const content = payload?.choices?.[0]?.message?.content
-    return {
-      content: parseJsonContent(content),
+    const usageMeta = buildUsageMetadata(payload)
+    await recordAiUsage({
+      status: 'completed',
+      provider: 'deepseek',
       model: payload?.model || config.model || DEFAULT_MODEL,
+      feature,
+      subject,
+      title,
+      mode: 'json',
+      requestMeta,
+      usageMeta,
+      startedAt,
+      endedAt: Date.now(),
+    })
+
+    return {
+      content: parseJsonContent(payload?.choices?.[0]?.message?.content),
+      model: payload?.model || config.model || DEFAULT_MODEL,
+      usage: usageMeta,
     }
   } catch (error) {
+    await recordAiUsage({
+      status: 'failed',
+      provider: 'deepseek',
+      model: config.model || DEFAULT_MODEL,
+      feature,
+      subject,
+      title,
+      mode: 'json',
+      requestMeta,
+      startedAt,
+      endedAt: Date.now(),
+      errorMessage: error.message,
+    })
     throw new Error(`DeepSeek 请求失败: ${error.message}`)
   }
 }
@@ -117,67 +257,131 @@ export async function callDeepSeekStream({
   onEvent,
   onError,
   signal,
+  feature = 'general',
+  title = '',
+  subject = '',
 } = {}) {
   const config = ensureDeepSeekConfigInteractive()
   if (!config?.apiKey) {
     throw new Error('未配置 DeepSeek API Key')
   }
 
-  const response = await postStream(`${cleanBaseUrl(config.baseUrl)}/chat/completions`, {
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      Accept: 'text/event-stream',
-    },
-    body: {
+  const startedAt = Date.now()
+  const requestMeta = {
+    temperature,
+    responseFormat: 'stream',
+    stream: true,
+    systemPromptChars: String(systemPrompt || '').length,
+    userPromptChars: String(userPrompt || '').length,
+    promptChars: String(systemPrompt || '').length + String(userPrompt || '').length,
+  }
+
+  try {
+    const response = await postStream(`${cleanBaseUrl(config.baseUrl)}/chat/completions`, {
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        Accept: 'text/event-stream',
+      },
+      body: {
+        model: config.model || DEFAULT_MODEL,
+        temperature,
+        stream: true,
+        stream_options: { include_usage: true },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      },
+      signal,
+    })
+
+    const events = []
+    let usageMeta = null
+    const parser = createNdjsonStreamParser({
+      onEvent: (event) => {
+        events.push(event)
+        if (event?.usage) {
+          usageMeta = buildUsageMetadata({ usage: event.usage })
+        }
+        onEvent?.(event)
+      },
+      onError: (error) => {
+        onError?.(error)
+      },
+    })
+
+    if (!response.body) {
+      const fallbackText = await response.text()
+      parser.pushTransportChunk(fallbackText)
+      parser.flush()
+      await recordAiUsage({
+        status: 'completed',
+        provider: 'deepseek',
+        model: config.model || DEFAULT_MODEL,
+        feature,
+        subject,
+        title,
+        mode: 'stream',
+        requestMeta,
+        usageMeta,
+        startedAt,
+        endedAt: Date.now(),
+      })
+      return {
+        events,
+        model: config.model || DEFAULT_MODEL,
+        usage: usageMeta,
+      }
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        parser.pushTransportChunk(decoder.decode(value, { stream: true }))
+      }
+      parser.pushTransportChunk(decoder.decode())
+      parser.flush()
+    } finally {
+      reader.releaseLock()
+    }
+
+    await recordAiUsage({
+      status: 'completed',
+      provider: 'deepseek',
       model: config.model || DEFAULT_MODEL,
-      temperature,
-      stream: true,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    },
-    signal,
-  })
+      feature,
+      subject,
+      title,
+      mode: 'stream',
+      requestMeta,
+      usageMeta,
+      startedAt,
+      endedAt: Date.now(),
+    })
 
-  const events = []
-  const parser = createNdjsonStreamParser({
-    onEvent: (event) => {
-      events.push(event)
-      onEvent?.(event)
-    },
-    onError: (error) => {
-      onError?.(error)
-    },
-  })
-
-  if (!response.body) {
-    const fallbackText = await response.text()
-    parser.pushTransportChunk(fallbackText)
-    parser.flush()
     return {
       events,
       model: config.model || DEFAULT_MODEL,
+      usage: usageMeta,
     }
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-
-  try {
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      parser.pushTransportChunk(decoder.decode(value, { stream: true }))
-    }
-    parser.pushTransportChunk(decoder.decode())
-    parser.flush()
-  } finally {
-    reader.releaseLock()
-  }
-
-  return {
-    events,
-    model: config.model || DEFAULT_MODEL,
+  } catch (error) {
+    await recordAiUsage({
+      status: 'failed',
+      provider: 'deepseek',
+      model: config.model || DEFAULT_MODEL,
+      feature,
+      subject,
+      title,
+      mode: 'stream',
+      requestMeta,
+      startedAt,
+      endedAt: Date.now(),
+      errorMessage: error.message,
+    })
+    throw error
   }
 }

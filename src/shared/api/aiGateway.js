@@ -7,6 +7,9 @@ export async function requestAiJson({
   systemPrompt,
   userPrompt,
   temperature = 0.2,
+  feature = 'general',
+  title = '',
+  subject = '',
 }) {
   switch (provider) {
     case 'deepseek':
@@ -14,6 +17,9 @@ export async function requestAiJson({
         systemPrompt,
         userPrompt,
         temperature,
+        feature,
+        title,
+        subject,
       })
     default:
       throw new Error(`Unsupported AI provider: ${provider}`)
@@ -28,6 +34,9 @@ export async function requestAiStream({
   onError,
   signal,
   temperature = 0.7,
+  feature = 'general',
+  title = '',
+  subject = '',
 }) {
   try {
     switch (provider) {
@@ -39,6 +48,9 @@ export async function requestAiStream({
           onError,
           signal,
           temperature,
+          feature,
+          title,
+          subject,
         })
       default:
         throw new Error(`Unsupported AI provider: ${provider}`)

@@ -31,3 +31,9 @@ export {
   saveLastOpenedPaper,
   loadLastOpenedPaper,
 } from './metaStore'
+
+export {
+  saveAiUsageRecord,
+  listAiUsageRecords,
+  clearAiUsageRecords,
+} from './aiUsageStore'

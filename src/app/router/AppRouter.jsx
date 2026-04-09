@@ -6,6 +6,7 @@ import SubjectWorkspacePage from '../../pages/SubjectWorkspacePage'
 import HistoryPage from '../../pages/HistoryPage'
 import WrongBookPage from '../../pages/WrongBookPage'
 import FavoritesPage from '../../pages/FavoritesPage'
+import AiControlCenterPage from '../../pages/AiControlCenterPage'
 
 const AppRouter = () => (
   <Routes>
@@ -17,6 +18,7 @@ const AppRouter = () => (
     <Route path="/history" element={<HistoryPage />} />
     <Route path="/wrong-book" element={<WrongBookPage />} />
     <Route path="/favorites" element={<FavoritesPage />} />
+    <Route path="/ai-center" element={<AiControlCenterPage />} />
     <Route path="/library" element={<Navigate to="/exam/english" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>

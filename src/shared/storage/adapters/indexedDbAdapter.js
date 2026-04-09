@@ -16,6 +16,9 @@ import {
   listAttempts,
   updateAttemptRecord,
   deleteAttemptRecord,
+  saveAiUsageRecord,
+  listAiUsageRecords,
+  clearAiUsageRecords,
 } from '../indexedDb'
 
 export const indexedDbAdapter = {
@@ -36,4 +39,7 @@ export const indexedDbAdapter = {
   listAttempts,
   updateAttemptRecord,
   deleteAttemptRecord,
+  saveAiUsageRecord,
+  listAiUsageRecords,
+  clearAiUsageRecords,
 }

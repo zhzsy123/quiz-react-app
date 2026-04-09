@@ -96,6 +96,9 @@ export async function gradeSubjectiveAttempt({
   }
 
   const { content, model } = await requestAiJson({
+    feature: 'subjective_grading',
+    title: quiz?.title || 'Untitled paper',
+    subject: quiz?.subject || '',
     systemPrompt:
       'You are a strict but professional exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete and actionable.',
     userPrompt: JSON.stringify(
@@ -168,6 +171,9 @@ export async function explainQuizQuestionWithMode({
   const target = buildQuestionTarget(item, response, subQuestion)
 
   const { content, model } = await requestAiJson({
+    feature: focus === 'audit' ? 'question_audit' : 'question_explanation',
+    title: paperTitle || 'Untitled paper',
+    subject: item?.subject || '',
     systemPrompt:
       'You are a clear exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
     userPrompt: JSON.stringify(
@@ -207,6 +213,9 @@ export async function auditQuizQuestionCompliance({ paperTitle, item, response, 
   const target = buildQuestionTarget(item, response, subQuestion)
 
   const { content, model } = await requestAiJson({
+    feature: 'question_audit',
+    title: paperTitle || 'Untitled paper',
+    subject: item?.subject || '',
     systemPrompt:
       'You are an exam quality auditor. Return JSON only. Check whether the question, answer, rationale, and options are compliant, unambiguous, and internally consistent.',
     userPrompt: JSON.stringify(
@@ -248,6 +257,9 @@ export async function generateSimilarQuestions({ paperTitle, item, response, cou
   const target = buildQuestionTarget(item, response)
 
   const { content, model } = await requestAiJson({
+    feature: 'similar_question_generation',
+    title: paperTitle || 'Untitled paper',
+    subject: item?.subject || '',
     systemPrompt:
       'You are an exam question generator. Return JSON only. Based on the source question, generate 5 similar questions with progressively increasing difficulty.',
     userPrompt: JSON.stringify(

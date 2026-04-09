@@ -192,6 +192,9 @@ export async function startQuestionGeneration({
 
             const response = await requestAiJson({
               provider: 'deepseek',
+              feature: 'question_generation',
+              title: generationMeta.paperTitle,
+              subject: subjectMeta.key,
               systemPrompt,
               userPrompt,
               temperature: attempt === 0 ? 0.2 : 0.1,
