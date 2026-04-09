@@ -157,10 +157,7 @@ function getObjectiveWrongCount(item, response) {
   if (!item) return 0
   if (item.type === 'composite') {
     if (!response || typeof response !== 'object') {
-      return (item.questions || []).reduce(
-        (sum, question) => sum + (question.answer?.type === 'objective' ? 1 : 0),
-        0
-      )
+      return (item.questions || []).reduce((sum, question) => sum + getObjectiveWrongCount(question, undefined), 0)
     }
     return (item.questions || []).reduce(
       (sum, question) => sum + getObjectiveWrongCount(question, response[question.id]),
@@ -189,6 +186,7 @@ function getObjectiveWrongCount(item, response) {
 function buildWrongItems(items, answers, meta) {
   const wrongItems = []
   const lastWrongAt = Date.now()
+  const buildScopedQuestionKey = (itemId, subQuestionId) => `${meta.subject}:${meta.paperId}:${itemId}:${subQuestionId}`
 
   items.forEach((item) => {
     if (item.type === 'composite') {
@@ -199,7 +197,7 @@ function buildWrongItems(items, answers, meta) {
         if (isObjectiveResponseCorrect(question, userAnswer)) return
         const compositeContext = buildCompositeContext(item)
         wrongItems.push({
-          questionKey: `${item.id}:${question.id}`,
+          questionKey: buildScopedQuestionKey(item.id, question.id),
           subject: meta.subject,
           paperId: meta.paperId,
           paperTitle: meta.paperTitle,
@@ -240,7 +238,7 @@ function buildWrongItems(items, answers, meta) {
         const userAnswer = readingAnswers[question.id] || ''
         if (userAnswer === question.answer?.correct) return
         wrongItems.push({
-          questionKey: `${item.id}:${question.id}`,
+          questionKey: buildScopedQuestionKey(item.id, question.id),
           subject: meta.subject,
           paperId: meta.paperId,
           paperTitle: meta.paperTitle,

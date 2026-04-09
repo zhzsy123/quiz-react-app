@@ -523,7 +523,7 @@ describe('useSubjectWorkspaceState practice persistence', () => {
       'english',
       expect.arrayContaining([
         expect.objectContaining({
-          questionKey: 'composite_1:sub_single',
+          questionKey: 'english:paper-1:composite_1:sub_single',
           questionId: 'composite_1',
           subQuestionId: 'sub_single',
           prompt: '该查询最适合使用哪类索引？',

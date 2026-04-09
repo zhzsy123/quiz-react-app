@@ -275,7 +275,7 @@ export const QUESTION_TYPE_CATALOG = [
         prompt: '将下列句子译成中文。',
         score: 15,
         source_text: 'A good book is a good friend.',
-        answer: createSubjectiveAnswer('好书如挚友。', ['语义准确', '表达通顺']),
+        answer: createSubjectiveAnswer('好书如良友。', ['语义准确', '表达通顺']),
       },
     },
   }),
@@ -338,8 +338,8 @@ export const QUESTION_TYPE_CATALOG = [
         type: 'case_analysis',
         prompt: '根据案例分析买方是否有权拒收。',
         score: 12,
-        context: '某出口合同约定以信用证支付，卖方迟延提交单据。',
-        answer: createSubjectiveAnswer('应结合迟延提交单据的后果判断。', ['识别争议点', '判断是否拒收', '说明依据']),
+        context: '某出口合同约定以信用证支付，卖方延迟提交单据。',
+        answer: createSubjectiveAnswer('应结合延迟提交单据的后果判断。', ['识别争议点', '判断是否拒收', '说明依据']),
       },
     },
   }),
@@ -381,7 +381,7 @@ export const QUESTION_TYPE_CATALOG = [
         type: 'operation',
         prompt: '画出其进行折半搜索时的判定树。',
         score: 6,
-        answer: createSubjectiveAnswer('判定树如下 ...', ['根节点正确', '左右分支正确']),
+        answer: createSubjectiveAnswer('判定树如下...', ['根节点正确', '左右分支正确']),
       },
     },
   }),
@@ -403,7 +403,7 @@ export const QUESTION_TYPE_CATALOG = [
         prompt: '编写函数实现二叉树层序遍历。',
         score: 20,
         context: '要求给出核心代码或伪代码。',
-        answer: createSubjectiveAnswer('参考代码 ...', ['数据结构选择正确', '遍历逻辑正确', '边界条件完整']),
+        answer: createSubjectiveAnswer('参考代码...', ['数据结构选择正确', '遍历逻辑正确', '边界条件完整']),
       },
     },
   }),
@@ -475,7 +475,7 @@ export const QUESTION_TYPE_CATALOG = [
             type: 'operation',
             prompt: '画出折半搜索判定树。',
             score: 4,
-            answer: createSubjectiveAnswer('判定树如下 ...', ['根节点正确', '左右分支正确']),
+            answer: createSubjectiveAnswer('判定树如下...', ['根节点正确', '左右分支正确']),
           },
           {
             id: 'gq_017_2',
@@ -498,7 +498,10 @@ export function normalizeQuestionTypeKey(typeKey) {
 
 export function getQuestionTypeMeta(typeKey) {
   const normalized = normalizeQuestionTypeKey(typeKey)
-  return QUESTION_TYPE_CATALOG.find((item) => item.key === normalized) || createQuestionTypeMeta({ key: normalized, label: normalized, shortLabel: normalized })
+  return (
+    QUESTION_TYPE_CATALOG.find((item) => item.key === normalized) ||
+    createQuestionTypeMeta({ key: normalized, label: normalized, shortLabel: normalized })
+  )
 }
 
 export function buildQuestionTypeSummary(typeKeys = [], { short = true } = {}) {

@@ -120,6 +120,7 @@ export default function WrongBookPage() {
               )}
             </div>
           </div>
+
           <div className="wrongbook-filter-grid">
             <label className="form-field">
               <span>科目</span>
@@ -132,6 +133,7 @@ export default function WrongBookPage() {
                 ))}
               </select>
             </label>
+
             <label className="form-field">
               <span>题型</span>
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
@@ -143,6 +145,7 @@ export default function WrongBookPage() {
                 ))}
               </select>
             </label>
+
             <label className="form-field grow">
               <span>关键词</span>
               <input
@@ -155,22 +158,47 @@ export default function WrongBookPage() {
         </section>
 
         <section className="wrongbook-summary-grid">
-          <article className="metric-card"><div className="metric-head"><BookX size={18} /> 错题记录总数</div><div className="metric-value">{wrongSummary.totalWrongRecords}</div></article>
-          <article className="metric-card"><div className="metric-head"><Search size={18} /> 唯一错题数</div><div className="metric-value">{wrongSummary.uniqueWrongQuestions}</div></article>
-          <article className="metric-card"><div className="metric-head"><Filter size={18} /> 当前筛选结果</div><div className="metric-value">{wrongSummary.filteredCount}</div></article>
-          <article className="metric-card"><div className="metric-head"><BookOpen size={18} /> 最近错题时间</div><div className="metric-value small-metric-value">{wrongSummary.latestWrongAt ? new Date(wrongSummary.latestWrongAt).toLocaleDateString() : '--'}</div></article>
+          <article className="metric-card">
+            <div className="metric-head">
+              <BookX size={18} /> 错题记录总数
+            </div>
+            <div className="metric-value">{wrongSummary.totalWrongRecords}</div>
+          </article>
+          <article className="metric-card">
+            <div className="metric-head">
+              <Search size={18} /> 唯一错题数
+            </div>
+            <div className="metric-value">{wrongSummary.uniqueWrongQuestions}</div>
+          </article>
+          <article className="metric-card">
+            <div className="metric-head">
+              <Filter size={18} /> 当前筛选结果
+            </div>
+            <div className="metric-value">{wrongSummary.filteredCount}</div>
+          </article>
+          <article className="metric-card">
+            <div className="metric-head">
+              <BookOpen size={18} /> 最近错题时间
+            </div>
+            <div className="metric-value small-metric-value">
+              {wrongSummary.latestWrongAt ? new Date(wrongSummary.latestWrongAt).toLocaleDateString() : '--'}
+            </div>
+          </article>
         </section>
 
         {practiceMode && (
           <section className="record-list-card wrongbook-practice-panel">
             <div className="section-header-row">
-              <h2><Play size={18} /> 错题练习器</h2>
+              <h2>
+                <Play size={18} /> 错题练习器
+              </h2>
               <span className="section-header-tip">
                 {filteredWrongItems.length > 0
                   ? `第 ${Math.min(practiceIndex + 1, Math.max(filteredWrongItems.length, 1))} / ${filteredWrongItems.length}`
                   : '已无待练习错题'}
               </span>
             </div>
+
             {!displayPracticeItem ? (
               <div className="local-library-empty">当前筛选条件下已经没有待练习错题了。</div>
             ) : (
@@ -189,12 +217,14 @@ export default function WrongBookPage() {
                     删除
                   </button>
                 </div>
+
                 {displayPracticeItem.contextTitle && (
                   <div className="wrongbook-context">
                     <strong>{displayPracticeItem.contextTitle}</strong>
                     {displayPracticeItem.contextSnippet ? `：${displayPracticeItem.contextSnippet}` : ''}
                   </div>
                 )}
+
                 <div className="options">
                   {(displayPracticeItem.options || []).map((option, index) => {
                     const selected = selectedAnswer === option.key
@@ -227,19 +257,34 @@ export default function WrongBookPage() {
                     )
                   })}
                 </div>
+
                 {feedback && <div className="practice-feedback">{feedback}</div>}
+
                 {selectedAnswer && selectedAnswer !== displayPracticeItem.correctAnswer && (
                   <div className="analysis-box">
-                    <div><strong>正确答案：</strong>{displayPracticeItem.correctAnswerLabel || displayPracticeItem.correctAnswer || '--'}</div>
-                    <div><strong>解析：</strong>{displayPracticeItem.rationale || '暂无解析'}</div>
+                    <div>
+                      <strong>正确答案：</strong>
+                      {displayPracticeItem.correctAnswerLabel || displayPracticeItem.correctAnswer || '--'}
+                    </div>
+                    <div>
+                      <strong>解析：</strong>
+                      {displayPracticeItem.rationale || '暂无解析'}
+                    </div>
                   </div>
                 )}
+
                 <div className="question-actions">
-                  <button className="secondary-btn" onClick={() => setPracticeIndex((value) => Math.max(value - 1, 0))} disabled={practiceIndex <= 0 || Boolean(holdSolvedItem)}>
+                  <button
+                    className="secondary-btn"
+                    onClick={() => setPracticeIndex((value) => Math.max(value - 1, 0))}
+                    disabled={practiceIndex <= 0 || Boolean(holdSolvedItem)}
+                  >
                     上一题
                   </button>
                   {holdSolvedItem ? (
-                    <button className="secondary-btn" onClick={handleAdvanceAfterSolved}>下一题</button>
+                    <button className="secondary-btn" onClick={handleAdvanceAfterSolved}>
+                      下一题
+                    </button>
                   ) : (
                     <button
                       className="secondary-btn"
@@ -262,9 +307,12 @@ export default function WrongBookPage() {
         {!practiceMode && (
           <section className="record-list-card">
             <div className="section-header-row">
-              <h2><BookX size={18} /> 错题列表</h2>
+              <h2>
+                <BookX size={18} /> 错题列表
+              </h2>
               <span className="section-header-tip">按最近出错时间倒序排列</span>
             </div>
+
             {filteredWrongItems.length === 0 ? (
               <div className="local-library-empty">当前还没有可展示的错题。</div>
             ) : (
@@ -297,16 +345,25 @@ export default function WrongBookPage() {
                           删除
                         </button>
                       </div>
+
                       {item.contextTitle && (
                         <div className="wrongbook-context">
                           <strong>{item.contextTitle}</strong>
                           {item.contextSnippet ? `：${item.contextSnippet}` : ''}
                         </div>
                       )}
+
                       <div className="wrongbook-answer-compare">
-                        <div className="wrongbook-answer-pill wrong"><span>你的答案</span><strong>{item.userAnswerLabel || '未作答'}</strong></div>
-                        <div className="wrongbook-answer-pill correct"><span>正确答案</span><strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong></div>
+                        <div className="wrongbook-answer-pill wrong">
+                          <span>你的答案</span>
+                          <strong>{item.userAnswerLabel || '未作答'}</strong>
+                        </div>
+                        <div className="wrongbook-answer-pill correct">
+                          <span>正确答案</span>
+                          <strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong>
+                        </div>
                       </div>
+
                       <div className="wrongbook-rationale">解析：{item.rationale || '暂无解析'}</div>
                     </article>
                   )

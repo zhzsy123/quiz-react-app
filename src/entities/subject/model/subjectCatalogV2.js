@@ -28,6 +28,7 @@ function createGenerationConfig(config = {}) {
 
 function createSubjectMeta(config) {
   const questionTypeKeys = config.questionTypeKeys || []
+
   return {
     expectedPaperTotal: null,
     defaultDurationMinutes: 90,
@@ -68,7 +69,7 @@ export const SUBJECT_REGISTRY = [
         title: '英语试题 JSON 解析规范文档',
         href: './json-schema.md',
         filename: '英语试题 JSON 解析规范文档.md',
-        description: '支持单选、阅读理解、翻译题和作文题。',
+        description: '支持单选、完形填空、阅读理解、翻译题和作文题。',
       }),
     ],
   }),
@@ -147,14 +148,32 @@ export const SUBJECT_REGISTRY = [
     routeSlug: 'international-trade',
     label: '国际贸易模考系统 V1.0',
     shortLabel: '国际贸易',
-    description: '支持国际贸易综合题库导入、刷题模式、考试模式与主观题 AI 评阅。',
+    description: '支持国际贸易题库导入、刷题模式、考试模式以及主观题 AI 评阅。',
     route: '/exam/international-trade',
     workspaceRoute: '/workspace/international-trade',
     expectedPaperTotal: 200,
     defaultDurationMinutes: 150,
-    questionTypeKeys: ['single_choice', 'true_false', 'translation', 'short_answer', 'case_analysis', 'calculation', 'operation', 'essay'],
+    questionTypeKeys: [
+      'single_choice',
+      'true_false',
+      'translation',
+      'short_answer',
+      'case_analysis',
+      'calculation',
+      'operation',
+      'essay',
+    ],
     generation: createGenerationConfig({
-      supportedQuestionTypes: ['single_choice', 'true_false', 'translation', 'short_answer', 'case_analysis', 'calculation', 'operation', 'essay'],
+      supportedQuestionTypes: [
+        'single_choice',
+        'true_false',
+        'translation',
+        'short_answer',
+        'case_analysis',
+        'calculation',
+        'operation',
+        'essay',
+      ],
       defaultPaperTotal: 200,
       defaultDurationMinutes: 150,
       promptProfile: 'international_trade',

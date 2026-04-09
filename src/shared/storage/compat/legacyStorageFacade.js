@@ -5,7 +5,7 @@
  * - repository：`src/entities/<domain>/api/*Repository.js`
  * - 偏好项：`src/shared/lib/preferences/preferenceRepository.js`
  *
- * 本文件仅用于过渡期兼容旧链路与旧测试。
+ * 本文件仅用于过渡期兼容旧链路和旧测试。
  */
 import {
   createProfile,

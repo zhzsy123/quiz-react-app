@@ -7,6 +7,16 @@ import { getDeepSeekConfig, updateDeepSeekConfig } from '../../../shared/api/dee
 
 export const DASHBOARD_DOWNLOAD_GROUPS = getSubjectDownloadGroups()
 
+function getAverageRate(attempts = []) {
+  if (!attempts.length) return 0
+
+  return Math.round(
+    attempts.reduce((sum, item) => {
+      return sum + (item.objectiveTotal ? (item.objectiveScore / item.objectiveTotal) * 100 : 0)
+    }, 0) / attempts.length
+  )
+}
+
 export function useDashboardSplitPageState() {
   const {
     profiles,
@@ -59,36 +69,23 @@ export function useDashboardSplitPageState() {
   const subjectSummaries = useMemo(() => {
     return SUBJECT_REGISTRY.map((subject) => {
       const attempts = dashboardState.attempts.filter((item) => item.subject === subject.key)
-      const averageRate = attempts.length
-        ? Math.round(
-            attempts.reduce((sum, item) => {
-              return sum + (item.objectiveTotal ? (item.objectiveScore / item.objectiveTotal) * 100 : 0)
-            }, 0) / attempts.length
-          )
-        : 0
 
       return {
         ...subject,
         attemptCount: attempts.length,
-        averageRate,
+        averageRate: getAverageRate(attempts),
       }
     })
   }, [dashboardState.attempts])
 
   const latestAttempt = dashboardState.attempts[0] || null
-  const overallAverageRate = dashboardState.attempts.length
-    ? Math.round(
-        dashboardState.attempts.reduce((sum, item) => {
-          return sum + (item.objectiveTotal ? (item.objectiveScore / item.objectiveTotal) * 100 : 0)
-        }, 0) / dashboardState.attempts.length
-      )
-    : 0
+  const overallAverageRate = getAverageRate(dashboardState.attempts)
 
   const spotlightStats = [
     { label: '历史考试', value: `${dashboardState.attempts.length} 次` },
     { label: '平均正确率', value: `${overallAverageRate}%` },
-    { label: '错题', value: `${dashboardState.totalWrong}` },
-    { label: '收藏', value: `${favoriteCount}` },
+    { label: '错题数', value: `${dashboardState.totalWrong}` },
+    { label: '收藏题目', value: `${favoriteCount}` },
   ]
 
   const handleCreateProfile = async () => {
@@ -107,7 +104,7 @@ export function useDashboardSplitPageState() {
   const handleUpdateApiKey = () => {
     const currentConfig = getDeepSeekConfig()
     const nextKey = window.prompt(
-      '请输入新的 DeepSeek API Key。点取消则不修改，留空则清空当前 Key。',
+      '请输入新的 DeepSeek API Key。点击取消则不修改，留空则清空当前 Key。',
       currentConfig.apiKey || ''
     )
     if (nextKey === null) return

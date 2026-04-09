@@ -20,8 +20,11 @@ function WorkflowBand({ onOpenDownloads }) {
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
         <span className="dashboard-eyebrow">JSON Workflow</span>
-        <h2>按科目下载规范，交给 AI 清洗成可导入 JSON</h2>
-        <p>把试卷原文和对应科目的 JSON 解析规范一起交给 AI，再把结果导入本站，减少手工整理成本。</p>
+        <h2>按科目下载规范，再交给 AI 清洗成可导入的 JSON</h2>
+        <p>
+          把试卷原文和对应科目的 JSON 解析规范一起交给 AI，再把结果导入本站，
+          可以显著减少手工整理题库的时间成本。
+        </p>
       </div>
 
       <div className="dashboard-band-steps">
@@ -52,7 +55,9 @@ function DownloadDialog({ open, onClose, groups }) {
           <div className="download-dialog-copy">
             <span className="dashboard-eyebrow">Downloads</span>
             <h3>选择下载资料</h3>
-            <p>每个科目都对应自己的 JSON 解析规范，国际贸易额外提供混合样卷示例。</p>
+            <p>
+              每个科目都对应自己的 JSON 解析规范；如果某个科目提供样卷示例，也会在这里一并列出。
+            </p>
           </div>
 
           <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭下载对话框">
@@ -144,7 +149,9 @@ export default function DashboardSplitPage() {
           <div className="dashboard-showcase-copy">
             <span className="dashboard-eyebrow">Study Workspace</span>
             <h1>智能在线模考系统 V2.0</h1>
-            <p>统一管理题库导入、刷题、模考、错题复习和 AI 辅助，让常用入口始终保持在首页。</p>
+            <p>
+              统一管理题库导入、刷题、模考、错题复习和 AI 辅助，把你最常用的入口稳定留在首页。
+            </p>
 
             <div className="dashboard-showcase-actions">
               <Link className="primary-btn" to="/exam/english">
@@ -184,7 +191,7 @@ export default function DashboardSplitPage() {
               </div>
 
               <strong>{activeProfile?.name || '未命名档案'}</strong>
-              <p>档案切换按用户角色隔离，暂不支持跨设备同步。</p>
+              <p>档案切换按用户角色隔离，当前版本暂不支持跨设备同步。</p>
 
               <label className="form-field">
                 <span>切换档案</span>

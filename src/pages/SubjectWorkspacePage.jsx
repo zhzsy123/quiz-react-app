@@ -45,10 +45,14 @@ export default function SubjectWorkspacePage() {
     handlePrev,
     handleNext,
     handleSelectOption,
+    handleSelectCompositeOption,
     handleRevealCurrentObjective,
+    handleRevealCompositeQuestion,
     handleSelectReadingOption,
     handleFillBlankChange,
+    handleCompositeFillBlankChange,
     handleTextChange,
+    handleCompositeTextChange,
     handleReset,
     handleChangeAiExplainMode,
     handleExplainQuestionWithMode,
@@ -251,10 +255,14 @@ export default function SubjectWorkspacePage() {
           onPrev={handlePrev}
           onNext={handleNext}
           onSelectOption={handleSelectOption}
+          onSelectCompositeOption={handleSelectCompositeOption}
           onRevealCurrentObjective={handleRevealCurrentObjective}
+          onRevealCompositeQuestion={handleRevealCompositeQuestion}
           onSelectReadingOption={handleSelectReadingOption}
           onFillBlankChange={handleFillBlankChange}
+          onCompositeFillBlankChange={handleCompositeFillBlankChange}
           onTextChange={handleTextChange}
+          onCompositeTextChange={handleCompositeTextChange}
           aiReview={aiReview}
           aiQuestionReviewMap={aiQuestionReviewMap}
           aiExplainMap={aiExplainMap}

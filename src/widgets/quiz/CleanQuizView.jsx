@@ -215,7 +215,7 @@ export default function CleanQuizView({
 
         <div className="quiz-submit-row">
           <button type="button" className="primary-btn" onClick={onSubmit}>
-            {mode === 'practice' ? 'Submit practice' : 'Submit exam'}
+            {mode === 'practice' ? '提交练习' : '提交考试'}
           </button>
         </div>
       </main>
