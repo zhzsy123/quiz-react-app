@@ -522,6 +522,63 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
   })
 
+  it('repairs cloze passages that omit inline placeholders or article text', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        id: 'cq_repairable',
+        type: '完形填空',
+        prompt: 'Read the short passage and complete the blanks.',
+        score: 20,
+        questions: [
+          {
+            blank_id: 1,
+            prompt: 'The city park offers a quiet place for residents to relax.',
+            options: [
+              { key: 'A', text: 'refuge' },
+              { key: 'B', text: 'obstacle' },
+              { key: 'C', text: 'distraction' },
+              { key: 'D', text: 'challenge' },
+            ],
+            correct: 'A',
+            rationale: '符合语境。',
+          },
+          {
+            blank_id: 2,
+            prompt: 'Local volunteers hope their efforts will inspire more people to care for it.',
+            options: [
+              { key: 'A', text: 'if only' },
+              { key: 'B', text: 'even if' },
+              { key: 'C', text: 'as if' },
+              { key: 'D', text: 'only if' },
+            ],
+            correct: 'B',
+            rationale: '转折让步语境。',
+          },
+        ],
+      },
+    })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      meta: {
+        requestId: 'gen_cloze_repair_001',
+      },
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].normalizedQuestion.type).toBe('cloze')
+    expect(result.draftQuestions[0].normalizedQuestion.article).toContain('[[1]]')
+    expect(result.draftQuestions[0].normalizedQuestion.article).toContain('[[2]]')
+    expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
+  })
+
   it('retries duplicate generated questions within the same batch', async () => {
     requestAiJsonMock
       .mockResolvedValueOnce({

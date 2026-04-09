@@ -6,6 +6,7 @@ import {
   normalizeTrueFalseCorrect,
   parseScore,
 } from './helpers'
+import { buildFallbackClozeArticle, getClozeBlankId, getClozeRawBlanks } from '../clozeHelpers.js'
 
 function getOptionList(question) {
   if (Array.isArray(question?.options)) return question.options
@@ -203,27 +204,8 @@ export function normalizeReadingQuestion(question) {
 }
 
 export function normalizeClozeQuestion(question) {
-  const article =
-    question?.article ||
-    question?.content ||
-    question?.body ||
-    (typeof question?.passage === 'string' ? question.passage : '') ||
-    question?.passage?.content ||
-    question?.passage?.body ||
-    question?.passage?.text ||
-    question?.context ||
-    question?.material ||
-    ''
-
-  const rawBlanks = Array.isArray(question?.blanks)
-    ? question.blanks
-    : Array.isArray(question?.questions)
-      ? question.questions
-      : Array.isArray(question?.sub_questions)
-        ? question.sub_questions
-        : Array.isArray(question?.subQuestions)
-          ? question.subQuestions
-          : []
+  const rawBlanks = getClozeRawBlanks(question)
+  const article = buildFallbackClozeArticle(question, rawBlanks)
 
   if (!article || !rawBlanks.length) return null
 
@@ -234,7 +216,7 @@ export function normalizeClozeQuestion(question) {
       if (!optionList.length || !correct) return null
 
       return {
-        blank_id: blank.blank_id ?? blank.id ?? index + 1,
+        blank_id: getClozeBlankId(blank, index),
         score: parseScore(blank.score, getDefaultScoreByType('cloze')),
         options: optionList.map(normalizeOption),
         correct,

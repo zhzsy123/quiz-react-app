@@ -1,4 +1,9 @@
 import { getQuestionTypeMeta, normalizeQuestionTypeKey } from '../../subject/model/subjects.js'
+import {
+  buildFallbackClozeArticle,
+  getClozeBlankId,
+  getClozeRawBlanks,
+} from '../../quiz/lib/clozeHelpers.js'
 
 export const OBJECTIVE_GENERATION_TYPES = new Set([
   'single_choice',
@@ -14,7 +19,7 @@ function normalizeOptionList(options) {
   if (Array.isArray(options)) {
     return options.map((option, index) => {
       if (typeof option === 'string') {
-        const match = option.match(/^([A-Z])(?:[\.\s、，．)]*)\s*(.*)$/)
+        const match = option.match(/^([A-Z])(?:[\.\s、，：:）\)]*)\s*(.*)$/)
         if (match) {
           return { key: match[1], text: match[2] || match[1] }
         }
@@ -154,11 +159,12 @@ function sanitizeClozeBlank(blank = {}, index = 0, defaultScore = 2) {
     ''
 
   return {
-    blank_id: blank?.blank_id ?? blank?.id ?? index + 1,
+    blank_id: getClozeBlankId(blank, index),
     score: Number(blank?.score) > 0 ? Number(blank.score) : defaultScore,
     options: normalizeOptionList(blank?.options || blank?.choices || blank?.selections),
     correct: normalizeCorrectValue(correct),
-    rationale: blank?.rationale || blank?.answer?.rationale || '',
+    rationale: blank?.rationale || blank?.answer?.rationale || '暂无解析',
+    prompt: blank?.prompt || blank?.title || blank?.stem || blank?.sentence || '',
   }
 }
 
@@ -219,30 +225,13 @@ export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
   }
 
   if (normalizedType === 'cloze') {
-    const rawBlanks =
-      rawQuestion.blanks ||
-      rawQuestion.answers ||
-      rawQuestion.items ||
-      rawQuestion.questions ||
-      rawQuestion.sub_questions ||
-      rawQuestion.subQuestions ||
-      []
+    const rawBlanks = getClozeRawBlanks(rawQuestion)
     const totalScore = Number(question.score) > 0 ? Number(question.score) : Number(planItem?.score) || 0
     const defaultBlankScore =
       rawBlanks.length > 0 && totalScore > 0 ? Math.max(1, totalScore / rawBlanks.length) : 2
 
     question.title = rawQuestion.title || rawQuestion.prompt || '完形填空'
-    question.article =
-      rawQuestion.article ||
-      rawQuestion.content ||
-      rawQuestion.body ||
-      (typeof rawQuestion.passage === 'string' ? rawQuestion.passage : '') ||
-      rawQuestion.passage?.content ||
-      rawQuestion.passage?.body ||
-      rawQuestion.passage?.text ||
-      rawQuestion.context ||
-      rawQuestion.material ||
-      ''
+    question.article = buildFallbackClozeArticle(rawQuestion, rawBlanks)
     question.blanks = rawBlanks
       .map((blank, index) =>
         sanitizeClozeBlank(

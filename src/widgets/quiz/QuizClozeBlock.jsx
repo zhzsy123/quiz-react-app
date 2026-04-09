@@ -1,15 +1,38 @@
 import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 
+function renderFallbackBlankRow(blanks = []) {
+  if (!blanks.length) return null
+
+  return (
+    <div className="cloze-fallback-placeholders">
+      {blanks.map((blank, index) => (
+        <span key={`blank_fallback_${blank.blank_id || index}`} className="cloze-inline-blank">
+          ({index + 1}) ______
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function renderClozeArticle(article = '', blanks = []) {
-  if (!article) return '当前完形填空缺少文章正文。'
+  if (!article) {
+    return (
+      <>
+        <span>当前完形填空缺少文章正文，已回退展示空位。</span>
+        {renderFallbackBlankRow(blanks)}
+      </>
+    )
+  }
 
   const segments = []
   const pattern = /\[\[(.+?)\]\]/g
   let cursor = 0
   let match = pattern.exec(article)
+  let matchedPlaceholder = false
 
   while (match) {
+    matchedPlaceholder = true
     if (match.index > cursor) {
       segments.push(article.slice(cursor, match.index))
     }
@@ -30,6 +53,15 @@ function renderClozeArticle(article = '', blanks = []) {
 
   if (cursor < article.length) {
     segments.push(article.slice(cursor))
+  }
+
+  if (!matchedPlaceholder) {
+    return (
+      <>
+        <span>{article}</span>
+        {renderFallbackBlankRow(blanks)}
+      </>
+    )
   }
 
   return segments
