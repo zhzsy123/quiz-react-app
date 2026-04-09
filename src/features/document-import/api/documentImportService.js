@@ -114,6 +114,7 @@ function buildImportDiagnostics({
   strategy,
   detection = null,
   sectionResults = [],
+  failedSections = [],
   skippedCount = 0,
   skippedTypes = [],
 }) {
@@ -126,6 +127,14 @@ function buildImportDiagnostics({
     coverage: Number(detection?.coverage) || 0,
     skippedCount,
     skippedTypes,
+    failedSections: failedSections.map((item) => ({
+      key: item.section.key,
+      label: item.section.label,
+      targetQuestionTypes: item.section.targetQuestionTypes || [],
+      optional: Boolean(item.section.optional),
+      reason: item.reason || '',
+      sourceLength: String(item.section.text || '').length,
+    })),
     sections: sectionResults.map((sectionResult) => ({
       key: sectionResult.section.key,
       label: sectionResult.section.label,
@@ -278,7 +287,7 @@ async function importEnglishDocumentBySections({
     `正在并行解析英语试卷各部分，共 ${detection.sections.length} 个 section。`
   )
 
-  const sectionResults = await Promise.all(
+  const settledResults = await Promise.allSettled(
     detection.sections.map((section) =>
       requestSectionAi({
         provider,
@@ -291,9 +300,32 @@ async function importEnglishDocumentBySections({
     )
   )
 
+  const sectionResults = settledResults
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
+
+  const failedSections = settledResults
+    .map((result, index) => ({ result, section: detection.sections[index] }))
+    .filter((item) => item.result.status === 'rejected')
+    .map((item) => ({
+      section: item.section,
+      reason: item.result.reason?.message || '该 section 解析失败。',
+    }))
+
+  if (!sectionResults.length) {
+    if (failedSections.length) {
+      throw new Error(
+        failedSections.map((item) => `${item.section.label}：${item.reason}`).join('；')
+      )
+    }
+
+    return null
+  }
+
   return {
     detection,
     sectionResults,
+    failedSections,
     combinedPayload: buildCombinedImportPayload({
       subjectKey: subjectMeta.key,
       documentDraft,
@@ -353,6 +385,9 @@ export async function importDocumentWithAi({
         ...(sectionedImport.detection.coverage < 0.85
           ? ['本次为基于本地规则的 section 粗切分，请在预览中重点检查题型边界。']
           : []),
+        ...((sectionedImport.failedSections || []).map(
+          (item) => `${item.section.label} 瑙ｆ瀽澶辫触锛屽凡璺宠繃锛?{item.reason}`
+        )),
       ]
     } else {
       const prompt = buildImportPrompt({
@@ -402,7 +437,13 @@ export async function importDocumentWithAi({
     invalidReasons.push(`已跳过 ${skippedCount} 道当前不支持的题目。`)
   }
 
-  const warnings = [...promptWarnings, ...(normalizedDocument?.validation?.warnings || [])]
+  const warnings = [
+    ...promptWarnings,
+    ...((sectionedImport?.failedSections || []).map(
+      (item) => `${item.section.label} 解析失败，已跳过：${item.reason}`
+    )),
+    ...(normalizedDocument?.validation?.warnings || []),
+  ]
   if (skippedTypes.length > 0) {
     warnings.push(`检测到未支持题型：${skippedTypes.join('、')}。`)
   }
@@ -412,6 +453,7 @@ export async function importDocumentWithAi({
     strategy: sectionedImport ? 'english_section_detection' : 'single_pass',
     detection: sectionedImport?.detection || null,
     sectionResults: sectionedImport?.sectionResults || [],
+    failedSections: sectionedImport?.failedSections || [],
     skippedCount,
     skippedTypes,
   })

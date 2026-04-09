@@ -102,6 +102,7 @@ function renderDiagnosticsPanel(diagnostics) {
   if (!diagnostics) return null
 
   const sections = diagnostics.sections || []
+  const failedSections = diagnostics.failedSections || []
   const hasSections = sections.length > 0
 
   return (
@@ -143,6 +144,29 @@ function renderDiagnosticsPanel(diagnostics) {
                   {section.warnings.map((warning, index) => (
                     <li key={`${section.key}-${index}`}>{warning}</li>
                   ))}
+                </ul>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {failedSections.length ? (
+        <div className="document-import-diagnostic-section-list">
+          {failedSections.map((section) => (
+            <article key={`failed-${section.key}`} className="document-import-diagnostic-section">
+              <div className="document-import-diagnostic-section-head">
+                <strong>{section.label}</strong>
+                <div className="document-import-diagnostic-badges">
+                  <span className="tag red">解析失败</span>
+                  <span className="tag blue">{(section.targetQuestionTypes || []).join(' / ') || '未分类'}</span>
+                  {section.optional ? <span className="tag blue">可跳过</span> : null}
+                </div>
+              </div>
+              <p>源文本 {section.sourceLength || 0} 字</p>
+              {section.reason ? (
+                <ul>
+                  <li>{section.reason}</li>
                 </ul>
               ) : null}
             </article>
@@ -403,4 +427,3 @@ export default function DocumentImportPreview({
     </div>
   )
 }
-

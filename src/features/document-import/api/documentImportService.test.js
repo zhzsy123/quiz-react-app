@@ -251,6 +251,225 @@ Write an essay.
     })
   })
 
+  it('keeps successful english sections when one inferred section fails', async () => {
+    const { importDocumentWithAi } = await import('./documentImportService')
+
+    requestAiJson.mockImplementation(async ({ title }) => {
+      if (title.includes('完形填空')) {
+        throw new Error('完形填空结构不完整')
+      }
+
+      if (title.includes('阅读 C')) {
+        return {
+          content: {
+            questions: [
+              {
+                id: 'reading_c',
+                type: 'reading',
+                prompt: 'Read Passage C and answer the questions.',
+                score: 2,
+                passage: {
+                  label: 'C',
+                  title: 'Passage C',
+                  content: 'Passage C content',
+                },
+                questions: [
+                  {
+                    id: 'C-1',
+                    type: 'single_choice',
+                    prompt: 'Question C-1',
+                    score: 2,
+                    options: [
+                      { key: 'A', text: 'A' },
+                      { key: 'B', text: 'B' },
+                      { key: 'C', text: 'C' },
+                      { key: 'D', text: 'D' },
+                    ],
+                    answer: { type: 'objective', correct: 'B', rationale: '解析' },
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      }
+
+      if (title.includes('翻译')) {
+        return {
+          content: {
+            questions: [
+              {
+                id: 'translation_1',
+                type: 'translation',
+                prompt: 'Translate into Chinese.',
+                score: 10,
+                direction: 'en_to_zh',
+                context: 'Knowledge is power.',
+                answer: {
+                  type: 'subjective',
+                  reference_answer: '知识就是力量。',
+                  scoring_points: ['语义准确'],
+                },
+              },
+            ],
+          },
+        }
+      }
+
+      return {
+        content: {
+          questions: [
+            {
+              id: 'essay_1',
+              type: 'essay',
+              prompt: 'Write an essay.',
+              score: 15,
+              answer: {
+                type: 'subjective',
+                reference_answer: '参考范文',
+                scoring_points: ['切题', '结构完整'],
+              },
+            },
+          ],
+        },
+      }
+    })
+
+    const result = await importDocumentWithAi({
+      subjectKey: 'english',
+      documentDraft: {
+        fileName: 'paper.pdf',
+        sourceType: 'pdf',
+        plainText: `
+1. A
+2. B
+3. C
+
+Passage C
+Read Passage C and answer the questions.
+
+Part IV Translation
+Translate the following sentence.
+
+Part V Writing
+Write an essay.
+        `,
+      },
+    })
+
+    expect(result.preview.questionCount).toBe(3)
+    expect(result.warnings.some((item) => item.includes('解析失败') || item.includes('跳过'))).toBe(false)
+    expect(result.preview.diagnostics.failedSections).toHaveLength(0)
+  })
+
+  it('continues import when one explicit english section fails but others succeed', async () => {
+    const { importDocumentWithAi } = await import('./documentImportService')
+
+    requestAiJson.mockImplementation(async ({ title }) => {
+      if (title.includes('完形填空')) {
+        throw new Error('完形填空结构不完整')
+      }
+
+      if (title.includes('阅读 A')) {
+        return {
+          content: {
+            questions: [
+              {
+                id: 'reading_a',
+                type: 'reading',
+                prompt: 'Read Passage A and answer the questions.',
+                score: 2,
+                passage: { label: 'A', title: 'Passage A', content: 'Passage A content' },
+                questions: [
+                  {
+                    id: 'A-1',
+                    type: 'single_choice',
+                    prompt: 'Question A-1',
+                    score: 2,
+                    options: [
+                      { key: 'A', text: 'A' },
+                      { key: 'B', text: 'B' },
+                      { key: 'C', text: 'C' },
+                      { key: 'D', text: 'D' },
+                    ],
+                    answer: { type: 'objective', correct: 'A', rationale: '解析' },
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      }
+
+      if (title.includes('翻译')) {
+        return {
+          content: {
+            questions: [
+              {
+                id: 'translation_1',
+                type: 'translation',
+                prompt: 'Translate into Chinese.',
+                score: 10,
+                direction: 'en_to_zh',
+                context: 'Knowledge is power.',
+                answer: {
+                  type: 'subjective',
+                  reference_answer: '知识就是力量。',
+                  scoring_points: ['语义准确'],
+                },
+              },
+            ],
+          },
+        }
+      }
+
+      return {
+        content: {
+          questions: [
+            {
+              id: 'essay_1',
+              type: 'essay',
+              prompt: 'Write an essay.',
+              score: 15,
+              answer: {
+                type: 'subjective',
+                reference_answer: '参考范文',
+                scoring_points: ['切题', '结构完整'],
+              },
+            },
+          ],
+        },
+      }
+    })
+
+    const result = await importDocumentWithAi({
+      subjectKey: 'english',
+      documentDraft: {
+        fileName: 'paper.pdf',
+        sourceType: 'pdf',
+        plainText: `
+Part II Cloze
+Read the passage and choose the best answer for each blank.
+
+Part III Reading Comprehension
+Passage A
+Read Passage A and answer the questions.
+
+Part IV Translation
+Translate the following sentence.
+
+Part V Writing
+Write an essay.
+        `,
+      },
+    })
+
+    expect(result.preview.questionCount).toBe(3)
+    expect(result.preview.diagnostics.failedSections).toHaveLength(1)
+    expect(result.preview.diagnostics.failedSections[0].key).toBe('cloze')
+    expect(result.warnings.some((item) => item.includes('完形填空'))).toBe(true)
+  })
+
   it('wraps validation failures with validating stage', async () => {
     const { importDocumentWithAi } = await import('./documentImportService')
     requestAiJson.mockResolvedValue({

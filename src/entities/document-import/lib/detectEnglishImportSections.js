@@ -8,8 +8,6 @@ const SECTION_DEFINITIONS = [
       /\bpart\s*1\b/i,
       /\bgrammar(?:\s+and\s+vocabulary)?\b/i,
       /\bvocabulary\s+and\s+structure\b/i,
-      /choose\s+the\s+best\s+answer/i,
-      /from\s+the\s+four\s+choices/i,
     ],
   },
   {
@@ -23,7 +21,7 @@ const SECTION_DEFINITIONS = [
       /choose\s+the\s+best\s+(?:word|phrase|answer).*?blank/i,
       /for\s+each\s+blank/i,
       /complete\s+the\s+passage/i,
-      /read\s+the\s+following\s+passage\s+and\s+choose/i,
+      /read\s+the\s+following\s+passage\s+and\s+choose.*blank/i,
     ],
   },
   {
@@ -156,7 +154,23 @@ function inferResidualSection(text) {
     .filter((item) => item.score > 0)
     .sort((left, right) => right.score - left.score)
 
-  return ranked[0]?.definition || null
+  const best = ranked[0]
+  if (!best?.definition) return null
+
+  if (best.definition.key === 'cloze') {
+    const hasStrongClozeSignal =
+      /\bcloze\b/i.test(sample) ||
+      /for\s+each\s+blank/i.test(sample) ||
+      /complete\s+the\s+passage/i.test(sample) ||
+      /choose\s+the\s+best\s+(?:word|phrase|answer).*?blank/i.test(sample) ||
+      /\[\[\d+\]\]/.test(sample)
+
+    if (!hasStrongClozeSignal || best.score < 3) {
+      return null
+    }
+  }
+
+  return best.definition
 }
 
 function buildBaseSections(text, markers) {
@@ -176,6 +190,7 @@ function buildBaseSections(text, markers) {
       start: 0,
       end: firstMarker.start,
       inferred: true,
+      optional: true,
     })
   }
 
@@ -192,6 +207,7 @@ function buildBaseSections(text, markers) {
       start: marker.start,
       end: nextMarker ? nextMarker.start : text.length,
       inferred: false,
+      optional: false,
     })
   })
 
@@ -244,6 +260,7 @@ function splitReadingSection(section) {
         start: section.start + match.start,
         end: nextMatch ? section.start + nextMatch.start : section.end,
         inferred: false,
+        optional: false,
       }
     })
     .filter(Boolean)

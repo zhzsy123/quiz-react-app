@@ -58,4 +58,25 @@ Write an essay of about 120 words.
     expect(result.shouldSplit).toBe(true)
     expect(result.sections.map((item) => item.key)).toEqual(['cloze', 'reading_a', 'translation', 'essay'])
   })
+
+  it('does not infer a weak leading residual block as cloze before reading markers', () => {
+    const result = detectEnglishImportSections({
+      plainText: `
+1. A
+2. B
+3. C
+
+Passage C
+Read Passage C and answer the questions.
+
+Part IV Translation
+Translate the following sentences.
+
+Part V Writing
+Write an essay.
+      `,
+    })
+
+    expect(result.sections.map((item) => item.key)).toEqual(['reading_c', 'translation', 'essay'])
+  })
 })
