@@ -10,6 +10,7 @@ export function createInitialGeneratorState(initialOpen = false) {
     config: {},
     meta: {},
     draftQuestions: [],
+    activityEntries: [],
     error: '',
     saveResult: null,
   }

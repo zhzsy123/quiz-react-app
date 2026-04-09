@@ -77,6 +77,7 @@ export default function AiQuestionGeneratorDialog({
   error,
   summary,
   draftQuestions,
+  activityEntries,
   onClose,
   onConfigChange,
   onStartGeneration,
@@ -92,11 +93,12 @@ export default function AiQuestionGeneratorDialog({
   const questionTypeOptions = subjectMeta?.questionTypeOptions || []
   const selectedTypeKeys = Array.isArray(config.questionTypes) ? config.questionTypes : []
   const planSummary = getPlanSummary(config)
-  const canStart = status !== 'generating' && selectedTypeKeys.length > 0
+  const isGenerating = status === 'generating'
+  const canStart = !isGenerating && selectedTypeKeys.length > 0
   const canPersist = (summary?.valid || 0) + (summary?.warning || 0) > 0 && status !== 'saving'
 
   return (
-    <div className="ai-modal-backdrop" onClick={onClose}>
+    <div className="ai-modal-backdrop">
       <div className="ai-modal-card generator-dialog-card" onClick={(event) => event.stopPropagation()}>
         <div className="ai-modal-head">
           <div className="download-dialog-copy">
@@ -105,7 +107,12 @@ export default function AiQuestionGeneratorDialog({
             <p>按当前科目的题型协议生成题目。生成完成后可以保存到题库，或直接进入刷题模式。</p>
           </div>
 
-          <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭生成器">
+          <button
+            type="button"
+            className="secondary-btn small-btn"
+            onClick={onClose}
+            aria-label="关闭生成器"
+          >
             <X size={16} />
             关闭
           </button>
@@ -144,7 +151,7 @@ export default function AiQuestionGeneratorDialog({
                 </select>
               </label>
 
-              {config.mode !== 'mock_exam' && (
+              {config.mode !== 'mock_exam' ? (
                 <label className="form-field">
                   <span>题量</span>
                   <select
@@ -158,7 +165,7 @@ export default function AiQuestionGeneratorDialog({
                     ))}
                   </select>
                 </label>
-              )}
+              ) : null}
             </div>
 
             <div className="generator-type-panel">
@@ -180,7 +187,7 @@ export default function AiQuestionGeneratorDialog({
               </div>
             </div>
 
-            {config.mode === 'mock_exam' && selectedTypeKeys.length > 0 && (
+            {config.mode === 'mock_exam' && selectedTypeKeys.length > 0 ? (
               <div className="generator-plan-panel">
                 <div className="generator-section-title">模拟卷出题计划</div>
                 <div className="generator-plan-list">
@@ -220,7 +227,7 @@ export default function AiQuestionGeneratorDialog({
                   <span>目标总分：{planSummary.totalScore}</span>
                 </div>
               </div>
-            )}
+            ) : null}
 
             <label className="form-field grow">
               <span>附加提示词</span>
@@ -233,11 +240,23 @@ export default function AiQuestionGeneratorDialog({
               />
             </label>
 
-            <div className="generator-summary-row">
-              <span>状态：{status}</span>
-              <span>通过：{summary?.valid || 0}</span>
-              <span>警告：{summary?.warning || 0}</span>
-              <span>无效：{summary?.invalid || 0}</span>
+            <div className="generator-stats-card">
+              <div className="generator-stats-row">
+                <span>状态</span>
+                <strong>{status}</strong>
+              </div>
+              <div className="generator-stats-row">
+                <span>通过</span>
+                <strong>{summary?.valid || 0}</strong>
+              </div>
+              <div className="generator-stats-row">
+                <span>警告</span>
+                <strong>{summary?.warning || 0}</strong>
+              </div>
+              <div className="generator-stats-row">
+                <span>无效</span>
+                <strong>{summary?.invalid || 0}</strong>
+              </div>
             </div>
 
             {error ? <div className="status error">{error}</div> : null}
@@ -245,9 +264,15 @@ export default function AiQuestionGeneratorDialog({
 
           <section className="generator-results-panel">
             <div className="generator-results-head">
-              <span className="generator-section-title">生成结果</span>
+              <span className="generator-section-title">生成进度</span>
+              <span className="section-header-tip">默认折叠，点击可展开详情</span>
             </div>
-            <GeneratedQuestionList draftQuestions={draftQuestions} onRemoveQuestion={onRemoveQuestion} />
+
+            <GeneratedQuestionList
+              draftQuestions={draftQuestions}
+              activityEntries={activityEntries}
+              onRemoveQuestion={onRemoveQuestion}
+            />
           </section>
         </div>
 
@@ -262,10 +287,10 @@ export default function AiQuestionGeneratorDialog({
             <Sparkles size={16} />
             开始生成
           </button>
-          <button type="button" className="secondary-btn" onClick={onStopGeneration} disabled={status !== 'generating'}>
+          <button type="button" className="secondary-btn" onClick={onStopGeneration} disabled={!isGenerating}>
             停止生成
           </button>
-          <button type="button" className="secondary-btn" onClick={onResetGenerator}>
+          <button type="button" className="secondary-btn" onClick={onResetGenerator} disabled={isGenerating}>
             清空结果
           </button>
           <button

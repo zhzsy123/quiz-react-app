@@ -78,7 +78,9 @@ export function buildDraftPaper({
   const acceptedDraftQuestions = draftQuestions.filter(
     (entry) => entry?.status === 'valid' || entry?.status === 'warning'
   )
-  const normalizedQuestions = acceptedDraftQuestions.flatMap((entry) => getDraftQuestionList(entry)).filter(Boolean)
+  const normalizedQuestions = acceptedDraftQuestions
+    .flatMap((entry) => getDraftQuestionList(entry))
+    .filter(Boolean)
 
   const draftPaper = buildModelDraftPaper({
     config,
@@ -128,10 +130,22 @@ async function runPool(items, worker, limit = 3) {
   return results
 }
 
+function emitProgress(onProgress, planItem, planIndex, patch = {}) {
+  onProgress?.({
+    id: `question-${planIndex + 1}`,
+    index: planIndex + 1,
+    title: `第 ${planIndex + 1} 题 · ${planItem.label}`,
+    meta: `${planItem.score} 分`,
+    score: planItem.score,
+    ...patch,
+  })
+}
+
 export async function startQuestionGeneration({
   config = {},
   meta = {},
   onQuestion,
+  onProgress,
   onComplete,
   onError,
   signal,
@@ -178,6 +192,12 @@ export async function startQuestionGeneration({
           let duplicateError = null
           let previousErrorMessage = ''
 
+          emitProgress(onProgress, planItem, planIndex, {
+            status: 'running',
+            summary: '正在生成题目',
+            detail: `正在调用模型生成 ${planItem.label}`,
+          })
+
           for (let attempt = 0; attempt < 2; attempt += 1) {
             const { systemPrompt, userPrompt } = buildGenerationPrompt({
               subjectKey,
@@ -208,6 +228,11 @@ export async function startQuestionGeneration({
 
             if (hasDuplicateSignature(signatureMap, planItem.typeKey, signature)) {
               duplicateError = new Error('生成题目与同批已生成内容重复度过高，请重试。')
+              emitProgress(onProgress, planItem, planIndex, {
+                status: 'running',
+                summary: '检测到重复，正在自动重试',
+                detail: '当前题目与同批已生成内容过于接近，系统正在重新生成',
+              })
               continue
             }
 
@@ -220,7 +245,13 @@ export async function startQuestionGeneration({
             })
 
             if (entry.status === 'invalid') {
-              previousErrorMessage = entry.errors?.[0] || entry.error || '题目结构无效，请修正后重新生成。'
+              previousErrorMessage =
+                entry.errors?.[0] || entry.error || '题目结构无效，请修正后重新生成。'
+              emitProgress(onProgress, planItem, planIndex, {
+                status: 'running',
+                summary: '结构校验未通过，正在自动修复',
+                detail: previousErrorMessage,
+              })
               continue
             }
 
@@ -234,6 +265,25 @@ export async function startQuestionGeneration({
           }
 
           draftQuestions[planIndex] = finalizedEntry
+          emitProgress(onProgress, planItem, planIndex, {
+            status: finalizedEntry.status === 'warning' ? 'warning' : 'completed',
+            summary:
+              finalizedEntry.preview?.previewText ||
+              finalizedEntry.preview?.title ||
+              '题目已生成',
+            details: [
+              ...(finalizedEntry.validation?.warnings || []),
+              ...(finalizedEntry.errors || []),
+            ],
+            previewText:
+              finalizedEntry.preview?.previewText ||
+              finalizedEntry.preview?.title ||
+              '',
+            questionId:
+              finalizedEntry.rawQuestion?.id ||
+              finalizedEntry.normalizedQuestion?.id ||
+              '',
+          })
           onQuestion?.(finalizedEntry.rawQuestion, {
             requestId,
             streamIndex: planIndex + 1,
@@ -268,6 +318,12 @@ export async function startQuestionGeneration({
             index: planIndex + 1,
             typeKey: planItem.typeKey,
             message,
+          })
+          emitProgress(onProgress, planItem, planIndex, {
+            status: 'failed',
+            summary: message,
+            detail: message,
+            questionId: entry.rawQuestion?.id || '',
           })
           onQuestion?.(entry.rawQuestion, {
             requestId,

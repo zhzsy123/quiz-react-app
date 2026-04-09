@@ -1,66 +1,51 @@
 import React from 'react'
+import ActivityTimeline from '../feedback/ActivityTimeline.jsx'
 
-function getStatusLabel(status) {
-  switch (status) {
-    case 'valid':
-      return '已通过'
-    case 'warning':
-      return '有警告'
-    case 'invalid':
-      return '无效'
-    default:
-      return status || '待处理'
-  }
+function buildFallbackEntries(draftQuestions = []) {
+  return draftQuestions.map((entry, index) => ({
+    id: entry.rawQuestion?.id || entry.normalizedQuestion?.id || `draft-${index + 1}`,
+    index: entry.preview?.index || index + 1,
+    title: `第 ${entry.preview?.index || index + 1} 题 · ${entry.preview?.typeLabel || '题目'}`,
+    status: entry.status,
+    summary: entry.preview?.previewText || entry.preview?.title || '暂无题目摘要',
+    details: [
+      ...(entry.validation?.warnings || []),
+      ...(entry.errors || []),
+    ],
+    meta: `${entry.preview?.score || entry.scoreBreakdown?.paperTotal || 0} 分`,
+    previewText: entry.preview?.previewText || '',
+    questionId: entry.rawQuestion?.id || entry.normalizedQuestion?.id || '',
+  }))
 }
 
-export default function GeneratedQuestionList({ draftQuestions = [], onRemoveQuestion }) {
-  if (!draftQuestions.length) {
-    return <div className="generator-empty-state">生成后的题目会逐题显示在这里。</div>
-  }
+export default function GeneratedQuestionList({
+  draftQuestions = [],
+  activityEntries = [],
+  onRemoveQuestion,
+}) {
+  const entries = activityEntries.length > 0 ? activityEntries : buildFallbackEntries(draftQuestions)
 
   return (
-    <div className="generator-list">
-      {draftQuestions.map((entry, index) => {
-        const preview = entry.preview || {}
-        const warnings = entry.validation?.warnings || entry.warnings || []
-        const errors = entry.validation?.errors || entry.errors || (entry.error ? [entry.error] : [])
-
+    <ActivityTimeline
+      entries={entries}
+      emptyText="生成后的题目会逐题显示在这里。"
+      testId="generator-activity-timeline"
+      renderBody={(entry) => {
+        if (!entry.previewText) return null
+        return <div className="activity-preview-text">{entry.previewText}</div>
+      }}
+      renderActions={(entry) => {
+        if (entry.status === 'running' || entry.status === 'queued') return null
         return (
-          <article key={`${preview.questionId || 'draft'}-${index}`} className={`generator-item ${entry.status}`}>
-            <div className="generator-item-head">
-              <div className="generator-item-main">
-                <strong>
-                  第 {preview.index || index + 1} 题
-                  {preview.typeLabel ? ` · ${preview.typeLabel}` : ''}
-                </strong>
-                <span className={`generator-status ${entry.status}`}>{getStatusLabel(entry.status)}</span>
-              </div>
-              <div className="generator-item-side">
-                <span>{preview.score || entry.scoreBreakdown?.paperTotal || 0} 分</span>
-                <button type="button" className="secondary-btn small-btn" onClick={() => onRemoveQuestion?.(index)}>
-                  移除
-                </button>
-              </div>
-            </div>
-
-            <div className="generator-item-prompt">{preview.previewText || preview.title || '暂无题目摘要'}</div>
-
-            {warnings.length > 0 && (
-              <div className="generator-item-notes warning">
-                <strong>警告：</strong>
-                {warnings.join(' / ')}
-              </div>
-            )}
-
-            {errors.length > 0 && (
-              <div className="generator-item-notes error">
-                <strong>错误：</strong>
-                {errors.join(' / ')}
-              </div>
-            )}
-          </article>
+          <button
+            type="button"
+            className="secondary-btn small-btn"
+            onClick={() => onRemoveQuestion?.(entry.questionId || entry.id)}
+          >
+            移除
+          </button>
         )
-      })}
-    </div>
+      }}
+    />
   )
 }

@@ -11,6 +11,50 @@ function cloneStateForReset(initialOpen = false) {
   return createInitialGeneratorState(initialOpen)
 }
 
+function upsertActivityEntry(entries = [], patch = {}) {
+  const id = patch.id || `question-${entries.length + 1}`
+  const details = Array.isArray(patch.details)
+    ? patch.details
+    : patch.detail
+      ? [patch.detail]
+      : []
+  const index = entries.findIndex((entry) => entry.id === id)
+
+  if (index < 0) {
+    return [
+      ...entries,
+      {
+        id,
+        title: patch.title || '正在生成题目',
+        status: patch.status || 'running',
+        summary: patch.summary || '',
+        details,
+        meta: patch.meta || '',
+        previewText: patch.previewText || '',
+        score: patch.score || 0,
+        questionId: patch.questionId || '',
+      },
+    ]
+  }
+
+  const current = entries[index]
+  const mergedDetails = [...(current.details || [])]
+  details.forEach((detail) => {
+    if (detail && !mergedDetails.includes(detail)) {
+      mergedDetails.push(detail)
+    }
+  })
+
+  const nextEntry = {
+    ...current,
+    ...patch,
+    id,
+    details: mergedDetails,
+  }
+
+  return [...entries.slice(0, index), nextEntry, ...entries.slice(index + 1)]
+}
+
 export function useAiQuestionGenerator({
   initialOpen = false,
   initialConfig = {},
@@ -24,6 +68,7 @@ export function useAiQuestionGenerator({
   const [config, setConfig] = useState(initialConfig)
   const [meta, setMeta] = useState(initialMeta)
   const [draftQuestions, setDraftQuestions] = useState([])
+  const [activityEntries, setActivityEntries] = useState([])
   const [error, setError] = useState('')
   const [saveResult, setSaveResult] = useState(null)
 
@@ -52,6 +97,13 @@ export function useAiQuestionGenerator({
     }
     setStatus('stopped')
     setSessionMeta({ stoppedAt: Date.now() })
+    setActivityEntries((current) =>
+      current.map((entry) =>
+        entry.status === 'running'
+          ? { ...entry, status: 'failed', summary: '已手动停止生成', details: [...(entry.details || []), '已手动停止生成'] }
+          : entry
+      )
+    )
   }, [setSessionMeta])
 
   const resetGenerator = useCallback(() => {
@@ -62,6 +114,7 @@ export function useAiQuestionGenerator({
     setConfig(initialConfig)
     setMeta(initialMeta)
     setDraftQuestions([])
+    setActivityEntries([])
     setError('')
     setSaveResult(null)
     generationRef.current = {
@@ -72,12 +125,36 @@ export function useAiQuestionGenerator({
   }, [initialConfig, initialMeta, initialOpen, stopGeneration])
 
   const removeQuestion = useCallback((target) => {
+    let removedQuestionId = ''
     setDraftQuestions((current) =>
       current.filter((entry, index) => {
-        if (typeof target === 'number') return index !== target
-        if (typeof target === 'string') return entry.rawQuestion?.id !== target && entry.normalizedQuestion?.id !== target
-        if (typeof target === 'function') return !target(entry, index)
-        return entry !== target
+        const shouldRemove =
+          (typeof target === 'number' && index === target) ||
+          (typeof target === 'string' &&
+            (entry.rawQuestion?.id === target || entry.normalizedQuestion?.id === target)) ||
+          (typeof target === 'function' && target(entry, index)) ||
+          entry === target
+
+        if (shouldRemove) {
+          removedQuestionId = entry.rawQuestion?.id || entry.normalizedQuestion?.id || ''
+        }
+
+        return !shouldRemove
+      })
+    )
+
+    setActivityEntries((current) =>
+      current.filter((entry, index) => {
+        if (typeof target === 'number') {
+          return (entry.index || index + 1) !== target + 1
+        }
+        if (typeof target === 'string') {
+          return entry.questionId !== target && entry.id !== target
+        }
+        if (removedQuestionId) {
+          return entry.questionId !== removedQuestionId
+        }
+        return true
       })
     )
   }, [])
@@ -106,7 +183,7 @@ export function useAiQuestionGenerator({
       const nextMeta = request.meta ? { ...meta, ...request.meta } : meta
       const generate = request.generateQuestions || generateQuestions
       if (typeof generate !== 'function') {
-        setError('未提供题目生成服务')
+        setError('未提供题目生成服务。')
         setStatus('error')
         return null
       }
@@ -135,6 +212,7 @@ export function useAiQuestionGenerator({
         })
       )
       setDraftQuestions([])
+      setActivityEntries([])
       setError('')
       setSaveResult(null)
 
@@ -148,13 +226,19 @@ export function useAiQuestionGenerator({
           config: context.config || nextConfig,
           meta: context.meta || nextMeta,
         })
+
         setSessionMeta((current) => ({
           ...current,
           validCount: (current.validCount || 0) + (normalizedEntry.status === 'valid' ? 1 : 0),
           warningCount: (current.warningCount || 0) + (normalizedEntry.status === 'warning' ? 1 : 0),
           invalidCount: (current.invalidCount || 0) + (normalizedEntry.status === 'invalid' ? 1 : 0),
         }))
+
         return normalizedEntry
+      }
+
+      const handleProgress = (activity = {}) => {
+        setActivityEntries((current) => upsertActivityEntry(current, activity))
       }
 
       const handleComplete = (result = {}) => {
@@ -184,6 +268,7 @@ export function useAiQuestionGenerator({
           meta: nextMeta,
           request,
           onQuestion: handleQuestion,
+          onProgress: handleProgress,
           onComplete: handleComplete,
           onError: handleError,
           signal: abortController?.signal,
@@ -232,21 +317,24 @@ export function useAiQuestionGenerator({
       })
 
       if (!Array.isArray(draftPaper?.questions) || draftPaper.questions.length === 0) {
-        const error = new Error('当前没有可保存的有效题目，请先移除无效题或重新生成。')
-        setError(error.message)
+        const nextError = new Error('当前没有可保存的有效题目，请先移除无效题或重新生成。')
+        setError(nextError.message)
         setStatus('error')
-        throw error
+        throw nextError
       }
 
       setStatus('saving')
       setError('')
 
       try {
-        const result = request.onSaveGeneratedPaper || onSaveGeneratedPaper ? await (request.onSaveGeneratedPaper || onSaveGeneratedPaper)(draftPaper, {
-          config: nextConfig,
-          meta: nextMeta,
-          draftQuestions: nextDraftQuestions,
-        }) : draftPaper
+        const result =
+          request.onSaveGeneratedPaper || onSaveGeneratedPaper
+            ? await (request.onSaveGeneratedPaper || onSaveGeneratedPaper)(draftPaper, {
+                config: nextConfig,
+                meta: nextMeta,
+                draftQuestions: nextDraftQuestions,
+              })
+            : draftPaper
 
         setSaveResult(result)
         setStatus('saved')
@@ -274,6 +362,7 @@ export function useAiQuestionGenerator({
     meta,
     setMeta: setSessionMeta,
     draftQuestions,
+    activityEntries,
     error,
     saveResult,
     summary,

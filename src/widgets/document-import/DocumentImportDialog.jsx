@@ -34,7 +34,7 @@ export default function DocumentImportDialog({
   const canStartImport = !!state.file && !!state.subject && !isBusy
 
   return (
-    <div className="ai-modal-backdrop" onClick={onClose}>
+    <div className="ai-modal-backdrop">
       <div className="ai-modal-card document-import-dialog-card" onClick={(event) => event.stopPropagation()}>
         <div className="ai-modal-head">
           <div className="download-dialog-copy">
@@ -43,7 +43,13 @@ export default function DocumentImportDialog({
             <p>拖入试卷文件后，系统会先提取文本，再调用 AI 解析成题库结构。</p>
           </div>
 
-          <button type="button" className="secondary-btn small-btn" onClick={onClose} aria-label="关闭导入对话框">
+          <button
+            type="button"
+            className="secondary-btn small-btn"
+            onClick={onClose}
+            aria-label="关闭导入对话框"
+            disabled={isBusy}
+          >
             <X size={16} />
             关闭
           </button>
@@ -75,9 +81,23 @@ export default function DocumentImportDialog({
               </select>
             </label>
 
-            <div className="generator-summary-row">
-              <span>状态：{state.status}</span>
-              {state.fileMeta ? <span>文件：{state.fileMeta.name}</span> : null}
+            <div className="generator-stats-card">
+              <div className="generator-stats-row">
+                <span>状态</span>
+                <strong>{state.status}</strong>
+              </div>
+              {state.fileMeta ? (
+                <div className="generator-stats-row">
+                  <span>文件</span>
+                  <strong>{state.fileMeta.name}</strong>
+                </div>
+              ) : null}
+              {state.documentDraft?.stats?.characterCount ? (
+                <div className="generator-stats-row">
+                  <span>提取字数</span>
+                  <strong>{state.documentDraft.stats.characterCount}</strong>
+                </div>
+              ) : null}
             </div>
           </section>
 

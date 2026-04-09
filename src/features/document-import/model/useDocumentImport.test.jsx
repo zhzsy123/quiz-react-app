@@ -54,7 +54,13 @@ function createSingleChoiceQuestion({
   }
 }
 
-function createImportResult({ subject = 'english', items = [createSingleChoiceQuestion()], warnings = [], errors = [], invalidReasons = [] } = {}) {
+function createImportResult({
+  subject = 'english',
+  items = [createSingleChoiceQuestion()],
+  warnings = [],
+  errors = [],
+  invalidReasons = [],
+} = {}) {
   const scoreBreakdown = getQuizScoreBreakdown(items)
   const persistedPayload = buildPersistedImportPayload({
     title: '测试试卷',
@@ -148,7 +154,8 @@ describe('useDocumentImport', () => {
     expect(stateRef.current.state.canSave).toBe(true)
     expect(stateRef.current.state.canStartPractice).toBe(true)
     expect(stateRef.current.state.progressLog.join('\n')).toContain('文本提取完成')
-    expect(stateRef.current.state.progressLog.join('\n')).toContain('解析完成，可预览并保存题库')
+    expect(stateRef.current.state.progressLog.join('\n')).toContain('解析完成，可预览并保存题库。')
+    expect(stateRef.current.state.activityEntries.length).toBeGreaterThan(0)
 
     await act(async () => {
       root.unmount()
@@ -300,7 +307,7 @@ describe('useDocumentImport', () => {
       importDocumentWithAi: async () =>
         createImportResult({
           items: [createSingleChoiceQuestion({ id: 'q1', prompt: '待修复题干' })],
-      }),
+        }),
       repairImportedQuestionWithAi,
     })
 

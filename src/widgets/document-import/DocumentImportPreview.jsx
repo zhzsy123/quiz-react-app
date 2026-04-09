@@ -1,18 +1,5 @@
 import React, { useMemo, useState } from 'react'
-
-function renderProgressLog(progressLog = []) {
-  if (!progressLog.length) {
-    return <div className="generator-empty-state">拖入文件后，这里会显示解析进度与导入预览。</div>
-  }
-
-  return (
-    <ul className="document-import-log-list" data-testid="document-import-log">
-      {progressLog.map((line, index) => (
-        <li key={`${line}-${index}`}>{line}</li>
-      ))}
-    </ul>
-  )
-}
+import ActivityTimeline from '../feedback/ActivityTimeline.jsx'
 
 function renderPreviewStats(preview) {
   if (!preview) return null
@@ -116,7 +103,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
     try {
       await handlers?.onRepairQuestion?.(questionId)
     } catch {
-      // 错误状态由 hook 内部维护，这里不再额外抛出未处理 Promise。
+      // 错误状态由 hook 内部维护
     }
   }
 
@@ -194,7 +181,7 @@ function QuestionPreviewList({ questionPreviews, totalCount, handlers }) {
                     onClick={() => void handleRepair(item.id)}
                     disabled={handlers?.repairingQuestionIds?.includes(item.id)}
                   >
-                    {handlers?.repairingQuestionIds?.includes(item.id) ? '重解析中…' : '重新解析'}
+                    {handlers?.repairingQuestionIds?.includes(item.id) ? '重新解析中…' : '重新解析'}
                   </button>
                   <button type="button" className="danger-btn small-btn" onClick={() => handlers?.onRemoveQuestion?.(item.id)}>
                     移除
@@ -230,6 +217,7 @@ export default function DocumentImportPreview({
     fileMeta,
     documentDraft,
     preview,
+    activityEntries,
     progressLog,
     warnings,
     errors,
@@ -239,16 +227,30 @@ export default function DocumentImportPreview({
 
   const isPreviewReady = ['preview_ready', 'saving', 'launching', 'completed'].includes(status)
 
+  const fallbackEntries = (activityEntries?.length ? activityEntries : progressLog.map((line, index) => ({
+    id: `log-${index + 1}`,
+    title: `步骤 ${index + 1}`,
+    status: index === progressLog.length - 1 && !isPreviewReady ? 'running' : 'completed',
+    summary: line,
+    detail: line,
+  })))
+
   return (
     <div className="document-import-preview-panel" data-testid="document-import-preview">
       <div className="generator-results-head">
-        <span className="generator-section-title">导入预览</span>
+        <span className="generator-section-title">导入进度</span>
         {fileMeta ? (
           <span className="section-header-tip">
             {fileMeta.name} · {Math.max(1, Math.round((fileMeta.size || 0) / 1024))} KB
           </span>
         ) : null}
       </div>
+
+      <ActivityTimeline
+        entries={fallbackEntries}
+        emptyText="拖入文件后，这里会显示解析进度与导入预览。"
+        testId="document-import-timeline"
+      />
 
       {isPreviewReady ? renderPreviewStats(preview) : null}
 
@@ -278,8 +280,6 @@ export default function DocumentImportPreview({
             repairingQuestionIds: state.repairingQuestionIds || [],
           })
         : null}
-
-      {renderProgressLog(progressLog)}
     </div>
   )
 }

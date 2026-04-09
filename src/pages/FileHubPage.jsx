@@ -207,6 +207,7 @@ export default function FileHubPage() {
         error={generator.error}
         summary={generator.summary}
         draftQuestions={generator.draftQuestions}
+        activityEntries={generator.activityEntries}
         onClose={() => generator.setOpen(false)}
         onConfigChange={(patch) => generator.setConfig((current) => ({ ...current, ...patch }))}
         onStartGeneration={startGenerator}

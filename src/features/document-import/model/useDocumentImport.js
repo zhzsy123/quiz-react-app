@@ -19,6 +19,15 @@ const BUSY_STATUSES = new Set([
   'launching',
 ])
 
+const STAGE_ACTIVITY_META = {
+  reading_file: { id: 'reading_file', title: '读取文件' },
+  extracting_text: { id: 'extracting_text', title: '提取文本' },
+  calling_ai: { id: 'calling_ai', title: 'AI 解析试卷' },
+  validating: { id: 'validating', title: '校验与标准化' },
+  saving: { id: 'saving', title: '保存到题库' },
+  launching: { id: 'launching', title: '进入练习' },
+}
+
 function buildFileMeta(file) {
   if (!file) return null
   return {
@@ -28,30 +37,95 @@ function buildFileMeta(file) {
   }
 }
 
-export function createInitialDocumentImportState({ open = false, subject = '' } = {}) {
-  return {
-    open,
-    status: 'idle',
-    file: null,
-    fileMeta: null,
-    subject,
-    extractedText: '',
-    documentDraft: null,
-    importResult: null,
-    preview: null,
-    progressLog: [],
-    warnings: [],
-    errors: [],
-    invalidReasons: [],
-    failedStage: '',
-    saveResult: null,
-    repairingQuestionIds: [],
-  }
-}
-
 function appendLog(currentLogs = [], message) {
   if (!message) return currentLogs
   return [...currentLogs, message]
+}
+
+function normalizeActivityPatch(patch = {}, entries = []) {
+  const id = patch.id || `activity-${entries.length + 1}`
+  const details = Array.isArray(patch.details)
+    ? patch.details
+    : patch.detail
+      ? [patch.detail]
+      : []
+
+  return {
+    id,
+    title: patch.title || '处理中',
+    status: patch.status || 'running',
+    summary: patch.summary || '',
+    details,
+    meta: patch.meta || '',
+  }
+}
+
+function upsertActivityEntry(entries = [], patch = {}) {
+  const nextEntry = normalizeActivityPatch(patch, entries)
+  const index = entries.findIndex((entry) => entry.id === nextEntry.id)
+
+  if (index < 0) {
+    return [...entries, nextEntry]
+  }
+
+  const current = entries[index]
+  const mergedDetails = [...(current.details || [])]
+  nextEntry.details.forEach((detail) => {
+    if (detail && !mergedDetails.includes(detail)) {
+      mergedDetails.push(detail)
+    }
+  })
+
+  const mergedEntry = {
+    ...current,
+    ...nextEntry,
+    details: mergedDetails,
+  }
+
+  return [...entries.slice(0, index), mergedEntry, ...entries.slice(index + 1)]
+}
+
+function markOtherStagesCompleted(entries = [], activeStage) {
+  return entries.map((entry) => {
+    if (!STAGE_ACTIVITY_META[entry.id] || entry.id === activeStage) return entry
+    if (entry.status === 'running') {
+      return { ...entry, status: 'completed' }
+    }
+    return entry
+  })
+}
+
+function applyStageActivity(entries = [], stage, message) {
+  const meta = STAGE_ACTIVITY_META[stage]
+  if (!meta) return entries
+
+  const completedEntries = markOtherStagesCompleted(entries, meta.id)
+  return upsertActivityEntry(completedEntries, {
+    id: meta.id,
+    title: meta.title,
+    status: 'running',
+    summary: message || '',
+    detail: message || '',
+  })
+}
+
+function markActivityCompleted(entries = [], id, message = '') {
+  return upsertActivityEntry(entries, {
+    id,
+    status: 'completed',
+    summary: message || undefined,
+    detail: message || undefined,
+  })
+}
+
+function markActivityFailed(entries = [], id, title, message) {
+  return upsertActivityEntry(entries, {
+    id,
+    title,
+    status: 'failed',
+    summary: message,
+    detail: message,
+  })
 }
 
 function deriveState(state) {
@@ -76,6 +150,28 @@ function deriveState(state) {
     canSave,
     canStartPractice,
     isBusy: BUSY_STATUSES.has(state.status),
+  }
+}
+
+export function createInitialDocumentImportState({ open = false, subject = '' } = {}) {
+  return {
+    open,
+    status: 'idle',
+    file: null,
+    fileMeta: null,
+    subject,
+    extractedText: '',
+    documentDraft: null,
+    importResult: null,
+    preview: null,
+    progressLog: [],
+    activityEntries: [],
+    warnings: [],
+    errors: [],
+    invalidReasons: [],
+    failedStage: '',
+    saveResult: null,
+    repairingQuestionIds: [],
   }
 }
 
@@ -126,6 +222,18 @@ export function useDocumentImport({
       importResult: null,
       preview: null,
       progressLog: file ? [`已选择文件：${file.name || '未命名文件'}`] : [],
+      activityEntries: file
+        ? [
+            {
+              id: 'file_selected',
+              title: '文件已选择',
+              status: 'completed',
+              summary: file.name || '未命名文件',
+              details: [file.name || '未命名文件'],
+              meta: file.type || '',
+            },
+          ]
+        : [],
       warnings: [],
       errors: [],
       invalidReasons: [],
@@ -140,6 +248,7 @@ export function useDocumentImport({
       sessionRef.current.cancelled = true
       sessionRef.current.controller.abort()
     }
+
     setState(createInitialDocumentImportState({ open: state.open, subject: state.subject }))
     sessionRef.current = {
       id: 0,
@@ -150,12 +259,18 @@ export function useDocumentImport({
 
   const cancelImport = useCallback(() => {
     if (!sessionRef.current.controller) return
+
     sessionRef.current.cancelled = true
     sessionRef.current.controller.abort()
     updateState((current) => ({
       ...current,
       status: current.file ? 'file_selected' : 'idle',
       progressLog: appendLog(current.progressLog, '已取消当前导入流程。'),
+      activityEntries: current.activityEntries.map((entry) =>
+        entry.status === 'running'
+          ? { ...entry, status: 'failed', summary: '已取消当前流程', details: [...(entry.details || []), '已取消当前流程'] }
+          : entry
+      ),
     }))
   }, [updateState])
 
@@ -169,6 +284,12 @@ export function useDocumentImport({
       failedStage: normalizedError.failedStage || 'validating',
       errors: [normalizedError.message],
       progressLog: appendLog(current.progressLog, `失败：${normalizedError.message}`),
+      activityEntries: markActivityFailed(
+        current.activityEntries,
+        STAGE_ACTIVITY_META[normalizedError.failedStage || 'validating']?.id || 'failed',
+        STAGE_ACTIVITY_META[normalizedError.failedStage || 'validating']?.title || '导入失败',
+        normalizedError.message
+      ),
     }))
 
     return normalizedError
@@ -205,6 +326,7 @@ export function useDocumentImport({
       preview: null,
       saveResult: null,
       progressLog: appendLog(current.progressLog, '开始读取文件'),
+      activityEntries: applyStageActivity(current.activityEntries, 'reading_file', '正在读取上传文件'),
     }))
 
     let extractionResult = null
@@ -216,11 +338,10 @@ export function useDocumentImport({
         ...current,
         status: 'extracting_text',
         progressLog: appendLog(current.progressLog, '正在提取文档文本'),
+        activityEntries: applyStageActivity(current.activityEntries, 'extracting_text', '正在提取文本与页结构'),
       }))
 
-      extractionResult = await extractDocumentDraft(file, {
-        subject,
-      })
+      extractionResult = await extractDocumentDraft(file, { subject })
     } catch (error) {
       return failImport(error)
     }
@@ -243,6 +364,11 @@ export function useDocumentImport({
         ),
         '准备调用 AI 解析试卷结构'
       ),
+      activityEntries: markActivityCompleted(
+        applyStageActivity(current.activityEntries, 'calling_ai', '准备调用 AI 解析试卷结构'),
+        'extracting_text',
+        `文本提取完成：${documentDraft?.stats?.characterCount || 0} 字，${documentDraft?.stats?.pageCount || 0} 页`
+      ),
     }))
 
     try {
@@ -252,10 +378,15 @@ export function useDocumentImport({
         signal: controller?.signal,
         onStageChange: (stage, message) => {
           if (sessionRef.current.id !== sessionId || sessionRef.current.cancelled) return
+
+          const isActivityObject = stage && typeof stage === 'object' && !Array.isArray(stage)
           updateState((current) => ({
             ...current,
-            status: stage,
+            status: isActivityObject ? current.status : stage,
             progressLog: appendLog(current.progressLog, message),
+            activityEntries: isActivityObject
+              ? upsertActivityEntry(current.activityEntries, stage)
+              : applyStageActivity(current.activityEntries, stage, message),
           }))
         },
       })
@@ -271,6 +402,11 @@ export function useDocumentImport({
         errors: result.errors || [],
         invalidReasons: result.invalidReasons || [],
         progressLog: appendLog(current.progressLog, '解析完成，可预览并保存题库。'),
+        activityEntries: markActivityCompleted(
+          markActivityCompleted(current.activityEntries, 'calling_ai', 'AI 解析完成'),
+          'validating',
+          '结构已校验并可预览'
+        ),
       }))
 
       return result
@@ -278,6 +414,7 @@ export function useDocumentImport({
       if (controller?.signal?.aborted && sessionRef.current.cancelled) {
         return null
       }
+
       return failImport(error)
     } finally {
       if (sessionRef.current.id === sessionId) {
@@ -304,6 +441,7 @@ export function useDocumentImport({
       status: 'saving',
       errors: [],
       progressLog: appendLog(current.progressLog, '正在保存到题库'),
+      activityEntries: applyStageActivity(current.activityEntries, 'saving', '正在保存到题库'),
     }))
 
     try {
@@ -318,6 +456,7 @@ export function useDocumentImport({
         status: 'completed',
         saveResult: result || null,
         progressLog: appendLog(current.progressLog, '已保存到题库'),
+        activityEntries: markActivityCompleted(current.activityEntries, 'saving', '已保存到题库'),
       }))
 
       return result
@@ -353,6 +492,7 @@ export function useDocumentImport({
       status: 'launching',
       errors: [],
       progressLog: appendLog(current.progressLog, '正在进入练习模式'),
+      activityEntries: applyStageActivity(current.activityEntries, 'launching', '正在进入练习模式'),
     }))
 
     try {
@@ -367,6 +507,7 @@ export function useDocumentImport({
         ...current,
         status: 'completed',
         progressLog: appendLog(current.progressLog, '已进入练习模式'),
+        activityEntries: markActivityCompleted(current.activityEntries, 'launching', '已进入练习模式'),
       }))
 
       return result || saved
@@ -492,6 +633,7 @@ export function useDocumentImport({
     async (questionId) => {
       const targetQuestion = state.importResult?.normalizedDocument?.quiz?.items?.find((item) => item.id === questionId)
       const targetPreview = state.preview?.questionPreviews?.find((item) => item.id === questionId)
+
       if (!targetQuestion || !targetPreview || !state.documentDraft) {
         throw failImport(createDocumentImportError('validating', '当前题目不存在，无法执行局部重解析。'))
       }
@@ -500,6 +642,13 @@ export function useDocumentImport({
         ...current,
         repairingQuestionIds: [...new Set([...(current.repairingQuestionIds || []), questionId])],
         progressLog: appendLog(current.progressLog, `正在重新解析第 ${targetPreview.index} 题`),
+        activityEntries: upsertActivityEntry(current.activityEntries, {
+          id: `repair-${questionId}`,
+          title: `重新解析第 ${targetPreview.index} 题`,
+          status: 'running',
+          summary: targetPreview.prompt,
+          detail: '正在调用 AI 修复当前题目',
+        }),
       }))
 
       try {
@@ -513,12 +662,27 @@ export function useDocumentImport({
         applyImportResultMutation((items) =>
           items.map((item) => (item.id === questionId ? result.repairedQuestion : item))
         )
+
+        updateState((current) => ({
+          ...current,
+          activityEntries: markActivityCompleted(
+            current.activityEntries,
+            `repair-${questionId}`,
+            `第 ${targetPreview.index} 题已更新`
+          ),
+        }))
       } catch (error) {
         const message = error instanceof Error ? error.message : '局部重解析失败。'
         updateState((current) => ({
           ...current,
           errors: [message],
           progressLog: appendLog(current.progressLog, `局部重解析失败：${message}`),
+          activityEntries: markActivityFailed(
+            current.activityEntries,
+            `repair-${questionId}`,
+            `重新解析第 ${targetPreview.index} 题`,
+            message
+          ),
         }))
         return null
       } finally {
@@ -527,6 +691,8 @@ export function useDocumentImport({
           repairingQuestionIds: (current.repairingQuestionIds || []).filter((id) => id !== questionId),
         }))
       }
+
+      return true
     },
     [
       applyImportResultMutation,

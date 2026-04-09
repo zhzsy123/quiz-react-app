@@ -91,16 +91,32 @@ function collectQuestionsFromRawPayload(rawPayload) {
 }
 
 function buildCombinedImportPayload({ subjectKey, documentDraft, sectionResults }) {
-  const mergedQuestions = sectionResults.flatMap((sectionResult) => collectQuestionsFromRawPayload(sectionResult.rawAiPayload))
+  const mergedQuestions = sectionResults.flatMap((sectionResult) =>
+    collectQuestionsFromRawPayload(sectionResult.rawAiPayload)
+  )
 
   return {
     schema_version: '2026-04',
     paper_id: `import_${subjectKey}_${Date.now()}`,
     title: documentDraft?.fileName?.replace(/\.[^.]+$/, '') || `${subjectKey} 文档导入`,
     subject: subjectKey,
-    description: `按 section 并发解析的 ${subjectKey} 文档导入结果`,
+    description: `按 section 并发解析后的 ${subjectKey} 文档导入结果`,
     questions: mergedQuestions,
   }
+}
+
+function emitSectionActivity(onStageChange, section, status, summary, detail = '') {
+  onStageChange?.(
+    {
+      id: `section-${section.key}`,
+      title: `解析 ${section.label}`,
+      status,
+      summary,
+      detail: detail || summary,
+      meta: section.targetQuestionTypes?.join(' / ') || '',
+    },
+    detail || summary
+  )
 }
 
 async function requestSectionAi({
@@ -109,7 +125,10 @@ async function requestSectionAi({
   section,
   documentDraft,
   signal,
+  onStageChange,
 }) {
+  emitSectionActivity(onStageChange, section, 'running', '正在调用 AI 处理该 section', `开始解析 ${section.label}`)
+
   const sectionDraft = buildSectionDocumentDraft(documentDraft, section)
   const prompt = buildImportPrompt({
     documentDraft: sectionDraft,
@@ -118,21 +137,34 @@ async function requestSectionAi({
     sectionLabel: section.label,
   })
 
-  const response = await requestAiJson({
-    provider,
-    feature: 'document_import_section',
-    title: `${documentDraft.fileName || subjectMeta.shortLabel || subjectMeta.key} · ${section.label}`,
-    subject: subjectMeta.key,
-    systemPrompt: prompt.systemPrompt,
-    userPrompt: prompt.userPrompt,
-    temperature: 0.1,
-    signal,
-  })
+  try {
+    const response = await requestAiJson({
+      provider,
+      feature: 'document_import_section',
+      title: `${documentDraft.fileName || subjectMeta.shortLabel || subjectMeta.key} · ${section.label}`,
+      subject: subjectMeta.key,
+      systemPrompt: prompt.systemPrompt,
+      userPrompt: prompt.userPrompt,
+      temperature: 0.1,
+      signal,
+    })
 
-  return {
-    section,
-    rawAiPayload: response.content,
-    warnings: prompt.warnings || [],
+    emitSectionActivity(onStageChange, section, 'completed', '该 section 已解析完成', `${section.label} 解析完成`)
+
+    return {
+      section,
+      rawAiPayload: response.content,
+      warnings: prompt.warnings || [],
+    }
+  } catch (error) {
+    emitSectionActivity(
+      onStageChange,
+      section,
+      'failed',
+      error?.message || '该 section 解析失败',
+      `${section.label} 解析失败`
+    )
+    throw error
   }
 }
 
@@ -148,7 +180,10 @@ async function importEnglishDocumentBySections({
     return null
   }
 
-  onStageChange?.('calling_ai', `正在并行解析英语试卷各部分，共 ${detection.sections.length} 个 section`)
+  onStageChange?.(
+    'calling_ai',
+    `正在并行解析英语试卷各部分，共 ${detection.sections.length} 个 section`
+  )
 
   const sectionResults = await Promise.all(
     detection.sections.map((section) =>
@@ -158,6 +193,7 @@ async function importEnglishDocumentBySections({
         section,
         documentDraft,
         signal,
+        onStageChange,
       })
     )
   )
