@@ -32,7 +32,7 @@ describe('clozeHelpers', () => {
     expect(result).not.toContain('if only')
   })
 
-  it('falls back to per-blank prompt lines when no article is present', () => {
+  it('uses prompt lines as a fallback article when no article is present', () => {
     const result = buildFallbackClozeArticle(
       {},
       [
@@ -44,5 +44,17 @@ describe('clozeHelpers', () => {
     expect(result).toContain('[[1]]')
     expect(result).toContain('[[2]]')
     expect(result).toContain('The city park offers a quiet place for residents to relax.')
+  })
+
+  it('returns an empty article when a full passage exists but blank positions cannot be inferred', () => {
+    const result = buildFallbackClozeArticle(
+      {
+        article:
+          'In the heart of the bustling city, there lies a small, quiet park that serves as a safe shelter for many.',
+      },
+      [{ blank_id: 1, options: [{ key: 'A', text: 'refuge' }], correct: 'A' }]
+    )
+
+    expect(result).toBe('')
   })
 })

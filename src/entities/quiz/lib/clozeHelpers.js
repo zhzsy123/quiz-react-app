@@ -44,6 +44,43 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+function replaceSequentialBlankMarkers(article = '', rawBlanks = []) {
+  let nextArticle = String(article || '')
+  if (!nextArticle || !rawBlanks.length) return nextArticle
+
+  const numberedPatterns = rawBlanks.flatMap((blank, index) => {
+    const blankId = getClozeBlankId(blank, index)
+    return [
+      new RegExp(`\\(\\s*${blankId}\\s*\\)`),
+      new RegExp(`（\\s*${blankId}\\s*）`),
+      new RegExp(`\\[\\s*${blankId}\\s*\\]`),
+    ]
+  })
+
+  let replacedAny = false
+  numberedPatterns.forEach((pattern, index) => {
+    const blankId = getClozeBlankId(rawBlanks[index], index)
+    const placeholder = `[[${blankId}]]`
+    if (pattern.test(nextArticle)) {
+      nextArticle = nextArticle.replace(pattern, placeholder)
+      replacedAny = true
+    }
+  })
+
+  if (!hasClozePlaceholders(nextArticle)) {
+    let underscoreIndex = 0
+    nextArticle = nextArticle.replace(/_{3,}|（\s*____+\s*）|\(\s*____+\s*\)/g, () => {
+      if (underscoreIndex >= rawBlanks.length) return '______'
+      const blankId = getClozeBlankId(rawBlanks[underscoreIndex], underscoreIndex)
+      underscoreIndex += 1
+      replacedAny = true
+      return `[[${blankId}]]`
+    })
+  }
+
+  return replacedAny ? nextArticle : article
+}
+
 function getBlankCorrectText(blank = {}) {
   const correct = getBlankCorrectValue(blank)
   const normalizedCorrect = Array.isArray(correct) ? normalizeText(correct[0]) : normalizeText(correct)
@@ -133,41 +170,55 @@ function extractBlankContext(blank = {}) {
 
 export function ensureClozeArticlePlaceholders(article = '', rawBlanks = []) {
   const articleText = String(article || '').trim()
-  if (!articleText) return articleText
+  if (!articleText) return ''
   if (hasClozePlaceholders(articleText) || !rawBlanks.length) return articleText
+
+  const markerReplacedArticle = replaceSequentialBlankMarkers(articleText, rawBlanks)
+  if (hasClozePlaceholders(markerReplacedArticle)) {
+    return markerReplacedArticle
+  }
 
   const reconstructedArticle = injectClozePlaceholdersFromAnswers(articleText, rawBlanks)
   if (hasClozePlaceholders(reconstructedArticle)) {
     return reconstructedArticle
   }
 
-  const placeholderLine = rawBlanks
-    .map((blank, index) => `(${index + 1}) [[${getClozeBlankId(blank, index)}]]`)
-    .join(' ')
-
-  return placeholderLine ? `${articleText}\n\n${placeholderLine}` : articleText
+  return ''
 }
 
-export function buildFallbackClozeArticle(question = {}, rawBlanks = []) {
-  const candidate = extractArticleCandidate(question)
-  if (candidate) {
-    return ensureClozeArticlePlaceholders(candidate, rawBlanks)
-  }
-
+function buildPromptBasedClozeArticle(rawBlanks = []) {
   if (!rawBlanks.length) return ''
 
   const promptLines = rawBlanks
     .map((blank, index) => {
       const blankId = getClozeBlankId(blank, index)
       const context = String(extractBlankContext(blank) || '').trim()
-      if (!context) {
-        return `(${index + 1}) [[${blankId}]]`
-      }
+      if (!context) return null
 
       if (hasClozePlaceholders(context)) return context
+
+      const withMarkers = replaceSequentialBlankMarkers(context, [{ ...blank, blank_id: blankId }])
+      if (hasClozePlaceholders(withMarkers)) return withMarkers
+
+      const correctText = getBlankCorrectText(blank)
+      if (correctText) {
+        const injected = injectClozePlaceholdersFromAnswers(context, [{ ...blank, blank_id: blankId }])
+        if (hasClozePlaceholders(injected)) return injected
+      }
+
       return `${context} [[${blankId}]]`
     })
     .filter(Boolean)
 
-  return promptLines.join('\n')
+  return promptLines.length === rawBlanks.length ? promptLines.join('\n') : ''
+}
+
+export function buildFallbackClozeArticle(question = {}, rawBlanks = []) {
+  const candidate = extractArticleCandidate(question)
+  if (candidate) {
+    const normalizedCandidate = ensureClozeArticlePlaceholders(candidate, rawBlanks)
+    if (normalizedCandidate) return normalizedCandidate
+  }
+
+  return buildPromptBasedClozeArticle(rawBlanks)
 }

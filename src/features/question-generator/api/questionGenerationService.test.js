@@ -667,4 +667,48 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[0].status).toBe('invalid')
     expect(result.draftQuestions[0].errors[0]).toContain('network error')
   })
+
+  it('marks cloze questions invalid when a full passage has no inferable blank positions', async () => {
+    const invalidCloze = {
+      content: {
+        id: 'cq_unlocatable',
+        type: 'cloze',
+        prompt: 'Read the short passage and complete the blanks.',
+        score: 20,
+        article:
+          'In the heart of the bustling city, there lies a small, quiet park that serves as a safe shelter for many.',
+        blanks: [
+          {
+            blank_id: 1,
+            options: [
+              { key: 'A', text: 'refuge' },
+              { key: 'B', text: 'obstacle' },
+            ],
+            correct: 'A',
+            rationale: 'Fits the context.',
+          },
+        ],
+      },
+    }
+
+    requestAiJsonMock.mockResolvedValueOnce(invalidCloze).mockResolvedValueOnce(invalidCloze)
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      meta: {
+        requestId: 'gen_cloze_unlocatable_001',
+      },
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions).toHaveLength(1)
+    expect(result.draftQuestions[0].status).toBe('invalid')
+    expect(result.draftQuestions[0].errors[0]).toContain('带文内空位的 article 文本')
+  })
 })

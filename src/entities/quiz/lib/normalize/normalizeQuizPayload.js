@@ -129,7 +129,7 @@ export function normalizeQuizPayload(data) {
 
   if (!items.length) {
     if (failedSupportedTypes.includes('cloze')) {
-      throw new Error('完形填空结构不完整，必须提供 article 文本和 blanks 数组，且每个 blank 都要有 options、correct 与 rationale。')
+      throw new Error('完形填空结构不完整，必须提供带文内空位的 article 文本和 blanks 数组，且每个 blank 都要有 options、correct 与 rationale。')
     }
 
     throw new Error(

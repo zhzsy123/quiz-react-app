@@ -6,7 +6,12 @@ import {
   normalizeTrueFalseCorrect,
   parseScore,
 } from './helpers'
-import { buildFallbackClozeArticle, getClozeBlankId, getClozeRawBlanks } from '../clozeHelpers.js'
+import {
+  buildFallbackClozeArticle,
+  getClozeBlankId,
+  getClozeRawBlanks,
+  hasClozePlaceholders,
+} from '../clozeHelpers.js'
 
 function getOptionList(question) {
   if (Array.isArray(question?.options)) return question.options
@@ -207,7 +212,7 @@ export function normalizeClozeQuestion(question) {
   const rawBlanks = getClozeRawBlanks(question)
   const article = buildFallbackClozeArticle(question, rawBlanks)
 
-  if (!article || !rawBlanks.length) return null
+  if (!article || !rawBlanks.length || !hasClozePlaceholders(article)) return null
 
   const blanks = rawBlanks
     .map((blank, index) => {

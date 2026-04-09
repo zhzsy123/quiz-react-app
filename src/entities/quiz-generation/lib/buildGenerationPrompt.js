@@ -81,8 +81,9 @@ const TYPE_SPECIFIC_RULES = {
   ],
   cloze: [
     'Use article plus blanks structure.',
-    'article must contain the full passage text.',
+    'article must contain the full passage text with inline placeholders such as [[1]], [[2]] at the exact blank locations.',
     'blanks must be an array, and every blank must contain blank_id, options, correct, score, and rationale.',
+    'Do not put blanks outside the passage. Do not append a separate blank list under the article.',
     'Do not convert a cloze question into ordinary single_choice questions.',
   ],
   reading: [

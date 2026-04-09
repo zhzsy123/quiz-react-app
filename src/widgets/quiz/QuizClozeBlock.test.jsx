@@ -23,13 +23,12 @@ describe('QuizClozeBlock', () => {
     document.body.innerHTML = ''
   })
 
-  it('shows fallback blanks when the passage text has no inline placeholders', async () => {
+  it('shows an explicit warning when the passage text has no inline placeholders', async () => {
     const item = {
       id: 'cloze_1',
       type: 'cloze',
       title: '完形填空 A',
-      article:
-        'In the heart of the city there is a small park that offers comfort to nearby residents.',
+      article: 'In the heart of the city there is a small park that offers comfort to nearby residents.',
       blanks: [
         {
           blank_id: 1,
@@ -41,17 +40,6 @@ describe('QuizClozeBlock', () => {
           ],
           correct: 'A',
           rationale: '符合语境。',
-        },
-        {
-          blank_id: 2,
-          score: 2,
-          prompt: 'Local volunteers hope their efforts will inspire more people to care for it.',
-          options: [
-            { key: 'A', text: 'if only' },
-            { key: 'B', text: 'even if' },
-          ],
-          correct: 'B',
-          rationale: '符合语义。',
         },
       ],
     }
@@ -70,10 +58,8 @@ describe('QuizClozeBlock', () => {
     )
 
     expect(container.textContent).toContain('In the heart of the city')
-    expect(container.textContent).toContain('(1) ______')
-    expect(container.textContent).toContain('(2) ______')
-    expect(container.textContent).toContain('The city park offers a quiet place for residents to relax.')
-    expect(container.textContent).toContain('Local volunteers hope their efforts will inspire more people to care for it.')
+    expect(container.textContent).toContain('该完形缺少文内空位，无法准确定位每一空')
+    expect(container.textContent).not.toContain('(1) ______')
 
     await act(async () => {
       root.unmount()

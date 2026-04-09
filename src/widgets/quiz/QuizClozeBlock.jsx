@@ -1,27 +1,12 @@
 import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 
-function renderFallbackBlankRow(blanks = []) {
-  if (!blanks.length) return null
-
-  return (
-    <div className="cloze-fallback-placeholders">
-      {blanks.map((blank, index) => (
-        <span key={`blank_fallback_${blank.blank_id || index}`} className="cloze-inline-blank">
-          ({index + 1}) ______
-        </span>
-      ))}
-    </div>
-  )
-}
-
-function renderClozeArticle(article = '', blanks = []) {
+function renderClozeArticle(article = '') {
   if (!article) {
     return (
-      <>
-        <span>当前完形填空缺少文章正文，已回退展示空位。</span>
-        {renderFallbackBlankRow(blanks)}
-      </>
+      <div className="analysis-box compact-analysis-box">
+        当前完形填空缺少正文，无法定位空位，建议重新生成或重新导入。
+      </div>
     )
   }
 
@@ -38,12 +23,9 @@ function renderClozeArticle(article = '', blanks = []) {
     }
 
     const blankId = match[1]
-    const blankIndex = blanks.findIndex((blank) => String(blank.blank_id) === String(blankId))
-    const displayLabel = blankIndex >= 0 ? blankIndex + 1 : blankId
-
     segments.push(
       <span key={`blank_${blankId}`} className="cloze-inline-blank">
-        ({displayLabel}) ______
+        ({blankId}) ______
       </span>
     )
 
@@ -59,7 +41,9 @@ function renderClozeArticle(article = '', blanks = []) {
     return (
       <>
         <span>{article}</span>
-        {renderFallbackBlankRow(blanks)}
+        <div className="analysis-box compact-analysis-box">
+          该完形缺少文内空位，无法准确定位每一空，建议重新生成或重新导入。
+        </div>
       </>
     )
   }
@@ -78,26 +62,27 @@ export default function QuizClozeBlock({
   onRevealCurrentObjective,
 }) {
   const clozeResponse = response || {}
+  const blanks = Array.isArray(item.blanks) ? item.blanks : []
   const showFeedback = submitted || (mode === 'practice' && revealedMap[item.id])
   const canReveal =
     mode === 'practice' &&
     !submitted &&
     !showFeedback &&
-    (item.blanks || []).every(
-      (blank) =>
-        typeof clozeResponse[blank.blank_id] === 'string' &&
-        clozeResponse[blank.blank_id].trim().length > 0
-    )
+    blanks.length > 0 &&
+    blanks.every((blank) => {
+      const value = clozeResponse[blank.blank_id]
+      return typeof value === 'string' && value.trim().length > 0
+    })
 
   return (
     <div className="subjective-block cloze-block">
       <section className="analysis-box cloze-passage-box">
         <div className="question-context-title">{item.title || item.prompt || '完形填空'}</div>
-        <div className="question-context-body">{renderClozeArticle(item.article, item.blanks || [])}</div>
+        <div className="question-context-body">{renderClozeArticle(item.article)}</div>
       </section>
 
       <div className="answer-review-grid cloze-grid">
-        {(item.blanks || []).map((blank, index) => {
+        {blanks.map((blank, index) => {
           const selectedValue = clozeResponse[blank.blank_id] || ''
 
           return (
