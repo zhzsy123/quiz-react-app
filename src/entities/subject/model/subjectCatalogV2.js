@@ -222,7 +222,12 @@ const SUBJECT_FALLBACK = {
   }),
 }
 
-export { QUESTION_TYPE_CATALOG, buildQuestionTypeSummary, getQuestionTypeMeta, normalizeQuestionTypeKey }
+export {
+  QUESTION_TYPE_CATALOG,
+  buildQuestionTypeSummary,
+  getQuestionTypeMeta,
+  normalizeQuestionTypeKey,
+}
 
 export function getSubjectMeta(subjectKey) {
   const found = SUBJECT_REGISTRY.find((item) => item.key === subjectKey)
@@ -245,6 +250,7 @@ export function getSubjectQuestionTypeKeys(subjectKey) {
   if (!subjectKey || subjectKey === 'all') {
     return [...new Set(SUBJECT_REGISTRY.flatMap((subject) => subject.questionTypeKeys || []))]
   }
+
   return getSubjectMeta(subjectKey).questionTypeKeys || []
 }
 

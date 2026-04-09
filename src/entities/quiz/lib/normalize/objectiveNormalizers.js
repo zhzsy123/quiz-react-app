@@ -156,7 +156,8 @@ export function normalizeFillBlankQuestion(question, options = {}) {
     },
     score: blanks.reduce((sum, blank) => sum + (blank.score || 0), 0),
     source_type: question?.type || normalizedType,
-    deliverable_type: question?.deliverable_type || (question?.type === 'function_fill_blank' ? 'function_fill_blank' : ''),
+    deliverable_type:
+      question?.deliverable_type || (question?.type === 'function_fill_blank' ? 'function_fill_blank' : ''),
     response_format: question?.response_format || (question?.type === 'function_fill_blank' ? 'code' : ''),
   })
 }
@@ -167,7 +168,13 @@ export function normalizeReadingQuestion(question) {
       ? { title: question?.title, content: question.passage }
       : {
           title: question?.passage?.title || question?.title,
-          content: question?.passage?.content || question?.article || question?.content || '',
+          content:
+            question?.passage?.content ||
+            question?.passage?.body ||
+            question?.passage?.text ||
+            question?.article ||
+            question?.content ||
+            '',
         }
   const subQuestions = question?.questions || question?.sub_questions || question?.subQuestions || []
   if (!passage.content || !Array.isArray(subQuestions) || !subQuestions.length) return null

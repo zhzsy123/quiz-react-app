@@ -31,6 +31,7 @@ export function formatObjectiveAnswerLabel(item, response, unansweredLabel = 'æœ
       ? values.map((value) => getOptionText(item.options || [], value, unansweredLabel)).join(' / ')
       : unansweredLabel
   }
+
   if (isFillBlankLike(item)) {
     if (!response || typeof response !== 'object') return unansweredLabel
     return (
@@ -40,6 +41,7 @@ export function formatObjectiveAnswerLabel(item, response, unansweredLabel = 'æœ
         .join(' / ') || unansweredLabel
     )
   }
+
   return getOptionText(item.options || [], response || '', unansweredLabel)
 }
 
@@ -60,25 +62,34 @@ export function getObjectiveCorrectAnswerLabel(item, unansweredLabel = 'æœªä½œç­
 
 export function isObjectiveAnswered(item, response) {
   if (!item) return false
+
   if (item.type === 'multiple_choice') {
     return normalizeChoiceArray(response).length > 0
   }
+
   if (isFillBlankLike(item)) {
     if (!response || typeof response !== 'object') return false
     return item.blanks.every(
       (blank) => typeof response[blank.blank_id] === 'string' && response[blank.blank_id].trim().length > 0
     )
   }
+
   return typeof response === 'string' && response.trim().length > 0
 }
 
 export function isObjectiveCorrect(item, response) {
   if (!item) return false
+
   if (item.type === 'multiple_choice') {
     const actual = normalizeChoiceArray(response)
     const expected = normalizeChoiceArray(item.answer?.correct)
-    return actual.length > 0 && actual.length === expected.length && actual.every((value, index) => value === expected[index])
+    return (
+      actual.length > 0 &&
+      actual.length === expected.length &&
+      actual.every((value, index) => value === expected[index])
+    )
   }
+
   if (isFillBlankLike(item)) {
     if (!response || typeof response !== 'object') return false
     return item.blanks.every((blank) => {
@@ -86,6 +97,7 @@ export function isObjectiveCorrect(item, response) {
       return blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
     })
   }
+
   return (response || '') === item.answer?.correct
 }
 

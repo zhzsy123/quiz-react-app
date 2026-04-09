@@ -120,7 +120,9 @@ export default function AiQuestionGeneratorDialog({
                   value={config.mode || generation.supportedModes?.[0] || 'practice'}
                   onChange={(event) => onConfigChange({ mode: event.target.value })}
                 >
-                  {MODE_OPTIONS.filter((item) => !generation.supportedModes || generation.supportedModes.includes(item.key)).map((item) => (
+                  {MODE_OPTIONS.filter(
+                    (item) => !generation.supportedModes || generation.supportedModes.includes(item.key)
+                  ).map((item) => (
                     <option key={item.key} value={item.key}>
                       {item.label}
                     </option>
@@ -193,7 +195,9 @@ export default function AiQuestionGeneratorDialog({
                             type="number"
                             min="1"
                             value={config.questionPlan?.[item.key]?.count || item.mockExamDefaultCount || 1}
-                            onChange={(event) => onConfigChange(updateQuestionPlan(config, item.key, 'count', event.target.value))}
+                            onChange={(event) =>
+                              onConfigChange(updateQuestionPlan(config, item.key, 'count', event.target.value))
+                            }
                           />
                         </label>
                         <label className="form-field slim-field">
@@ -203,7 +207,9 @@ export default function AiQuestionGeneratorDialog({
                             min="1"
                             step="0.5"
                             value={config.questionPlan?.[item.key]?.score || item.mockExamDefaultScore || 1}
-                            onChange={(event) => onConfigChange(updateQuestionPlan(config, item.key, 'score', event.target.value))}
+                            onChange={(event) =>
+                              onConfigChange(updateQuestionPlan(config, item.key, 'score', event.target.value))
+                            }
                           />
                         </label>
                       </div>
@@ -259,7 +265,12 @@ export default function AiQuestionGeneratorDialog({
           <button type="button" className="secondary-btn" onClick={onSaveGeneratedPaper} disabled={!canPersist}>
             保存到题库
           </button>
-          <button type="button" className="primary-btn" onClick={onStartPracticeWithGeneratedPaper} disabled={!canPersist}>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={onStartPracticeWithGeneratedPaper}
+            disabled={!canPersist}
+          >
             立即开始练习
           </button>
         </div>

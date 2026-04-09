@@ -73,7 +73,7 @@ export default function FileHubPage() {
           <div className="section-header-row">
             <h2>
               <Search size={18} />
-              文件检索
+              文件搜索
             </h2>
             <span className="section-header-tip">{filteredEntries.length} 份文件</span>
           </div>

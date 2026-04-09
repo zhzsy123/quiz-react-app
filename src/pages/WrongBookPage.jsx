@@ -19,6 +19,69 @@ import {
   useWrongBookPageState,
 } from '../features/wrong-book/model/useWrongBookPageState'
 
+function BlankPracticePanel({
+  item,
+  blankAnswers,
+  blankFeedback,
+  disabled,
+  holdSolvedItem,
+  feedback,
+  onBlankChange,
+  onCheck,
+}) {
+  return (
+    <>
+      <div className="answer-review-grid">
+        {(item.blanks || []).map((blank, index) => (
+          <article key={blank.blank_id} className="answer-review-card">
+            <div className="answer-review-prompt">空 {index + 1}</div>
+            <input
+              className="subjective-textarea"
+              value={blankAnswers[blank.blank_id] || ''}
+              onChange={(event) => onBlankChange(blank.blank_id, event.target.value)}
+              disabled={disabled || Boolean(holdSolvedItem)}
+              placeholder="请输入答案"
+            />
+          </article>
+        ))}
+      </div>
+
+      <div className="question-inline-actions">
+        <button type="button" className="secondary-btn small-btn" disabled={Boolean(holdSolvedItem)} onClick={onCheck}>
+          检查答案
+        </button>
+      </div>
+
+      {feedback && <div className="practice-feedback">{feedback}</div>}
+
+      {blankFeedback.length > 0 && feedback && (
+        <div className="answer-review-grid">
+          {blankFeedback.map((blank) => (
+            <article
+              key={blank.blankId}
+              className={`answer-review-card ${blank.matched ? 'correct' : 'wrong'}`}
+            >
+              <div className="answer-review-prompt">{blank.label}</div>
+              <div className="answer-review-line">
+                <strong>你的答案</strong>
+                {blank.value || '未作答'}
+              </div>
+              <div className="answer-review-line">
+                <strong>参考答案</strong>
+                {blank.accepted.join(' / ')}
+              </div>
+              <div className="answer-review-line">
+                <strong>解析</strong>
+                {blank.rationale || '暂无解析'}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function WrongBookPage() {
   const {
     filteredWrongItems,
@@ -34,9 +97,12 @@ export default function WrongBookPage() {
     practiceIndex,
     setPracticeIndex,
     selectedAnswer,
+    blankAnswers,
+    blankFeedback,
     feedback,
     displayPracticeItem,
     holdSolvedItem,
+    isBlankPracticeItem,
     selectedKeys,
     wrongSummary,
     handleRemove,
@@ -46,9 +112,15 @@ export default function WrongBookPage() {
     handleRemoveSelected,
     handleRemoveAllFiltered,
     handlePracticeAnswer,
+    handlePracticeBlankChange,
+    handleCheckPracticeBlank,
     handleAdvanceAfterSolved,
     resetPractice,
   } = useWrongBookPageState()
+
+  const libraryRoute = getSubjectMeta(
+    subjectFilter !== 'all' ? subjectFilter : filteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key
+  ).route
 
   return (
     <div className="app-shell">
@@ -67,7 +139,7 @@ export default function WrongBookPage() {
               <Link className="secondary-btn small-btn" to="/history">
                 历史记录
               </Link>
-              <Link className="secondary-btn small-btn" to="/exam/english">
+              <Link className="secondary-btn small-btn" to={libraryRoute || '/'}>
                 <BookOpen size={16} />
                 文件列表
               </Link>
@@ -190,7 +262,7 @@ export default function WrongBookPage() {
           <section className="record-list-card wrongbook-practice-panel">
             <div className="section-header-row">
               <h2>
-                <Play size={18} /> 错题练习器
+                <Play size={18} /> 错题练习区
               </h2>
               <span className="section-header-tip">
                 {filteredWrongItems.length > 0
@@ -225,79 +297,102 @@ export default function WrongBookPage() {
                   </div>
                 )}
 
-                <div className="options">
-                  {(displayPracticeItem.options || []).map((option, index) => {
-                    const selected = selectedAnswer === option.key
-                    let className = 'option'
-                    let icon = null
-                    const lockAnswering = Boolean(holdSolvedItem)
+                {isBlankPracticeItem ? (
+                  <BlankPracticePanel
+                    item={displayPracticeItem}
+                    blankAnswers={blankAnswers}
+                    blankFeedback={blankFeedback}
+                    disabled={false}
+                    holdSolvedItem={holdSolvedItem}
+                    feedback={feedback}
+                    onBlankChange={handlePracticeBlankChange}
+                    onCheck={handleCheckPracticeBlank}
+                  />
+                ) : (
+                  <>
+                    <div className="options">
+                      {(displayPracticeItem.options || []).map((option, index) => {
+                        const selected = selectedAnswer === option.key
+                        let className = 'option'
+                        let icon = null
+                        const lockAnswering = Boolean(holdSolvedItem)
 
-                    if (selected) className += ' selected'
+                        if (selected) className += ' selected'
 
-                    if (selectedAnswer) {
-                      if (option.key === displayPracticeItem.correctAnswer) {
-                        className += ' correct'
-                        icon = <CheckCircle2 size={18} />
-                      } else if (selected) {
-                        className += ' wrong'
-                        icon = <XCircle size={18} />
-                      }
-                    }
+                        if (selectedAnswer) {
+                          if (option.key === displayPracticeItem.correctAnswer) {
+                            className += ' correct'
+                            icon = <CheckCircle2 size={18} />
+                          } else if (selected) {
+                            className += ' wrong'
+                            icon = <XCircle size={18} />
+                          } else {
+                            className += ' muted'
+                          }
+                        }
 
-                    return (
-                      <button
-                        key={index}
-                        className={className}
-                        disabled={lockAnswering}
-                        onClick={() => handlePracticeAnswer(option.key)}
-                      >
-                        <span>{renderWrongBookOptionLabel(option)}</span>
-                        {icon}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {feedback && <div className="practice-feedback">{feedback}</div>}
-
-                {selectedAnswer && selectedAnswer !== displayPracticeItem.correctAnswer && (
-                  <div className="analysis-box">
-                    <div>
-                      <strong>正确答案：</strong>
-                      {displayPracticeItem.correctAnswerLabel || displayPracticeItem.correctAnswer || '--'}
+                        return (
+                          <button
+                            key={index}
+                            type="button"
+                            className={className}
+                            disabled={lockAnswering}
+                            onClick={() => handlePracticeAnswer(option.key)}
+                          >
+                            <span>{renderWrongBookOptionLabel(option)}</span>
+                            {icon}
+                          </button>
+                        )
+                      })}
                     </div>
-                    <div>
-                      <strong>解析：</strong>
-                      {displayPracticeItem.rationale || '暂无解析'}
-                    </div>
-                  </div>
+
+                    {feedback && <div className="practice-feedback">{feedback}</div>}
+
+                    {selectedAnswer && (
+                      <div className="analysis-box">
+                        <div>
+                          正确答案：<strong>{displayPracticeItem.correctAnswer}</strong>
+                        </div>
+                        <div>解析：{displayPracticeItem.rationale || '暂无解析'}</div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="question-actions">
                   <button
+                    type="button"
                     className="secondary-btn"
-                    onClick={() => setPracticeIndex((value) => Math.max(value - 1, 0))}
-                    disabled={practiceIndex <= 0 || Boolean(holdSolvedItem)}
+                    disabled={practiceIndex <= 0}
+                    onClick={() => {
+                      setPracticeIndex((prev) => Math.max(prev - 1, 0))
+                      resetPractice()
+                    }}
                   >
                     上一题
                   </button>
+
                   {holdSolvedItem ? (
-                    <button className="secondary-btn" onClick={handleAdvanceAfterSolved}>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      onClick={handleAdvanceAfterSolved}
+                    >
                       下一题
                     </button>
                   ) : (
                     <button
+                      type="button"
                       className="secondary-btn"
-                      onClick={() => setPracticeIndex((value) => Math.min(value + 1, Math.max(filteredWrongItems.length - 1, 0)))}
                       disabled={practiceIndex >= filteredWrongItems.length - 1}
+                      onClick={() => {
+                        setPracticeIndex((prev) => Math.min(prev + 1, filteredWrongItems.length - 1))
+                        resetPractice()
+                      }}
                     >
                       下一题
                     </button>
                   )}
-                  <button className="secondary-btn" onClick={resetPractice}>
-                    <RotateCcw size={14} />
-                    重新开始
-                  </button>
                 </div>
               </div>
             )}
@@ -308,42 +403,38 @@ export default function WrongBookPage() {
           <section className="record-list-card">
             <div className="section-header-row">
               <h2>
-                <BookX size={18} /> 错题列表
+                <BookOpen size={18} /> 错题列表
               </h2>
-              <span className="section-header-tip">按最近出错时间倒序排列</span>
             </div>
 
             {filteredWrongItems.length === 0 ? (
-              <div className="local-library-empty">当前还没有可展示的错题。</div>
+              <div className="local-library-empty">当前筛选条件下没有错题。</div>
             ) : (
               <div className="wrongbook-list">
                 {filteredWrongItems.map((item) => {
-                  const subjectMeta = getSubjectMeta(item.subject)
+                  const checked = selectedKeys.includes(item.questionKey)
                   return (
-                    <article key={item.questionKey} className="wrongbook-card">
+                    <article key={item.questionKey} className="wrongbook-item-card">
                       <div className="wrongbook-card-head">
-                        <div>
-                          <label className="wrongbook-select-row">
-                            <input
-                              type="checkbox"
-                              checked={selectedKeys.includes(item.questionKey)}
-                              onChange={() => handleToggleSelected(item.questionKey)}
-                            />
-                            <span>选中此题</span>
-                          </label>
-                          <div className="wrongbook-card-title">{item.prompt}</div>
-                          <div className="wrongbook-meta">
-                            <span>{subjectMeta.shortLabel}</span>
-                            <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
-                            <span>错题次数 {item.wrongTimes || 1}</span>
-                            <span>最近出错：{item.lastWrongAt ? new Date(item.lastWrongAt).toLocaleString() : '--'}</span>
-                            <span>来源：{item.paperTitle}</span>
-                          </div>
-                        </div>
+                        <label className="wrongbook-select-row">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleToggleSelected(item.questionKey)}
+                          />
+                          <span className="wrongbook-card-title">{item.prompt}</span>
+                        </label>
                         <button className="danger-btn small-btn" onClick={() => handleRemove(item)}>
                           <Trash2 size={14} />
                           删除
                         </button>
+                      </div>
+
+                      <div className="wrongbook-meta">
+                        <span>{getSubjectMeta(item.subject).shortLabel}</span>
+                        <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
+                        <span>错题次数：{item.wrongTimes || 1}</span>
+                        {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}
                       </div>
 
                       {item.contextTitle && (
@@ -353,18 +444,12 @@ export default function WrongBookPage() {
                         </div>
                       )}
 
-                      <div className="wrongbook-answer-compare">
-                        <div className="wrongbook-answer-pill wrong">
-                          <span>你的答案</span>
-                          <strong>{item.userAnswerLabel || '未作答'}</strong>
+                      <div className="analysis-box compact-analysis-box">
+                        <div>
+                          正确答案：<strong>{item.correctAnswer || '见题目配置'}</strong>
                         </div>
-                        <div className="wrongbook-answer-pill correct">
-                          <span>正确答案</span>
-                          <strong>{item.correctAnswerLabel || item.correctAnswer || '--'}</strong>
-                        </div>
+                        <div>解析：{item.rationale || '暂无解析'}</div>
                       </div>
-
-                      <div className="wrongbook-rationale">解析：{item.rationale || '暂无解析'}</div>
                     </article>
                   )
                 })}

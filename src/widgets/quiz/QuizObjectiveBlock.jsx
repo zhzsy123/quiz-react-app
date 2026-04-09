@@ -164,7 +164,7 @@ export default function QuizObjectiveBlock({
       {canRevealMultiChoice && (
         <div className="question-inline-actions">
           <button type="button" className="secondary-btn small-btn" onClick={onRevealCurrentObjective}>
-            查看答案
+            检查答案
           </button>
         </div>
       )}

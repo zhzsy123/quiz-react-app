@@ -19,7 +19,10 @@ function createObjectiveAnswer(correct = 'A', rationale = '请给出简短中文
   }
 }
 
-function createSubjectiveAnswer(referenceAnswer = '请给出参考答案。', scoringPoints = ['命中关键评分点']) {
+function createSubjectiveAnswer(
+  referenceAnswer = '请给出参考答案。',
+  scoringPoints = ['命中关键评分点']
+) {
   return {
     type: 'subjective',
     reference_answer: referenceAnswer,
@@ -60,10 +63,10 @@ export const QUESTION_TYPE_CATALOG = [
     family: 'objective',
     inputMode: 'choice',
     defaultScore: 2,
-    description: '四选一客观题。',
+    description: '标准客观单选题。',
     mockExamConfig: { defaultCount: 10, defaultScore: 2 },
     generationContract: {
-      summary: '生成四个选项，且仅有一个正确答案。',
+      summary: '生成四个选项，并且仅有一个正确答案。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'options', 'answer.correct', 'answer.rationale'],
       example: {
         id: 'gq_001',
@@ -92,7 +95,7 @@ export const QUESTION_TYPE_CATALOG = [
     isDeprecated: true,
     mockExamConfig: { defaultCount: 5, defaultScore: 2 },
     generationContract: {
-      summary: '生成至少四个选项，answer.correct 必须是选项 key 数组。',
+      summary: 'answer.correct 必须是选项 key 数组。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'options', 'answer.correct[]', 'answer.rationale'],
       example: {
         id: 'gq_002',
@@ -137,7 +140,7 @@ export const QUESTION_TYPE_CATALOG = [
     family: 'objective',
     inputMode: 'blank',
     defaultScore: 2,
-    description: '普通填空题，可单空或多空。',
+    description: '普通填空题，可以是单空或多空。',
     mockExamConfig: { defaultCount: 6, defaultScore: 2 },
     generationContract: {
       summary: '使用 blanks 数组描述每个空的标准答案。',
@@ -161,7 +164,7 @@ export const QUESTION_TYPE_CATALOG = [
     family: 'objective',
     inputMode: 'blank',
     defaultScore: 4,
-    description: '代码片段或函数体填空题，可多空。',
+    description: '代码片段或函数体填空题，可以有多个空。',
     mockExamConfig: { defaultCount: 3, defaultScore: 4 },
     generationContract: {
       summary: '沿用 blanks 结构，但题型必须是 function_fill_blank。',
@@ -189,11 +192,9 @@ export const QUESTION_TYPE_CATALOG = [
     inputMode: 'cloze',
     defaultScore: 20,
     description: '完形填空题，使用 article + blanks。',
-    isLegacy: true,
-    isDeprecated: true,
     mockExamConfig: { defaultCount: 1, defaultScore: 20 },
     generationContract: {
-      summary: 'article 使用 [[1]]、[[2]] 占位，blanks 中提供选项和正确答案。',
+      summary: 'article 使用 [[1]]、[[2]] 占位，blanks 提供选项和答案。',
       requiredFields: ['id', 'type', 'prompt', 'article', 'blanks[]'],
       example: {
         id: 'gq_006',
@@ -225,7 +226,7 @@ export const QUESTION_TYPE_CATALOG = [
     family: 'compound',
     inputMode: 'reading',
     defaultScore: 10,
-    description: '文章材料 + 多个客观子题。',
+    description: '文章材料加多个单选子题。',
     mockExamConfig: { defaultCount: 4, defaultScore: 10 },
     generationContract: {
       summary: 'passage 必须是对象，questions 必须是单选子题数组。',
@@ -324,22 +325,22 @@ export const QUESTION_TYPE_CATALOG = [
   createQuestionTypeMeta({
     key: 'case_analysis',
     label: '案例分析题',
-    shortLabel: '案例',
+    shortLabel: '案例分析',
     family: 'subjective',
-    inputMode: 'structured_text',
-    defaultScore: 12,
-    description: '给出业务案例，要求判断、分析并说明理由。',
-    mockExamConfig: { defaultCount: 2, defaultScore: 12 },
+    inputMode: 'text',
+    defaultScore: 10,
+    description: '结合材料进行分析和判断。',
+    mockExamConfig: { defaultCount: 2, defaultScore: 10 },
     generationContract: {
-      summary: '应提供案例背景、问题、参考答案和评分点。',
+      summary: '必须提供案例材料、参考答案和评分点。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'context', 'answer.reference_answer', 'answer.scoring_points'],
       example: {
         id: 'gq_011',
         type: 'case_analysis',
-        prompt: '根据案例分析买方是否有权拒收。',
-        score: 12,
-        context: '某出口合同约定以信用证支付，卖方延迟提交单据。',
-        answer: createSubjectiveAnswer('应结合延迟提交单据的后果判断。', ['识别争议点', '判断是否拒收', '说明依据']),
+        prompt: '根据案例分析卖方是否违约。',
+        score: 10,
+        context: '某出口合同约定...',
+        answer: createSubjectiveAnswer('卖方构成违约。', ['识别争议焦点', '判断违约与否', '说明理由']),
       },
     },
   }),
@@ -348,12 +349,12 @@ export const QUESTION_TYPE_CATALOG = [
     label: '计算题',
     shortLabel: '计算',
     family: 'subjective',
-    inputMode: 'steps_with_final',
+    inputMode: 'text',
     defaultScore: 6,
-    description: '需要列出过程和最终结果的计算题。',
+    description: '要求写出计算过程和结果。',
     mockExamConfig: { defaultCount: 3, defaultScore: 6 },
     generationContract: {
-      summary: '必须给出标准过程、最终结果和评分点。',
+      summary: '必须给出最终结果、参考步骤和评分点。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'answer.reference_answer', 'answer.scoring_points'],
       example: {
         id: 'gq_012',
@@ -369,19 +370,19 @@ export const QUESTION_TYPE_CATALOG = [
     label: '操作题',
     shortLabel: '操作',
     family: 'subjective',
-    inputMode: 'steps',
-    defaultScore: 6,
-    description: '要求按步骤写出结构变化、执行过程或图示。',
-    mockExamConfig: { defaultCount: 3, defaultScore: 6 },
+    inputMode: 'text',
+    defaultScore: 5,
+    description: '要求写出操作步骤、图或状态变化。',
+    mockExamConfig: { defaultCount: 3, defaultScore: 5 },
     generationContract: {
-      summary: '必须给出步骤型参考答案或判定依据。',
+      summary: '必须提供参考步骤和评分点，适合流程或图示型题目。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'answer.reference_answer', 'answer.scoring_points'],
       example: {
         id: 'gq_013',
         type: 'operation',
-        prompt: '画出其进行折半搜索时的判定树。',
-        score: 6,
-        answer: createSubjectiveAnswer('判定树如下...', ['根节点正确', '左右分支正确']),
+        prompt: '画出折半搜索判定树。',
+        score: 5,
+        answer: createSubjectiveAnswer('根节点为 ...', ['根节点正确', '左右分支正确', '层次清晰']),
       },
     },
   }),
@@ -390,20 +391,19 @@ export const QUESTION_TYPE_CATALOG = [
     label: '程序设计题',
     shortLabel: '程序设计',
     family: 'subjective',
-    inputMode: 'code',
-    defaultScore: 20,
-    description: '要求写出程序、伪代码或核心算法。',
-    mockExamConfig: { defaultCount: 1, defaultScore: 20 },
+    inputMode: 'text',
+    defaultScore: 12,
+    description: '要求写出程序或伪代码。',
+    mockExamConfig: { defaultCount: 2, defaultScore: 12 },
     generationContract: {
-      summary: '必须提供代码背景、参考实现和评分点。',
-      requiredFields: ['id', 'type', 'prompt', 'score', 'context', 'answer.reference_answer', 'answer.scoring_points'],
+      summary: '必须给出题目要求、参考代码思路和评分点。',
+      requiredFields: ['id', 'type', 'prompt', 'score', 'answer.reference_answer', 'answer.scoring_points'],
       example: {
         id: 'gq_014',
         type: 'programming',
-        prompt: '编写函数实现二叉树层序遍历。',
-        score: 20,
-        context: '要求给出核心代码或伪代码。',
-        answer: createSubjectiveAnswer('参考代码...', ['数据结构选择正确', '遍历逻辑正确', '边界条件完整']),
+        prompt: '编写函数实现冒泡排序。',
+        score: 12,
+        answer: createSubjectiveAnswer('参考代码...', ['函数定义正确', '排序逻辑正确', '边界处理正确']),
       },
     },
   }),
@@ -412,20 +412,20 @@ export const QUESTION_TYPE_CATALOG = [
     label: 'SQL 题',
     shortLabel: 'SQL',
     family: 'subjective',
-    inputMode: 'sql',
-    defaultScore: 12,
-    description: '要求写出 SQL 语句。',
-    mockExamConfig: { defaultCount: 2, defaultScore: 12 },
+    inputMode: 'text',
+    defaultScore: 8,
+    description: '数据库查询、更新或建模相关 SQL 题。',
+    mockExamConfig: { defaultCount: 2, defaultScore: 8 },
     generationContract: {
-      summary: '必须提供表结构背景、目标结果和参考 SQL。',
+      summary: '必须给出表结构背景、参考 SQL 和评分点。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'context', 'answer.reference_answer', 'answer.scoring_points'],
       example: {
         id: 'gq_015',
         type: 'sql',
-        prompt: '查询每个部门平均工资最高的员工。',
-        score: 12,
-        context: '表 employee(emp_id, dept_id, salary, name)',
-        answer: createSubjectiveAnswer('SELECT ...', ['分组正确', '子查询正确', '结果正确']),
+        prompt: '查询每个学院平均成绩最高的学生。',
+        score: 8,
+        context: 'Student(id, name, dept_id, score)',
+        answer: createSubjectiveAnswer('SELECT ...', ['连接关系正确', '分组逻辑正确', '筛选条件正确']),
       },
     },
   }),
@@ -434,20 +434,20 @@ export const QUESTION_TYPE_CATALOG = [
     label: 'E-R 图题',
     shortLabel: 'E-R 图',
     family: 'subjective',
-    inputMode: 'diagram_text',
-    defaultScore: 10,
-    description: '根据业务描述设计 E-R 图。',
-    mockExamConfig: { defaultCount: 1, defaultScore: 10 },
+    inputMode: 'text',
+    defaultScore: 8,
+    description: '实体联系图与关系模型相关题。',
+    mockExamConfig: { defaultCount: 2, defaultScore: 8 },
     generationContract: {
-      summary: '必须说明实体、联系、属性和主键设计。',
+      summary: '必须说明业务背景、实体、属性和联系。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'context', 'answer.reference_answer', 'answer.scoring_points'],
       example: {
         id: 'gq_016',
         type: 'er_diagram',
-        prompt: '根据业务描述设计 E-R 图。',
-        score: 10,
-        context: '学生选课管理系统，包含学生、课程、教师、开课等信息。',
-        answer: createSubjectiveAnswer('实体包括学生、课程、教师...', ['实体完整', '联系正确', '属性合理']),
+        prompt: '根据业务描述绘制 E-R 图。',
+        score: 8,
+        context: '学生可以选修多门课程...',
+        answer: createSubjectiveAnswer('实体包括学生、课程...', ['实体完整', '联系正确', '主键清晰']),
       },
     },
   }),
@@ -458,31 +458,31 @@ export const QUESTION_TYPE_CATALOG = [
     family: 'compound',
     inputMode: 'composite',
     defaultScore: 10,
-    description: '一个材料下挂多个子题。',
+    description: '一段材料下挂多个子题，可混合客观与主观。',
     mockExamConfig: { defaultCount: 2, defaultScore: 10 },
     generationContract: {
-      summary: '必须提供 material/context 和 questions 子题数组，子题不能再嵌套 composite。',
+      summary: '必须使用 material 和 questions 数组，questions 内每个子题都要符合自身题型协议。',
       requiredFields: ['id', 'type', 'prompt', 'score', 'material', 'questions[]'],
       example: {
         id: 'gq_017',
         type: 'composite',
         prompt: '根据给定顺序表完成下列问题。',
-        score: 10,
-        material: '{017, 094, 154, 170, 275}',
+        score: 9,
+        material: '{017, 094, 154, 170}',
         questions: [
           {
             id: 'gq_017_1',
             type: 'operation',
             prompt: '画出折半搜索判定树。',
             score: 4,
-            answer: createSubjectiveAnswer('判定树如下...', ['根节点正确', '左右分支正确']),
+            answer: createSubjectiveAnswer('根节点为 ...', ['根节点正确', '左右分支正确']),
           },
           {
             id: 'gq_017_2',
             type: 'calculation',
-            prompt: '计算平均搜索长度。',
-            score: 6,
-            answer: createSubjectiveAnswer('ASL = ...', ['公式正确', '计算正确']),
+            prompt: '计算平均查找长度。',
+            score: 5,
+            answer: createSubjectiveAnswer('ASL = ...', ['公式正确', '结果正确']),
           },
         ],
       },
@@ -492,22 +492,34 @@ export const QUESTION_TYPE_CATALOG = [
 
 export function normalizeQuestionTypeKey(typeKey) {
   const normalized = String(typeKey || '').trim()
-  if (!normalized) return ''
-  return QUESTION_TYPE_ALIAS[normalized] || normalized
+  if (!normalized) return 'unknown'
+
+  if (QUESTION_TYPE_ALIAS[normalized]) return QUESTION_TYPE_ALIAS[normalized]
+
+  const found = QUESTION_TYPE_CATALOG.find((item) => item.key === normalized)
+  return found ? found.key : normalized
 }
 
 export function getQuestionTypeMeta(typeKey) {
   const normalized = normalizeQuestionTypeKey(typeKey)
   return (
     QUESTION_TYPE_CATALOG.find((item) => item.key === normalized) ||
-    createQuestionTypeMeta({ key: normalized, label: normalized, shortLabel: normalized })
+    createQuestionTypeMeta({
+      key: normalized,
+      label: normalized,
+      shortLabel: normalized,
+      description: '',
+      supportsGeneration: false,
+      supportsMockExam: false,
+    })
   )
 }
 
-export function buildQuestionTypeSummary(typeKeys = [], { short = true } = {}) {
-  return typeKeys
+export function buildQuestionTypeSummary(typeKeys = [], options = {}) {
+  const separator = options.short ? ' / ' : '、'
+  return (typeKeys || [])
     .map((typeKey) => getQuestionTypeMeta(typeKey))
-    .filter((item, index, list) => item.key && list.findIndex((candidate) => candidate.key === item.key) === index)
-    .map((item) => (short ? item.shortLabel : item.label))
-    .join('、')
+    .filter((item, index, list) => list.findIndex((candidate) => candidate.key === item.key) === index)
+    .map((item) => (options.short ? item.shortLabel : item.label))
+    .join(separator)
 }

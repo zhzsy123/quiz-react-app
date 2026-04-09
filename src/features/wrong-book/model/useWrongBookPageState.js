@@ -17,7 +17,41 @@ function inferWrongItemType(item) {
   if (explicit && getQuestionTypeMeta(explicit).key !== 'unknown') return explicit
 
   if (String(item.contextTitle || '').includes('完形')) return 'cloze'
+  if (Array.isArray(item.blanks) && item.blanks.length > 0) return 'fill_blank'
   return 'single_choice'
+}
+
+function isBlankLikeWrongItem(item) {
+  return ['fill_blank', 'function_fill_blank'].includes(item?.category || item?.type) ||
+    (Array.isArray(item?.blanks) && item.blanks.length > 0)
+}
+
+function isBlankAnswerCorrect(item, answers = {}) {
+  const blanks = Array.isArray(item?.blanks) ? item.blanks : []
+  if (!blanks.length) return false
+
+  return blanks.every((blank) => {
+    const value = String(answers[blank.blank_id] || '').trim().toLowerCase()
+    if (!value) return false
+    return (blank.accepted_answers || []).some((candidate) => String(candidate).trim().toLowerCase() === value)
+  })
+}
+
+function buildBlankFeedback(item, answers = {}) {
+  const blanks = Array.isArray(item?.blanks) ? item.blanks : []
+  return blanks.map((blank, index) => {
+    const value = String(answers[blank.blank_id] || '').trim()
+    const accepted = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
+    const matched = accepted.some((candidate) => String(candidate).trim().toLowerCase() === value.toLowerCase())
+    return {
+      blankId: blank.blank_id,
+      label: `空 ${index + 1}`,
+      value,
+      accepted,
+      matched,
+      rationale: blank.rationale || '',
+    }
+  })
 }
 
 export function getWrongItemCategory(item) {
@@ -42,6 +76,7 @@ export function useWrongBookPageState() {
   const [practiceMode, setPracticeMode] = useState(false)
   const [practiceIndex, setPracticeIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState('')
+  const [blankAnswers, setBlankAnswers] = useState({})
   const [feedback, setFeedback] = useState('')
   const [holdSolvedItem, setHoldSolvedItem] = useState(null)
   const [selectedKeys, setSelectedKeys] = useState([])
@@ -72,6 +107,8 @@ export function useWrongBookPageState() {
 
   const currentPracticeItem = practiceMode ? filteredWrongItems[practiceIndex] || null : null
   const displayPracticeItem = holdSolvedItem || currentPracticeItem
+  const isBlankPracticeItem = isBlankLikeWrongItem(displayPracticeItem)
+  const blankFeedback = isBlankPracticeItem ? buildBlankFeedback(displayPracticeItem, blankAnswers) : []
 
   useEffect(() => {
     if (!practiceMode) return
@@ -82,6 +119,7 @@ export function useWrongBookPageState() {
 
   useEffect(() => {
     setSelectedAnswer('')
+    setBlankAnswers({})
     setFeedback('')
   }, [practiceIndex, practiceMode])
 
@@ -149,7 +187,7 @@ export function useWrongBookPageState() {
   }
 
   const handlePracticeAnswer = async (optionKey) => {
-    if (!displayPracticeItem || holdSolvedItem) return
+    if (!displayPracticeItem || holdSolvedItem || isBlankPracticeItem) return
     setSelectedAnswer(optionKey)
 
     if (optionKey === displayPracticeItem.correctAnswer) {
@@ -159,12 +197,34 @@ export function useWrongBookPageState() {
       return
     }
 
-    setFeedback('回答错误，请继续查看解析。')
+    setFeedback('回答错误，请查看解析后继续复习。')
+  }
+
+  const handlePracticeBlankChange = (blankId, value) => {
+    if (!displayPracticeItem || holdSolvedItem || !isBlankPracticeItem) return
+    setBlankAnswers((current) => ({
+      ...current,
+      [blankId]: value,
+    }))
+  }
+
+  const handleCheckPracticeBlank = async () => {
+    if (!displayPracticeItem || holdSolvedItem || !isBlankPracticeItem) return
+
+    if (isBlankAnswerCorrect(displayPracticeItem, blankAnswers)) {
+      setFeedback('回答正确，已从错题本中移除。')
+      setHoldSolvedItem(displayPracticeItem)
+      await handleRemove(displayPracticeItem)
+      return
+    }
+
+    setFeedback('仍有空答案错误，请根据参考答案继续复习。')
   }
 
   const handleAdvanceAfterSolved = () => {
     setHoldSolvedItem(null)
     setSelectedAnswer('')
+    setBlankAnswers({})
     setFeedback('')
     if (practiceIndex >= filteredWrongItems.length && filteredWrongItems.length > 0) {
       setPracticeIndex(filteredWrongItems.length - 1)
@@ -172,8 +232,8 @@ export function useWrongBookPageState() {
   }
 
   const resetPractice = () => {
-    setPracticeIndex(0)
     setSelectedAnswer('')
+    setBlankAnswers({})
     setFeedback('')
     setHoldSolvedItem(null)
   }
@@ -200,9 +260,12 @@ export function useWrongBookPageState() {
     practiceIndex,
     setPracticeIndex,
     selectedAnswer,
+    blankAnswers,
+    blankFeedback,
     feedback,
     displayPracticeItem,
     holdSolvedItem,
+    isBlankPracticeItem,
     selectedKeys,
     wrongSummary,
     handleRemove,
@@ -212,6 +275,8 @@ export function useWrongBookPageState() {
     handleRemoveSelected,
     handleRemoveAllFiltered,
     handlePracticeAnswer,
+    handlePracticeBlankChange,
+    handleCheckPracticeBlank,
     handleAdvanceAfterSolved,
     resetPractice,
   }

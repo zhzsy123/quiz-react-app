@@ -17,10 +17,13 @@ const COMPOSITE_CHILD_NORMALIZERS = {
   true_false: (question) => normalizeTrueFalseQuestion(question),
   fill_blank: (question) => normalizeFillBlankQuestion(question),
   function_fill_blank: (question) =>
-    normalizeFillBlankQuestion({ ...question, type: 'function_fill_blank' }, {
-      normalizedType: 'fill_blank',
-      baseType: 'function_fill_blank',
-    }),
+    normalizeFillBlankQuestion(
+      { ...question, type: 'function_fill_blank' },
+      {
+        normalizedType: 'fill_blank',
+        baseType: 'function_fill_blank',
+      }
+    ),
   translation: (question) => normalizeTranslationQuestion(question),
   essay: (question) => normalizeEssayQuestion(question),
   short_answer: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),

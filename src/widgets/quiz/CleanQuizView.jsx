@@ -83,7 +83,6 @@ export default function CleanQuizView({
   const currentQuestionReview = getCurrentQuestionReview(currentItem, aiQuestionReviewMap)
   const showPracticeAiToolbar = mode === 'practice'
   const showExamAuditToolbar = mode === 'exam'
-  const showWrongFollowups = false
 
   if (!quiz?.items?.length || !currentItem) {
     return <InvalidQuizFallback />
@@ -153,7 +152,6 @@ export default function CleanQuizView({
             mode={mode}
             showPracticeAiToolbar={showPracticeAiToolbar}
             showExamAuditToolbar={showExamAuditToolbar}
-            showWrongFollowups={showWrongFollowups}
             aiExplainMode={aiExplainMode}
             onChangeAiExplainMode={onChangeAiExplainMode}
             onExplainQuestion={onExplainQuestion}

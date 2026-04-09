@@ -9,7 +9,7 @@ const PROFILE_GUIDANCE = {
   english:
     '题干和选项允许使用英文，但解析、评分点和说明必须使用中文。不要生成英语科目未支持的题型。',
   data_structure:
-    '统一使用中文术语，题目要贴近专升本或课程考试场景，过程题必须可拆分评分点。',
+    '统一使用中文术语，题目要贴近专升本或课程考试场景，过程题必须可拆成评分点。',
   database_principles:
     '统一使用中文术语。SQL 题要给出清晰的数据背景，E-R 图题要说明实体、联系和属性。',
   international_trade:
@@ -30,7 +30,7 @@ function buildDefaultPlan(typeKeys = []) {
         typeKey,
         {
           count: meta.mockExamConfig?.defaultCount || 1,
-          score: meta.mockExamConfig?.defaultScore || meta.defaultScore || 1,
+          score: meta.mockExamConfig?.defaultScore || 1,
         },
       ]
     })
@@ -58,7 +58,10 @@ function normalizeQuestionPlan(typeKeys, rawPlan = {}) {
         typeKey,
         {
           count: clampPositiveInt(current.count, meta.mockExamConfig?.defaultCount || 1),
-          score: Number(current.score) > 0 ? Number(current.score) : meta.mockExamConfig?.defaultScore || meta.defaultScore || 1,
+          score:
+            Number(current.score) > 0
+              ? Number(current.score)
+              : meta.mockExamConfig?.defaultScore || meta.defaultScore || 1,
         },
       ]
     })
@@ -67,6 +70,7 @@ function normalizeQuestionPlan(typeKeys, rawPlan = {}) {
 
 function expandPracticePlan(typeKeys, count) {
   if (!typeKeys.length) return []
+
   const plan = []
   for (let index = 0; index < count; index += 1) {
     const typeKey = typeKeys[index % typeKeys.length]
@@ -78,6 +82,7 @@ function expandPracticePlan(typeKeys, count) {
       label: meta.label,
     })
   }
+
   return plan
 }
 
@@ -87,7 +92,11 @@ function expandMockExamPlan(typeKeys, questionPlan = {}) {
     const meta = getQuestionTypeMeta(typeKey)
     const config = questionPlan[typeKey] || {}
     const count = clampPositiveInt(config.count, meta.mockExamConfig?.defaultCount || 1)
-    const score = Number(config.score) > 0 ? Number(config.score) : meta.mockExamConfig?.defaultScore || meta.defaultScore || 1
+    const score =
+      Number(config.score) > 0
+        ? Number(config.score)
+        : meta.mockExamConfig?.defaultScore || meta.defaultScore || 1
+
     for (let index = 0; index < count; index += 1) {
       plan.push({
         index: plan.length + 1,
@@ -105,7 +114,7 @@ export function normalizeGenerationParams(subjectKey, params = {}) {
   const generation = getSubjectGenerationConfig(subjectKey)
   const questionTypes = normalizeQuestionTypes(subjectMeta, params)
   const mode = params.mode || generation.supportedModes?.[0] || 'practice'
-  const questionPlan = normalizeQuestionPlan(questionTypes, {
+  const questionPlan = normalizeQuestionPlan(typeKeysOrFallback(questionTypes), {
     ...buildDefaultPlan(questionTypes),
     ...(params.questionPlan || {}),
   })
@@ -122,7 +131,8 @@ export function normalizeGenerationParams(subjectKey, params = {}) {
       params.durationMinutes,
       generation.defaultDurationMinutes || subjectMeta.defaultDurationMinutes || 90
     ),
-    targetPaperTotal: Number(params.targetPaperTotal) || generation.defaultPaperTotal || subjectMeta.expectedPaperTotal || 0,
+    targetPaperTotal:
+      Number(params.targetPaperTotal) || generation.defaultPaperTotal || subjectMeta.expectedPaperTotal || 0,
   }
 
   const generationPlan =
@@ -136,6 +146,10 @@ export function normalizeGenerationParams(subjectKey, params = {}) {
     normalized,
     generationPlan,
   }
+}
+
+function typeKeysOrFallback(typeKeys = []) {
+  return Array.isArray(typeKeys) ? typeKeys : []
 }
 
 function getContractPayload(questionTypeMeta) {

@@ -22,6 +22,7 @@ function buildGeneratedPaperPayload({ draftPaper, subjectKey, profileId }) {
   if (questionCount <= 0) {
     throw new Error('当前没有可保存的有效题目，请重新生成后再试。')
   }
+
   const rawText = JSON.stringify(draftPaper, null, 2)
   return {
     rawText,
@@ -116,7 +117,7 @@ export function useFileHubPageState() {
     generateQuestions: startQuestionGeneration,
     onSaveGeneratedPaper: async (draftPaper) => {
       if (!activeProfile?.id) {
-        throw new Error('当前没有可用的本地档案')
+        throw new Error('当前没有可用的本地档案。')
       }
 
       const payload = buildGeneratedPaperPayload({
@@ -237,7 +238,10 @@ export function useFileHubPageState() {
   }
 
   const handleTags = async (entry) => {
-    const raw = window.prompt('请输入标签，多个标签请用英文逗号分隔：', Array.isArray(entry.tags) ? entry.tags.join(', ') : '')
+    const raw = window.prompt(
+      '请输入标签，多个标签请用英文逗号分隔：',
+      Array.isArray(entry.tags) ? entry.tags.join(', ') : ''
+    )
     if (raw === null) return
 
     const nextTags = raw

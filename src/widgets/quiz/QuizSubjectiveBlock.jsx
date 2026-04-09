@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Bot, CheckCircle2, FileText, Languages, LoaderCircle, Maximize2, Minimize2, XCircle } from 'lucide-react'
+import {
+  Bot,
+  CheckCircle2,
+  FileText,
+  Languages,
+  LoaderCircle,
+  Maximize2,
+  Minimize2,
+  XCircle,
+} from 'lucide-react'
 import { normalizeChoiceArray, renderOptionLabel } from '../../entities/quiz/lib/objectiveAnswers'
 import { AiExplainPanel } from './QuizAiPanels.jsx'
 import {
@@ -75,6 +84,9 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
     case_analysis: '案例分析',
     calculation: '计算题',
     operation: '操作题',
+    programming: '程序设计',
+    sql: 'SQL 题',
+    er_diagram: 'E-R 图题',
   }
 
   return (
@@ -84,12 +96,18 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
         <div className="essay-word-count">{scoreLabel}</div>
       </div>
       {item.context_title && <div className="essay-topic">{item.context_title}</div>}
-      {item.context && <div className="analysis-box"><div>{item.context}</div></div>}
+      {item.context && (
+        <div className="analysis-box">
+          <div>{item.context}</div>
+        </div>
+      )}
       {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 && (
         <div className="analysis-box">
           <div className="analysis-section-title">作答要点</div>
           <ul className="analysis-list">
-            {item.requirements.points.map((point, index) => <li key={index}>{point}</li>)}
+            {item.requirements.points.map((point, index) => (
+              <li key={index}>{point}</li>
+            ))}
           </ul>
         </div>
       )}
@@ -144,7 +162,7 @@ function ReadingBlock({
         <div className="reading-passage-head">
           <div className="reading-passage-title">
             <FileText size={16} />
-            <span>{item.passage?.title || item.title || '阅读材料'}</span>
+            <span>{passageTitle}</span>
           </div>
           <button
             type="button"
@@ -170,6 +188,14 @@ function ReadingBlock({
             const explainEntry = aiExplainMap?.[`${item.id}:${subQuestion.id}`]
             const canUseAiTool = mode === 'practice' || submitted
             const subOptions = Array.isArray(subQuestion.options) ? subQuestion.options : []
+            const aiLabel =
+              mode === 'exam'
+                ? explainEntry?.status === 'pending'
+                  ? 'AI 核题中'
+                  : 'AI 核题'
+                : explainEntry?.status === 'pending'
+                  ? 'AI 解释中'
+                  : 'AI 解释'
 
             return (
               <div
@@ -234,24 +260,17 @@ function ReadingBlock({
                     <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
                   </div>
                 )}
+
                 <button
                   type="button"
                   className="secondary-btn small-btn ai-inline-btn ai-dynamic-label"
-                  data-ai-label={
-                    mode === 'exam'
-                      ? explainEntry?.status === 'pending'
-                        ? 'AI 审核中'
-                        : 'AI 审核'
-                      : explainEntry?.status === 'pending'
-                        ? 'AI 解析中'
-                        : 'AI 解析'
-                  }
+                  data-ai-label={aiLabel}
                   style={{ display: canUseAiTool ? undefined : 'none' }}
                   onClick={() => onExplainQuestion({ item, subQuestion })}
                   disabled={isPaused || explainEntry?.status === 'pending'}
                 >
                   {explainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
-                  {explainEntry?.status === 'pending' ? 'AI 解析中' : 'AI 解析'}
+                  {aiLabel}
                 </button>
                 <AiExplainPanel entry={explainEntry} />
               </div>
@@ -300,7 +319,15 @@ function CompositeBlock({
           const isFillBlank = question.type === 'fill_blank'
           const isTranslation = question.type === 'translation'
           const isEssay = question.type === 'essay'
-          const isGenericSubjective = ['short_answer', 'case_analysis', 'calculation', 'operation'].includes(question.type)
+          const isGenericSubjective = [
+            'short_answer',
+            'case_analysis',
+            'calculation',
+            'operation',
+            'programming',
+            'sql',
+            'er_diagram',
+          ].includes(question.type)
           const canRevealMultiChoice =
             mode === 'practice' &&
             question.type === 'multiple_choice' &&
@@ -312,7 +339,9 @@ function CompositeBlock({
             <article key={question.id} className="answer-review-card">
               <div className="answer-review-prompt">
                 第 {index + 1} 小题
-                <span className="tag purple" style={{ marginLeft: 8 }}>{getNavGroupMeta(question).label}</span>
+                <span className="tag purple" style={{ marginLeft: 8 }}>
+                  {getNavGroupMeta(question).label}
+                </span>
               </div>
               <div className="wrongbook-card-title">{question.prompt}</div>
               {question.context_title && <div className="question-context-title">{question.context_title}</div>}
@@ -324,7 +353,9 @@ function CompositeBlock({
                     {(question.blanks || []).map((blank, blankIndex) => {
                       const value = (questionResponse || {})[blank.blank_id] || ''
                       const normalized = String(value).trim().toLowerCase()
-                      const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
+                      const isCorrect = blank.accepted_answers.some(
+                        (candidate) => String(candidate).trim().toLowerCase() === normalized
+                      )
                       const showFeedback = objectiveReveal
 
                       return (
@@ -360,14 +391,16 @@ function CompositeBlock({
               ) : !isSubjective ? (
                 <>
                   <div className="options">
-                    {question.options.map((opt, optIndex) => {
+                    {(question.options || []).map((opt, optIndex) => {
                       const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
-                      const selected = question.type === 'multiple_choice'
-                        ? normalizeChoiceArray(questionResponse).includes(option.key)
-                        : questionResponse === option.key
-                      const isCorrect = question.type === 'multiple_choice'
-                        ? normalizeChoiceArray(question.answer?.correct).includes(option.key)
-                        : option.key === question.answer?.correct
+                      const selected =
+                        question.type === 'multiple_choice'
+                          ? normalizeChoiceArray(questionResponse).includes(option.key)
+                          : questionResponse === option.key
+                      const isCorrect =
+                        question.type === 'multiple_choice'
+                          ? normalizeChoiceArray(question.answer?.correct).includes(option.key)
+                          : option.key === question.answer?.correct
 
                       let className = 'option'
                       let icon = null
@@ -401,7 +434,7 @@ function CompositeBlock({
                   {canRevealMultiChoice && (
                     <div className="question-inline-actions">
                       <button type="button" className="secondary-btn small-btn" onClick={() => onRevealQuestion(question.id)}>
-                        查看答案
+                        检查答案
                       </button>
                     </div>
                   )}
@@ -425,7 +458,7 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                  onTextChange={onTextChange}
                 />
               ) : isGenericSubjective ? (
                 <GenericSubjectiveBlock
@@ -433,7 +466,7 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                  onTextChange={onTextChange}
                 />
               ) : isEssay ? (
                 <EssayBlock
@@ -441,7 +474,7 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                  onTextChange={onTextChange}
                 />
               ) : (
                 <GenericSubjectiveBlock
@@ -449,7 +482,7 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+                  onTextChange={onTextChange}
                 />
               )}
             </article>
@@ -507,7 +540,9 @@ export default function QuizSubjectiveBlock({
         mode={mode}
         revealedMap={revealedMap}
         onSelectOption={(subQuestionId, optionKey) => onSelectCompositeOption(item.id, subQuestionId, optionKey)}
-        onFillBlankChange={(subQuestionId, blankId, text) => onCompositeFillBlankChange(item.id, subQuestionId, blankId, text)}
+        onFillBlankChange={(subQuestionId, blankId, text) =>
+          onCompositeFillBlankChange(item.id, subQuestionId, blankId, text)
+        }
         onTextChange={(subQuestionId, text) => onCompositeTextChange(item.id, subQuestionId, text)}
         onRevealQuestion={(subQuestionId) => onRevealCompositeQuestion(item.id, subQuestionId)}
       />
@@ -521,7 +556,7 @@ export default function QuizSubjectiveBlock({
         userResponse={response}
         disabled={isPaused || submitted}
         submitted={submitted}
-        onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+        onTextChange={onTextChange}
       />
     )
   }
@@ -533,19 +568,23 @@ export default function QuizSubjectiveBlock({
         userResponse={response}
         disabled={isPaused || submitted}
         submitted={submitted}
-        onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+        onTextChange={onTextChange}
       />
     )
   }
 
-  if (['short_answer', 'case_analysis', 'calculation', 'operation'].includes(item.type)) {
+  if (
+    ['short_answer', 'case_analysis', 'calculation', 'operation', 'programming', 'sql', 'er_diagram'].includes(
+      item.type
+    )
+  ) {
     return (
       <GenericSubjectiveBlock
         item={item}
         userResponse={response}
         disabled={isPaused || submitted}
         submitted={submitted}
-        onTextChange={(subQuestionId, text) => onTextChange(subQuestionId, text)}
+        onTextChange={onTextChange}
       />
     )
   }

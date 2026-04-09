@@ -7,75 +7,27 @@ export default function QuizAiToolbar({
   mode,
   showPracticeAiToolbar,
   showExamAuditToolbar,
-  showWrongFollowups,
-  aiExplainMode,
-  onChangeAiExplainMode,
   onExplainQuestion,
-  onExplainWhyWrong,
-  onGenerateSimilarQuestions,
   disabled,
 }) {
   if (!currentItem || (!showPracticeAiToolbar && !showExamAuditToolbar)) return null
 
+  const isPending = currentExplainEntry?.status === 'pending'
+  const label = mode === 'exam' ? (isPending ? 'AI 核题中' : 'AI 核题') : isPending ? 'AI 解释中' : 'AI 解释'
+
   return (
     <div className="ai-toolbar">
-      <div className="ai-mode-switch" style={{ display: showPracticeAiToolbar ? undefined : 'none' }}>
-        {[
-          { key: 'brief', label: '简略' },
-          { key: 'standard', label: '标准' },
-          { key: 'deep', label: '深入' },
-        ].map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={`ai-mode-chip ${aiExplainMode === item.key ? 'active' : ''}`}
-            onClick={() => onChangeAiExplainMode?.(item.key)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-
       <div className="ai-action-row">
         <button
           type="button"
           className="secondary-btn small-btn ai-inline-btn ai-dynamic-label"
-          data-ai-label={
-            mode === 'exam'
-              ? currentExplainEntry?.status === 'pending'
-                ? 'AI 审核中'
-                : 'AI 审核'
-              : currentExplainEntry?.status === 'pending'
-                ? 'AI 解析中'
-                : 'AI 解析'
-          }
+          data-ai-label={label}
           onClick={() => onExplainQuestion({ item: currentItem })}
-          disabled={disabled || currentExplainEntry?.status === 'pending'}
+          disabled={disabled || isPending}
         >
-          {currentExplainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
-          {currentExplainEntry?.status === 'pending' ? 'AI 解析中' : 'AI 解析'}
+          {isPending ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
+          {label}
         </button>
-
-        {showPracticeAiToolbar && showWrongFollowups && (
-          <>
-            <button
-              type="button"
-              className="secondary-btn small-btn ai-inline-btn"
-              onClick={() => onExplainWhyWrong?.({ item: currentItem })}
-              disabled={disabled || currentExplainEntry?.status === 'pending'}
-            >
-              错因分析
-            </button>
-            <button
-              type="button"
-              className="secondary-btn small-btn ai-inline-btn"
-              onClick={() => onGenerateSimilarQuestions?.({ item: currentItem })}
-              disabled={disabled}
-            >
-              同类练习
-            </button>
-          </>
-        )}
       </div>
     </div>
   )
