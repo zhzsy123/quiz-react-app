@@ -3,12 +3,76 @@ const QUESTION_TYPE_ALIAS = {
   legacy_multiple_choice: 'multiple_choice',
   legacy_true_false: 'true_false',
   legacy_fill_blank: 'fill_blank',
+  singlechoice: 'single_choice',
+  single_choice_question: 'single_choice',
+  multiplechoice: 'multiple_choice',
+  multiple_choice_question: 'multiple_choice',
+  truefalse: 'true_false',
+  true_false_question: 'true_false',
+  blank_fill: 'fill_blank',
+  fill_in_blank: 'fill_blank',
+  fillintheblank: 'fill_blank',
   function_blank: 'function_fill_blank',
   function_cloze: 'function_fill_blank',
+  function_fill_in_blank: 'function_fill_blank',
+  function_fillintheblank: 'function_fill_blank',
+  cloze_question: 'cloze',
+  cloze_test: 'cloze',
+  cloze_fill: 'cloze',
+  cloze_filling: 'cloze',
+  reading_comprehension: 'reading',
+  reading_question: 'reading',
+  translation_question: 'translation',
+  essay_question: 'essay',
+  shortanswer: 'short_answer',
+  short_answer_question: 'short_answer',
+  case_study: 'case_analysis',
+  case_question: 'case_analysis',
+  calculation_question: 'calculation',
+  operation_question: 'operation',
   program_design: 'programming',
   programming_question: 'programming',
   sql_question: 'sql',
+  er_question: 'er_diagram',
   er: 'er_diagram',
+  '单项选择题': 'single_choice',
+  单选题: 'single_choice',
+  单选: 'single_choice',
+  '多项选择题': 'multiple_choice',
+  多选题: 'multiple_choice',
+  多选: 'multiple_choice',
+  判断题: 'true_false',
+  判断: 'true_false',
+  填空题: 'fill_blank',
+  填空: 'fill_blank',
+  '函数填空题': 'function_fill_blank',
+  函数填空: 'function_fill_blank',
+  '完形填空': 'cloze',
+  '完型填空': 'cloze',
+  完形: 'cloze',
+  完型: 'cloze',
+  '阅读理解': 'reading',
+  阅读题: 'reading',
+  翻译题: 'translation',
+  翻译: 'translation',
+  作文题: 'essay',
+  作文: 'essay',
+  简答题: 'short_answer',
+  简答: 'short_answer',
+  案例分析题: 'case_analysis',
+  案例分析: 'case_analysis',
+  计算题: 'calculation',
+  计算: 'calculation',
+  操作题: 'operation',
+  操作: 'operation',
+  程序设计题: 'programming',
+  程序设计: 'programming',
+  SQL题: 'sql',
+  SQL: 'sql',
+  'E-R图题': 'er_diagram',
+  'ER图题': 'er_diagram',
+  'E-R图': 'er_diagram',
+  'ER图': 'er_diagram',
 }
 
 function createObjectiveAnswer(correct = 'A', rationale = '请给出简短中文解析。') {
@@ -494,9 +558,13 @@ export function normalizeQuestionTypeKey(typeKey) {
   const normalized = String(typeKey || '').trim()
   if (!normalized) return 'unknown'
 
+  const compact = normalized.toLowerCase().replace(/[\s-]+/g, '_')
+  if (QUESTION_TYPE_ALIAS[compact]) return QUESTION_TYPE_ALIAS[compact]
   if (QUESTION_TYPE_ALIAS[normalized]) return QUESTION_TYPE_ALIAS[normalized]
 
-  const found = QUESTION_TYPE_CATALOG.find((item) => item.key === normalized)
+  const found = QUESTION_TYPE_CATALOG.find(
+    (item) => item.key === normalized || item.key === compact
+  )
   return found ? found.key : normalized
 }
 

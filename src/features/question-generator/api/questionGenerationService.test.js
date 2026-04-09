@@ -280,6 +280,118 @@ describe('questionGenerationService', () => {
     expect(result.draftPaper.scoreBreakdown.totalScore).toBe(4)
   })
 
+  it('accepts localized cloze type labels from AI and normalizes them to cloze', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        id: 'cq_localized',
+        type: '\u5b8c\u5f62\u586b\u7a7a',
+        prompt: 'Read the short passage and complete the blanks.',
+        score: 20,
+        article: 'The sun [[1]] in the east and birds [[2]] in the morning.',
+        blanks: [
+          {
+            blank_id: 1,
+            options: [
+              { key: 'A', text: 'rise' },
+              { key: 'B', text: 'rises' },
+              { key: 'C', text: 'rose' },
+              { key: 'D', text: 'rising' },
+            ],
+            correct: 'B',
+            rationale: 'Subject is singular.',
+          },
+          {
+            blank_id: 2,
+            options: [
+              { key: 'A', text: 'sing' },
+              { key: 'B', text: 'sings' },
+              { key: 'C', text: 'sang' },
+              { key: 'D', text: 'sung' },
+            ],
+            correct: 'A',
+            rationale: 'Plural subject takes base form.',
+          },
+        ],
+      },
+    })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      meta: {
+        requestId: 'gen_cloze_localized_001',
+      },
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions).toHaveLength(1)
+    expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].normalizedQuestion.type).toBe('cloze')
+    expect(result.draftQuestions[0].normalizedQuestion.blanks).toHaveLength(2)
+  })
+
+  it('falls back to the planned cloze type when AI returns an unknown type label', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        id: 'cq_unknown',
+        type: 'cloze_case',
+        prompt: 'Choose the best words to complete the passage.',
+        score: 20,
+        article: 'Students [[1]] English every day and [[2]] progress quickly.',
+        blanks: [
+          {
+            blank_id: 1,
+            options: [
+              { key: 'A', text: 'study' },
+              { key: 'B', text: 'studies' },
+              { key: 'C', text: 'studied' },
+              { key: 'D', text: 'studying' },
+            ],
+            correct: 'A',
+            rationale: 'Plural subject uses the base verb.',
+          },
+          {
+            blank_id: 2,
+            options: [
+              { key: 'A', text: 'make' },
+              { key: 'B', text: 'makes' },
+              { key: 'C', text: 'made' },
+              { key: 'D', text: 'making' },
+            ],
+            correct: 'A',
+            rationale: 'Plural subject uses the base verb.',
+          },
+        ],
+      },
+    })
+
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      meta: {
+        requestId: 'gen_cloze_unknown_001',
+      },
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.draftQuestions).toHaveLength(1)
+    expect(result.draftQuestions[0].status).toBe('valid')
+    expect(result.draftQuestions[0].rawQuestion.type).toBe('cloze')
+    expect(result.draftQuestions[0].normalizedQuestion.type).toBe('cloze')
+    expect(result.draftPaper.questions).toHaveLength(1)
+    expect(result.draftPaper.questions[0].type).toBe('cloze')
+  })
+
   it('retries duplicate generated questions within the same batch', async () => {
     requestAiJsonMock
       .mockResolvedValueOnce({

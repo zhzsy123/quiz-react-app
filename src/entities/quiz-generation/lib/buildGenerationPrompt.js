@@ -206,9 +206,12 @@ export function buildGenerationPrompt({
     avoid_question_signatures: avoidQuestionSignatures,
     extra_prompt: normalized.extraPrompt,
     rules: [
+      'type 字段必须严格使用系统规定的英文 key，不要输出中文题型名，也不要输出自定义变体。',
+      '当前这道题的 type 必须严格等于 target_question_type。',
       '客观题的 answer.type 必须是 objective，主观题的 answer.type 必须是 subjective。',
       'single_choice 和 reading 子题的 options 必须是数组，元素必须是 {key,text}。',
       'single_choice 的 answer.correct 必须是单个选项 key，例如 A。',
+      'cloze 必须使用 article + blanks 结构，blanks 中每一空都要有 options、correct、rationale，不能把 cloze 写成普通单选。',
       'true_false 的 answer.correct 只能是 T 或 F。',
       'fill_blank / function_fill_blank 必须提供 blanks 数组，每个 blank 都有 blank_id、accepted_answers、score。',
       'translation / essay / short_answer / programming / sql / er_diagram 必须提供 reference_answer 和 scoring_points。',

@@ -67,4 +67,26 @@ describe('buildGenerationPrompt', () => {
     expect(result.userPrompt).toContain('偏重语法和连词辨析')
     expect(result.userPrompt).toContain('"avoid_question_signatures":["grammar question about conjunctions"]')
   })
+  it('locks cloze generation to the cloze contract instead of plain single choice', () => {
+    const result = buildGenerationPrompt({
+      subjectKey: 'english',
+      requestId: 'req_cloze_001',
+      params: {
+        mode: 'practice',
+        count: 1,
+        questionTypes: ['cloze'],
+      },
+      planItem: {
+        typeKey: 'cloze',
+        score: 20,
+        label: '瀹屽舰濉┖',
+      },
+      questionIndex: 1,
+      totalQuestions: 1,
+    })
+
+    expect(result.userPrompt).toContain('"target_question_type":"cloze"')
+    expect(result.userPrompt).toContain('article + blanks')
+    expect(result.userPrompt).toContain('target_question_type')
+  })
 })

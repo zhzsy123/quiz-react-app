@@ -1,4 +1,4 @@
-import { normalizeQuestionTypeKey } from '../../subject/model/subjects.js'
+import { getQuestionTypeMeta, normalizeQuestionTypeKey } from '../../subject/model/subjects.js'
 
 export const OBJECTIVE_GENERATION_TYPES = new Set([
   'single_choice',
@@ -169,7 +169,9 @@ export function sanitizeGeneratedQuestion(rawQuestion, planItem) {
 
   const targetType = normalizeQuestionTypeKey(planItem?.typeKey)
   const questionType = normalizeQuestionTypeKey(rawQuestion.type || targetType)
-  const normalizedType = questionType || targetType
+  const normalizedTypeMeta = getQuestionTypeMeta(questionType)
+  const normalizedType =
+    normalizedTypeMeta?.supportsGeneration === false && targetType ? targetType : questionType || targetType
 
   const question = {
     ...rawQuestion,
