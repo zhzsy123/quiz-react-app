@@ -17,6 +17,7 @@ export function getExamDurationSeconds(quiz, subjectMeta) {
 export function buildProgressPayload({
   answers,
   revealedMap,
+  relationalAlgebraExpandedMap,
   submitted,
   score,
   attemptId,
@@ -35,6 +36,7 @@ export function buildProgressPayload({
   return {
     answers,
     revealedMap,
+    relationalAlgebraExpandedMap,
     submitted,
     score,
     attemptId,

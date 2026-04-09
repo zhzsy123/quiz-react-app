@@ -172,6 +172,64 @@ function createMultipleChoiceQuizFixture() {
   }
 }
 
+function createRelationalAlgebraQuizFixture() {
+  return {
+    title: '数据库关系代数练习卷',
+    subject: 'database_principles',
+    duration_minutes: 90,
+    items: [
+      {
+        id: 'ra_1',
+        type: 'relational_algebra',
+        prompt: '请完成下列关系代数查询。',
+        score: 20,
+        schemas: [
+          {
+            name: '学生',
+            attributes: ['学号', '姓名', '专业'],
+          },
+        ],
+        subquestions: [
+          {
+            id: '1',
+            label: '（1）',
+            prompt: '检索专业为英语的学生。',
+            score: 5,
+            reference_answer: "Π[学号,姓名](σ[专业='英语'](学生))",
+          },
+          {
+            id: '2',
+            label: '（2）',
+            prompt: '检索姓名中包含张字的学生。',
+            score: 5,
+            reference_answer: "Π[学号,姓名](σ[姓名 LIKE '%张%'](学生))",
+          },
+        ],
+        answer: {
+          type: 'subjective',
+          reference_answer: "（1）Π[学号,姓名](σ[专业='英语'](学生))\n（2）Π[学号,姓名](σ[姓名 LIKE '%张%'](学生))",
+          scoring_points: ['关系代数表达式语义正确', '子题答案完整'],
+        },
+      },
+      {
+        id: 'q2',
+        type: 'single_choice',
+        prompt: '占位单选题',
+        options: [
+          { key: 'A', text: 'A' },
+          { key: 'B', text: 'B' },
+        ],
+        answer: {
+          type: 'objective',
+          correct: 'A',
+          rationale: 'A 正确',
+        },
+        score: 5,
+      },
+    ],
+  }
+}
+
 vi.mock('../../../app/providers/AppContext', () => ({
   useAppContext: () => ({
     activeProfile: { id: 'profile-1' },
@@ -604,6 +662,98 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     })
 
     expect(stateRef.current.revealedMap.multi_1).toBe(true)
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('stores relational algebra subquestion answers and collapse state canonically', async () => {
+    setQuizFixture(createRelationalAlgebraQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '1', "Π[学号,姓名](σ[专业='英语'](学生))")
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.answers.ra_1).toEqual(
+      expect.objectContaining({
+        type: 'relational_algebra',
+        responses: expect.objectContaining({
+          1: "Π[学号,姓名](σ[专业='英语'](学生))",
+          2: '',
+        }),
+        text: '',
+      })
+    )
+
+    await act(async () => {
+      stateRef.current.handleToggleRelationalAlgebraSubQuestion('ra_1', '1', true)
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.relationalAlgebraExpandedMap).toEqual(
+      expect.objectContaining({
+        ra_1: expect.objectContaining({
+          1: true,
+          2: false,
+        }),
+      })
+    )
+
+    const latestPayload =
+      saveSessionProgressMock.mock.calls[saveSessionProgressMock.mock.calls.length - 1]?.[3]
+    expect(latestPayload).toEqual(
+      expect.objectContaining({
+        relationalAlgebraExpandedMap: expect.objectContaining({
+          ra_1: expect.objectContaining({
+            1: true,
+            2: false,
+          }),
+        }),
+      })
+    )
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('reveals relational algebra questions as a whole and can auto-advance after completion', async () => {
+    setQuizFixture(createRelationalAlgebraQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleToggleAutoAdvance()
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '1', "Π[学号,姓名](σ[专业='英语'](学生))")
+      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '2', "Π[学号,姓名](σ[姓名 LIKE '%张%'](学生))")
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.answers.ra_1).toEqual(
+      expect.objectContaining({
+        text: expect.stringContaining("（1） Π[学号,姓名](σ[专业='英语'](学生))"),
+        responses: expect.objectContaining({
+          1: "Π[学号,姓名](σ[专业='英语'](学生))",
+          2: "Π[学号,姓名](σ[姓名 LIKE '%张%'](学生))",
+        }),
+      })
+    )
+
+    await act(async () => {
+      stateRef.current.handleRevealRelationalAlgebraQuestion('ra_1')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.revealedMap.ra_1).toBe(true)
+    expect(stateRef.current.currentIndex).toBe(1)
 
     await act(async () => {
       root.unmount()

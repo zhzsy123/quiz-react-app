@@ -126,9 +126,9 @@ export const SUBJECT_REGISTRY = [
     workspaceRoute: '/workspace/database-principles',
     expectedPaperTotal: 100,
     defaultDurationMinutes: 90,
-    questionTypeKeys: ['single_choice', 'true_false', 'fill_blank', 'short_answer', 'composite', 'sql', 'er_diagram'],
+    questionTypeKeys: ['single_choice', 'true_false', 'fill_blank', 'short_answer', 'relational_algebra', 'composite', 'sql', 'er_diagram'],
     generation: createGenerationConfig({
-      supportedQuestionTypes: ['single_choice', 'true_false', 'fill_blank', 'short_answer', 'composite', 'sql', 'er_diagram'],
+      supportedQuestionTypes: ['single_choice', 'true_false', 'fill_blank', 'short_answer', 'relational_algebra', 'composite', 'sql', 'er_diagram'],
       defaultPaperTotal: 100,
       defaultDurationMinutes: 90,
       promptProfile: 'database_principles',

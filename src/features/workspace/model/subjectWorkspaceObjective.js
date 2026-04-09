@@ -6,6 +6,7 @@ import {
   isObjectiveGradable,
   isObjectiveResponseCorrect,
 } from '../../../entities/quiz/lib/objectiveAnswers.js'
+import { isRelationalAlgebraAnswered } from './subjectWorkspaceRelationalAlgebra.js'
 
 export function isNonEmptyText(value) {
   return typeof value === 'string' && value.trim().length > 0
@@ -48,6 +49,9 @@ export function isResponseAnswered(item, response) {
   if (item.type === 'cloze') {
     if (!response || typeof response !== 'object') return false
     return (item.blanks || []).every((blank) => isNonEmptyText(response[blank.blank_id]))
+  }
+  if (item.type === 'relational_algebra') {
+    return isRelationalAlgebraAnswered(item, response)
   }
   if (item.answer?.type === 'subjective') {
     return Boolean(response?.text?.trim())

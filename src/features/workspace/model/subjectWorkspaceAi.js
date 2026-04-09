@@ -2,6 +2,7 @@ import {
   auditQuizQuestionCompliance,
   explainQuizQuestionWithMode,
   generateSimilarQuestions,
+  gradeRelationalAlgebraAttempt,
   gradeSubjectiveAttempt,
 } from '../../ai/reviewService'
 
@@ -27,7 +28,41 @@ export async function runSubjectiveAiReview({
     subjectivePendingTotal: subjectiveTotal,
   })
 
-  return completedReview || pendingReview
+  const relationalAlgebraReview = await gradeRelationalAlgebraAttempt({
+    quiz,
+    answers,
+    objectiveScore,
+    objectiveTotal,
+    paperTotal,
+  })
+
+  if (!completedReview && !relationalAlgebraReview) return pendingReview
+
+  const questionReviews = {
+    ...(completedReview?.questionReviews || {}),
+    ...(relationalAlgebraReview?.questionReviews || {}),
+  }
+
+  const totalSubjectiveScore =
+    Number(completedReview?.totalSubjectiveScore || 0) +
+    Number(relationalAlgebraReview?.totalRelationalAlgebraScore || 0)
+
+  return {
+    ...(completedReview || pendingReview),
+    status: 'completed',
+    totalSubjectiveScore,
+    totalScore: objectiveScore + totalSubjectiveScore,
+    questionReviews,
+    weaknessSummary: [
+      ...(completedReview?.weaknessSummary || []),
+      ...(relationalAlgebraReview?.weaknessSummary || []),
+    ],
+    overallComment: [completedReview?.overallComment, relationalAlgebraReview?.overallComment]
+      .filter(Boolean)
+      .join(' '),
+    relationalAlgebraReviews: relationalAlgebraReview?.relationalAlgebraReviews || [],
+    totalMaxScore: Number(relationalAlgebraReview?.totalMaxScore || 0),
+  }
 }
 
 export async function runExplainQuestionAi({

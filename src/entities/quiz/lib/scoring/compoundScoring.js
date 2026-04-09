@@ -47,6 +47,14 @@ export function getItemScoreBreakdown(item) {
     return summary
   }
 
+  if (item.type === 'relational_algebra') {
+    summary.subjectiveTotal += item.questions?.length
+      ? item.questions.reduce((sum, question) => sum + parseScore(question.score, 0), 0)
+      : item.subquestions?.reduce((sum, question) => sum + parseScore(question.score, 0), 0) || parseScore(item.score, 0)
+    summary.paperTotal += summary.subjectiveTotal
+    return summary
+  }
+
   const itemScore = parseScore(item.score, 0)
   if (item.answer?.type === 'subjective') {
     summary.subjectiveTotal += itemScore

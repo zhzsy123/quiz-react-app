@@ -13,6 +13,7 @@ export default function SubjectWorkspacePage() {
     mode,
     subjectMeta,
     answers,
+    relationalAlgebraExpandedMap,
     revealedMap,
     submitted,
     score,
@@ -52,6 +53,9 @@ export default function SubjectWorkspacePage() {
     handleSelectClozeOption,
     handleFillBlankChange,
     handleCompositeFillBlankChange,
+    handleRelationalAlgebraTextChange,
+    handleToggleRelationalAlgebraSubQuestion,
+    handleRevealRelationalAlgebraQuestion,
     handleTextChange,
     handleCompositeTextChange,
     handleReset,
@@ -235,6 +239,7 @@ export default function SubjectWorkspacePage() {
         <CleanQuizView
           quiz={quiz}
           answers={answers}
+          relationalAlgebraExpandedMap={relationalAlgebraExpandedMap}
           submitted={submitted}
           currentIndex={currentIndex}
           mode={mode}
@@ -263,6 +268,9 @@ export default function SubjectWorkspacePage() {
           onSelectClozeOption={handleSelectClozeOption}
           onFillBlankChange={handleFillBlankChange}
           onCompositeFillBlankChange={handleCompositeFillBlankChange}
+          onRelationalAlgebraTextChange={handleRelationalAlgebraTextChange}
+          onToggleRelationalAlgebraSubQuestion={handleToggleRelationalAlgebraSubQuestion}
+          onRevealRelationalAlgebraQuestion={handleRevealRelationalAlgebraQuestion}
           onTextChange={handleTextChange}
           onCompositeTextChange={handleCompositeTextChange}
           aiReview={aiReview}

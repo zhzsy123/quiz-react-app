@@ -23,6 +23,7 @@ import {
   renderFormattedMaterial,
 } from './quizViewUtils.jsx'
 import QuizClozeBlock from './QuizClozeBlock.jsx'
+import RelationalAlgebraBlock from './RelationalAlgebraBlock.jsx'
 
 function TranslationBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   return (
@@ -540,6 +541,7 @@ export default function QuizSubjectiveBlock({
   isPaused,
   mode,
   revealedMap,
+  relationalAlgebraExpandedMap,
   focusSubQuestionId,
   onFocusSubQuestion,
   onSelectReadingOption,
@@ -551,6 +553,9 @@ export default function QuizSubjectiveBlock({
   onCompositeFillBlankChange,
   onCompositeTextChange,
   onRevealCompositeQuestion,
+  onRelationalAlgebraTextChange,
+  onToggleRelationalAlgebraSubQuestion,
+  onRevealRelationalAlgebraQuestion,
   onFillBlankChange,
   onTextChange,
 }) {
@@ -626,6 +631,22 @@ export default function QuizSubjectiveBlock({
         disabled={isPaused || submitted}
         submitted={submitted}
         onTextChange={onTextChange}
+      />
+    )
+  }
+
+  if (item.type === 'relational_algebra') {
+    return (
+      <RelationalAlgebraBlock
+        item={item}
+        response={response}
+        submitted={submitted}
+        isPaused={isPaused}
+        mode={mode}
+        expandedMap={relationalAlgebraExpandedMap}
+        onTextChange={onRelationalAlgebraTextChange}
+        onToggleSubQuestion={onToggleRelationalAlgebraSubQuestion}
+        onRevealQuestion={onRevealRelationalAlgebraQuestion}
       />
     )
   }

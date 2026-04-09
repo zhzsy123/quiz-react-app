@@ -50,6 +50,12 @@ import {
   runSimilarQuestionsAi as runWorkspaceSimilarQuestionsAi,
   runSubjectiveAiReview as runWorkspaceSubjectiveAiReview,
 } from './subjectWorkspaceAi.js'
+import {
+  isRelationalAlgebraAnswered,
+  normalizeRelationalAlgebraProgress,
+  toggleRelationalAlgebraSubQuestionExpanded,
+  updateRelationalAlgebraAnswer,
+} from './subjectWorkspaceRelationalAlgebra.js'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
@@ -73,6 +79,7 @@ export function useSubjectWorkspaceState() {
   const [quiz, setQuiz] = useState(null)
   const [answers, setAnswers] = useState({})
   const answersRef = useRef({})
+  const [relationalAlgebraExpandedMap, setRelationalAlgebraExpandedMap] = useState({})
   const [revealedMap, setRevealedMap] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
@@ -151,8 +158,18 @@ export function useSubjectWorkspaceState() {
 
         setEntry(resolvedEntry)
         setQuiz(resolvedQuiz)
-        setAnswers(progress?.answers || {})
+        const nextAnswers = { ...(progress?.answers || {}) }
+        if (resolvedQuiz?.items?.length) {
+          resolvedQuiz.items.forEach((item) => {
+            if (item.type === 'relational_algebra') {
+              nextAnswers[item.id] = normalizeRelationalAlgebraProgress(item, nextAnswers[item.id])
+            }
+          })
+        }
+
+        setAnswers(nextAnswers)
         setRevealedMap(progress?.revealedMap || {})
+        setRelationalAlgebraExpandedMap(progress?.relationalAlgebraExpandedMap || {})
         setSubmitted(Boolean(progress?.submitted))
         setScore(progress?.score || 0)
         setAttemptId(progress?.attemptId || '')
@@ -198,6 +215,7 @@ export function useSubjectWorkspaceState() {
     buildWorkspaceProgressPayload({
       answers,
       revealedMap,
+      relationalAlgebraExpandedMap,
       submitted,
       score,
       attemptId,
@@ -821,6 +839,8 @@ export function useSubjectWorkspaceState() {
 
   const handleTextChange = (questionId, text) => {
     if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type === 'relational_algebra') return
     const nextAnswers = { ...answersRef.current, [questionId]: { text } }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
@@ -843,6 +863,64 @@ export function useSubjectWorkspaceState() {
     void persistNow({ answers: nextAnswers })
   }
 
+  const handleRelationalAlgebraTextChange = (questionId, subQuestionId, text) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'relational_algebra' || currentItem.id !== questionId) return
+
+    const nextQuestionState = updateRelationalAlgebraAnswer(currentItem, answersRef.current[questionId], subQuestionId, text)
+    const nextAnswers = { ...answersRef.current, [questionId]: nextQuestionState }
+    setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
+
+    void persistNow({ answers: nextAnswers })
+  }
+
+  const handleToggleRelationalAlgebraSubQuestion = (questionId, subQuestionId, nextExpanded) => {
+    if (!quiz) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'relational_algebra' || currentItem.id !== questionId) return
+
+    const nextExpandedMap = toggleRelationalAlgebraSubQuestionExpanded(
+      currentItem,
+      relationalAlgebraExpandedMap[questionId] || {},
+      subQuestionId,
+      nextExpanded
+    )
+    const nextMap = {
+      ...relationalAlgebraExpandedMap,
+      [questionId]: nextExpandedMap,
+    }
+    setRelationalAlgebraExpandedMap(nextMap)
+    void persistNow({ relationalAlgebraExpandedMap: nextMap })
+  }
+
+  const handleRevealRelationalAlgebraQuestion = (questionId) => {
+    if (!quiz || submitted || mode !== 'practice') return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'relational_algebra' || currentItem.id !== questionId) return
+
+    const currentResponse = answers[questionId]
+    if (!isRelationalAlgebraAnswered(currentItem, currentResponse)) return
+
+    const nextRevealed = { ...revealedMap, [questionId]: true }
+    setRevealedMap(nextRevealed)
+
+    let nextIndex = currentIndex
+    if (autoAdvance && currentIndex < quiz.items.length - 1) {
+      nextIndex = currentIndex + 1
+      setCurrentIndex(nextIndex)
+    }
+
+    void persistNow({
+      revealedMap: nextRevealed,
+      currentIndex: nextIndex,
+    })
+  }
+
   const handleReset = async () => {
     if (!activeProfile?.id || !sessionPaperId) return
     const ok = window.confirm('Reset current progress?')
@@ -851,6 +929,7 @@ export function useSubjectWorkspaceState() {
     await clearSessionProgress(activeProfile.id, subjectKey, sessionPaperId)
     setAnswers({})
     setRevealedMap({})
+    setRelationalAlgebraExpandedMap({})
     setSubmitted(false)
     setScore(0)
     setAttemptId('')
@@ -868,6 +947,7 @@ export function useSubjectWorkspaceState() {
       attemptId: '',
       aiReview: null,
       aiExplainMap: {},
+      relationalAlgebraExpandedMap: {},
       currentIndex: 0,
       timerSecondsRemaining: examDurationSeconds,
       isPaused: false,
@@ -944,6 +1024,7 @@ export function useSubjectWorkspaceState() {
     aiExplainMode,
     aiPracticeModal,
     currentIndex,
+    relationalAlgebraExpandedMap,
     autoAdvance,
     practiceWritesWrongBook,
     examWritesWrongBook,
@@ -974,6 +1055,9 @@ export function useSubjectWorkspaceState() {
     handleSelectClozeOption,
     handleFillBlankChange,
     handleCompositeFillBlankChange,
+    handleRelationalAlgebraTextChange,
+    handleToggleRelationalAlgebraSubQuestion,
+    handleRevealRelationalAlgebraQuestion,
     handleTextChange,
     handleCompositeTextChange,
     handleReset,

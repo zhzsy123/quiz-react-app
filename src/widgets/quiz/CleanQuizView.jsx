@@ -46,6 +46,7 @@ export default function CleanQuizView({
   remainingSeconds,
   isPaused,
   revealedMap,
+  relationalAlgebraExpandedMap = {},
   isFavorite,
   onToggleFavorite,
   onToggleAutoAdvance,
@@ -78,6 +79,9 @@ export default function CleanQuizView({
   onCompositeFillBlankChange,
   onCompositeTextChange,
   onRevealCompositeQuestion,
+  onRelationalAlgebraTextChange,
+  onToggleRelationalAlgebraSubQuestion,
+  onRevealRelationalAlgebraQuestion,
 }) {
   const currentItem = getCurrentItem(quiz, currentIndex)
   const currentExplainEntry = getCurrentExplainEntry(currentItem, aiExplainMap)
@@ -182,6 +186,7 @@ export default function CleanQuizView({
               isPaused={isPaused}
               mode={mode}
               revealedMap={revealedMap}
+              relationalAlgebraExpandedMap={relationalAlgebraExpandedMap?.[currentItem.id] || {}}
               onFocusSubQuestion={() => {}}
               onSelectReadingOption={onSelectReadingOption}
               onSelectClozeOption={onSelectClozeOption}
@@ -192,6 +197,9 @@ export default function CleanQuizView({
               onCompositeFillBlankChange={onCompositeFillBlankChange}
               onCompositeTextChange={onCompositeTextChange}
               onRevealCompositeQuestion={onRevealCompositeQuestion}
+              onRelationalAlgebraTextChange={onRelationalAlgebraTextChange}
+              onToggleRelationalAlgebraSubQuestion={onToggleRelationalAlgebraSubQuestion}
+              onRevealRelationalAlgebraQuestion={onRevealRelationalAlgebraQuestion}
               onFillBlankChange={onFillBlankChange}
               onTextChange={onTextChange}
             />
