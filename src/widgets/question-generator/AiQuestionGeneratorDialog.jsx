@@ -252,7 +252,13 @@ export default function AiQuestionGeneratorDialog({
         </div>
 
         <div className="generator-actions">
-          <button type="button" className="primary-btn" onClick={onStartGeneration} disabled={!canStart}>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={onStartGeneration}
+            disabled={!canStart}
+            data-testid="start-ai-generation"
+          >
             <Sparkles size={16} />
             开始生成
           </button>
@@ -262,7 +268,13 @@ export default function AiQuestionGeneratorDialog({
           <button type="button" className="secondary-btn" onClick={onResetGenerator}>
             清空结果
           </button>
-          <button type="button" className="secondary-btn" onClick={onSaveGeneratedPaper} disabled={!canPersist}>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={onSaveGeneratedPaper}
+            disabled={!canPersist}
+            data-testid="save-generated-paper"
+          >
             保存到题库
           </button>
           <button
@@ -270,6 +282,7 @@ export default function AiQuestionGeneratorDialog({
             className="primary-btn"
             onClick={onStartPracticeWithGeneratedPaper}
             disabled={!canPersist}
+            data-testid="start-generated-paper-practice"
           >
             立即开始练习
           </button>

@@ -47,7 +47,12 @@ export default function FileHubPage() {
               {subjectMeta.shortLabel}本地题库
             </h1>
             <div className="dashboard-action-row">
-              <button type="button" className="secondary-btn small-btn" onClick={openGeneratorDialog}>
+              <button
+                type="button"
+                className="secondary-btn small-btn"
+                onClick={openGeneratorDialog}
+                data-testid="open-ai-generator"
+              >
                 <Sparkles size={14} />
                 AI 生成题目
               </button>
