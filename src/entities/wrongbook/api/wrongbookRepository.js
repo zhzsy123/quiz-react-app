@@ -6,7 +6,7 @@ import {
   removeWrongBookEntries as removeWrongBookEntriesFromStore,
   removeWrongBookEntry as removeWrongBookEntryFromStore,
   upsertWrongBookEntries as upsertWrongBookEntriesInStore,
-} from './wrongbookStore'
+} from '../../../shared/storage/adapters/wrongbookAdapter'
 
 export function listWrongbookEntriesBySubject(profileId, subject) {
   return loadWrongBookEntriesFromStore(profileId, subject)

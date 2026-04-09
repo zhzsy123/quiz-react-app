@@ -3,7 +3,7 @@ import {
   loadFavoriteEntries as loadFavoriteEntriesFromStore,
   removeFavoriteEntry as removeFavoriteEntryFromStore,
   toggleFavoriteEntry as toggleFavoriteEntryInStore,
-} from './favoriteStore'
+} from '../../../shared/storage/adapters/favoriteAdapter'
 
 export function listFavoriteEntriesBySubject(profileId, subject) {
   return loadFavoriteEntriesFromStore(profileId, subject)

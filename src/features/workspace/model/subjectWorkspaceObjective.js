@@ -97,10 +97,7 @@ export function getObjectiveWrongCount(item, response) {
   if (!item) return 0
   if (item.type === 'composite') {
     if (!response || typeof response !== 'object') {
-      return (item.questions || []).reduce(
-        (sum, question) => sum + (question.answer?.type === 'objective' ? 1 : 0),
-        0
-      )
+      return (item.questions || []).reduce((sum, question) => sum + getObjectiveWrongCount(question, undefined), 0)
     }
     return (item.questions || []).reduce(
       (sum, question) => sum + getObjectiveWrongCount(question, response[question.id]),
@@ -108,8 +105,12 @@ export function getObjectiveWrongCount(item, response) {
     )
   }
   if (item.type === 'reading') {
-    if (!response || typeof response !== 'object') return item.questions.length
-    return item.questions.reduce((sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1), 0)
+    const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+    if (!response || typeof response !== 'object') return readingQuestions.length
+    return readingQuestions.reduce(
+      (sum, question) => sum + (response[question.id] === question.answer?.correct ? 0 : 1),
+      0
+    )
   }
   if (item.type === 'fill_blank') {
     if (!response || typeof response !== 'object') return item.blanks.length
