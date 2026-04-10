@@ -1,13 +1,7 @@
 import React from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { buildPreviewText } from './quizViewUtils.jsx'
-
-const QUICK_INSERT_SYMBOLS = [
-  { label: 'Π()', value: 'Π', wrap: true },
-  { label: 'σ()', value: 'σ', wrap: true },
-  { label: '⋈()', value: '⋈', wrap: true },
-  { label: 'AND', value: 'AND', wrap: false },
-]
+import RelationalAlgebraToolbar from './RelationalAlgebraToolbar.jsx'
 
 export default function RelationalAlgebraSubquestionCard({
   subquestion,
@@ -47,11 +41,6 @@ export default function RelationalAlgebraSubquestionCard({
 
       {expanded && (
         <div className="rel-algebra-subquestion-body">
-          <div className="rel-algebra-subquestion-statement">
-            <span className="rel-algebra-subquestion-label">查询目标</span>
-            <div>{subquestion?.prompt || '请使用关系代数表达式作答。'}</div>
-          </div>
-
           {submitted && referenceAnswer && (
             <div className="analysis-box rel-algebra-answer-box">
               <div className="analysis-section-title">参考答案</div>
@@ -62,7 +51,7 @@ export default function RelationalAlgebraSubquestionCard({
           <div className="rel-algebra-editor-shell">
             <div className="rel-algebra-editor-head">
               <div className="rel-algebra-editor-title">关系代数表达式</div>
-              <div className="rel-algebra-editor-caption">左侧关系模式和上方算子都可以点击插入。</div>
+              <div className="rel-algebra-editor-caption">关系模式和下方符号栏都支持点击插入。</div>
             </div>
 
             <textarea
@@ -80,19 +69,11 @@ export default function RelationalAlgebraSubquestionCard({
             />
 
             <div className="rel-algebra-editor-actions">
-              <div className="rel-algebra-editor-quick-actions">
-                {QUICK_INSERT_SYMBOLS.map((symbol) => (
-                  <button
-                    key={symbol.label}
-                    type="button"
-                    className="secondary-btn small-btn"
-                    disabled={disabled}
-                    onClick={() => onInsert?.(subquestion.id, symbol.value, { wrap: symbol.wrap })}
-                  >
-                    {symbol.label}
-                  </button>
-                ))}
-              </div>
+              <RelationalAlgebraToolbar
+                compact
+                disabled={disabled}
+                onInsert={(token, options) => onInsert?.(subquestion.id, token, options)}
+              />
 
               <button
                 type="button"

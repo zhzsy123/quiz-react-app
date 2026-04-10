@@ -290,7 +290,7 @@ export async function gradeRelationalAlgebraAttempt({
             },
             question: target,
             equivalence_rules: [
-              'Treat Π/PROJECT and σ/SELECT and ρ/RENAME and ⋈/JOIN/∞ and ∪/UNION and ∩/INTERSECT and -/DIFFERENCE and ÷/DIVIDE as equivalent aliases where appropriate.',
+                'Treat Π/π/PROJECT/PI and σ/SELECT/SIGMA and ρ/RENAME and ⋈/JOIN/∞ and ∪/UNION and ∩/INTERSECT and -/DIFFERENCE and ÷/DIVIDE and >=/≥ and <=/≤ and !=/≠ and OR/∨ and NOT/¬ as equivalent aliases where appropriate.',
               'Ignore whitespace, line breaks, and bracket style differences.',
               'Judge semantic equivalence of the relational algebra expression.',
               'Return partial credit only when the answer is materially close but missing a non-critical component.',

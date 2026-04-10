@@ -95,14 +95,14 @@ describe('RelationalAlgebraBlock', () => {
       textarea.setSelectionRange(0, 0)
     })
 
-    const projectionBtn = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Π()')
+    const projectionBtn = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'π[]')
     expect(projectionBtn).toBeTruthy()
 
     act(() => {
       projectionBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(container.querySelector('.rel-algebra-editor').value).toContain('Π()')
+    expect(container.querySelector('.rel-algebra-editor').value).toContain('Π[]')
 
     const studentToken = Array.from(container.querySelectorAll('.rel-algebra-token')).find(
       (button) => button.textContent === '学生'

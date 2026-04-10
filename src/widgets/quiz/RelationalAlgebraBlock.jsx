@@ -4,7 +4,6 @@ import RelationalAlgebraToolbar from './RelationalAlgebraToolbar.jsx'
 import RelationalAlgebraSubquestionCard from './RelationalAlgebraSubquestionCard.jsx'
 import {
   buildRelationalAlgebraInsertion,
-  getRelationalAlgebraSchemaTokens,
   insertTextAtCursor,
   normalizeRelationalAlgebraResponse,
 } from './relationalAlgebraEditorUtils.js'
@@ -39,7 +38,6 @@ export default function RelationalAlgebraBlock({
     .join('|')
   const editorRefs = useRef({})
   const [activeSubquestionId, setActiveSubquestionId] = useState(getFirstQuestionId(subquestions))
-  const [hoveredToken, setHoveredToken] = useState('')
   const [draftMap, setDraftMap] = useState(() => normalizeRelationalAlgebraResponse(response, subquestions))
 
   const effectiveExpandedMap = buildExpandedMap(subquestions, expandedMap)
@@ -52,8 +50,6 @@ export default function RelationalAlgebraBlock({
       }).length,
     [draftMap, subquestions]
   )
-  const activeSubquestion = subquestions.find((subquestion, index) => String(subquestion.id ?? index + 1) === activeSubquestionId)
-
   useEffect(() => {
     setDraftMap(normalizeRelationalAlgebraResponse(response, subquestions))
   }, [response, item?.id, subquestionSignature])
@@ -136,27 +132,18 @@ export default function RelationalAlgebraBlock({
         <aside className="rel-algebra-sidebar">
           <RelationalAlgebraSchemaPanel
             schemas={item?.schemas || []}
-            activeToken={hoveredToken}
+            activeToken=""
             disabled={isPaused}
-            onHoverToken={(token) => setHoveredToken(token)}
-            onLeaveToken={() => setHoveredToken('')}
+            onHoverToken={() => {}}
+            onLeaveToken={() => {}}
             onInsertToken={insertIntoActive}
           />
-
-          <RelationalAlgebraToolbar disabled={isPaused || submitted} onInsert={insertIntoActive} />
         </aside>
 
         <section className="rel-algebra-canvas">
           <div className="rel-algebra-canvas-head">
             <div>
               <div className="rel-algebra-canvas-title">答题工作区</div>
-              <div className="rel-algebra-canvas-caption">
-                当前焦点：
-                <span className="rel-algebra-active-badge">
-                  {activeSubquestion?.label || (activeSubquestionId ? `(${activeSubquestionId})` : '未选择')}
-                </span>
-                <span>{activeSubquestion?.prompt || '点击任一子题开始作答'}</span>
-              </div>
             </div>
           </div>
 

@@ -29,8 +29,9 @@ describe('relationalAlgebraEditorUtils', () => {
   })
 
   it('wraps algebra operators with parentheses', () => {
-    expect(buildRelationalAlgebraInsertion('Π', { wrap: true })).toBe('Π()')
-    expect(buildRelationalAlgebraInsertion('螤', { wrap: true })).toBe('Π()')
+    expect(buildRelationalAlgebraInsertion('π', { wrap: true, wrapStyle: 'brackets' })).toBe('Π[]')
+    expect(buildRelationalAlgebraInsertion('螤', { wrap: true, wrapStyle: 'brackets' })).toBe('Π[]')
+    expect(buildRelationalAlgebraInsertion("'", { wrap: true, wrapStyle: 'quotes' })).toBe("''")
     expect(buildRelationalAlgebraInsertion('AND', { wrap: false })).toBe('AND')
   })
 })

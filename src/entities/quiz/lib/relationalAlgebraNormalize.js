@@ -15,9 +15,11 @@ function normalizeExpressionAliases(value = '') {
     [/\bINNER\s+JOIN\b/gi, '⋈'],
     [/\bCROSS\s+JOIN\b/gi, '⋈'],
     [/\bJOIN\b/gi, '⋈'],
+    [/∞/g, '⋈'],
     [/\bPROJECT\b/gi, 'Π'],
     [/\bPI\b/gi, 'Π'],
     [/螤/g, 'Π'],
+    [/π/g, 'Π'],
     [/\bSIGMA\b/gi, 'σ'],
     [/\bSELECT\b/gi, 'σ'],
     [/蟽/g, 'σ'],
@@ -30,6 +32,12 @@ function normalizeExpressionAliases(value = '') {
     [/\bDIVIDE\b/gi, '÷'],
     [/\bOVER\b/gi, '÷'],
     [/梅/g, '÷'],
+    [/>=/g, '≥'],
+    [/<=/g, '≤'],
+    [/!=/g, '≠'],
+    [/\bNOT\b/gi, '¬'],
+    [/\bOR\b/gi, '∨'],
+    [/\^/g, '^'],
   ]
 
   for (const [pattern, replacement] of aliasRules) {
@@ -38,9 +46,9 @@ function normalizeExpressionAliases(value = '') {
 
   return text
     .replace(/\s*([,\[\]\(\)\{\}])\s*/g, '$1')
-    .replace(/\s*([=<>!]+)\s*/g, '$1')
-    .replace(/\s*([⋈∪∩÷ρΠσ-])\s*/g, '$1')
-    .replace(/\s+(AND|OR)\s+/gi, ' $1 ')
+    .replace(/\s*([=<>!≥≤≠]+)\s*/g, '$1')
+    .replace(/\s*([⋈∪∩÷ρΠσ¬∨^-])\s*/g, '$1')
+    .replace(/\s+(AND)\s+/gi, ' $1 ')
     .trim()
 }
 

@@ -461,7 +461,7 @@ button { border: none; }
 }
 .rel-algebra-workbench {
   display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -496,33 +496,30 @@ button { border: none; }
 .rel-algebra-schema-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
+  gap: 10px;
 }
 .rel-algebra-schema-card {
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(2, 6, 23, 0.32);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.24);
+  border: 1px solid rgba(148, 163, 184, 0.1);
 }
 .rel-algebra-schema-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
-  margin-bottom: 10px;
-}
-.rel-algebra-schema-name {
-  font-weight: 700;
-  color: #e2e8f0;
+  margin-bottom: 6px;
 }
 .rel-algebra-schema-meta {
   color: #94a3b8;
   font-size: 0.84rem;
 }
-.rel-algebra-token-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.rel-algebra-schema-line {
+  color: #dbeafe;
+  line-height: 1.9;
+  font-size: 0.98rem;
+  word-break: break-word;
 }
 .rel-algebra-token {
   display: inline-flex;
@@ -549,6 +546,32 @@ button { border: none; }
 .rel-algebra-token.attribute {
   color: #bfdbfe;
 }
+.rel-algebra-token.inline {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #dbeafe;
+  font-weight: 700;
+  text-decoration: none;
+}
+.rel-algebra-token.inline.attribute {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+.rel-algebra-token.inline:hover {
+  transform: none;
+  background: transparent;
+  color: #ffffff;
+}
+.rel-algebra-token.inline.selected {
+  color: #93c5fd;
+}
+.rel-algebra-schema-paren,
+.rel-algebra-schema-comma {
+  color: #64748b;
+}
 .rel-algebra-schema-empty {
   padding: 16px 18px;
   border-radius: 16px;
@@ -557,37 +580,26 @@ button { border: none; }
   color: #cbd5e1;
 }
 .rel-algebra-toolbar {
-  padding: 18px;
-}
-.rel-algebra-toolbar-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.rel-algebra-toolbar-group {
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(2, 6, 23, 0.28);
-  border: 1px solid rgba(148, 163, 184, 0.12);
-}
-.rel-algebra-toolbar-group-title {
-  margin-bottom: 10px;
-  color: #cbd5e1;
-  font-size: 0.88rem;
-  font-weight: 700;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 .rel-algebra-toolbar-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
+.rel-algebra-toolbar.compact .rel-algebra-toolbar-row {
+  gap: 8px;
+}
 .rel-algebra-toolbar-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 68px;
-  min-height: 42px;
-  padding: 0 12px;
+  min-width: 56px;
+  min-height: 38px;
+  padding: 0 11px;
   border-radius: 14px;
   background: rgba(17,24,39,0.88);
   border: 1px solid rgba(96,165,250,0.18);
@@ -608,30 +620,12 @@ button { border: none; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 .rel-algebra-canvas-title {
   color: #eff6ff;
   font-size: 1.05rem;
   font-weight: 800;
-}
-.rel-algebra-canvas-caption {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-  color: #94a3b8;
-  font-size: 0.92rem;
-}
-.rel-algebra-active-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(37, 99, 235, 0.16);
-  color: #bfdbfe;
-  font-weight: 700;
 }
 .rel-algebra-subquestion-list {
   display: flex;
@@ -705,19 +699,7 @@ button { border: none; }
   gap: 12px;
 }
 .rel-algebra-subquestion-statement {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(2,6,23,0.24);
-  border: 1px solid rgba(148,163,184,0.14);
-  color: #dbeafe;
-  line-height: 1.8;
-}
-.rel-algebra-subquestion-label {
-  display: block;
-  margin-bottom: 4px;
-  color: #93c5fd;
-  font-size: 0.86rem;
-  font-weight: 700;
+  display: none;
 }
 .rel-algebra-editor-shell {
   display: flex;
@@ -765,6 +747,7 @@ button { border: none; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding-top: 2px;
 }
 .rel-algebra-editor-quick-actions {
   display: flex;
@@ -794,10 +777,6 @@ button { border: none; }
   .rel-algebra-workbench {
     grid-template-columns: 1fr;
   }
-
-  .rel-algebra-sidebar {
-    position: static;
-  }
 }
 @media (max-width: 720px) {
   .rel-algebra-overview-card,
@@ -814,6 +793,10 @@ button { border: none; }
   .rel-algebra-subquestion-meta {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .rel-algebra-toolbar-btn {
+    min-width: 52px;
   }
 }
 .translation-card,

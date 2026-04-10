@@ -1,16 +1,23 @@
 const LEGACY_SYMBOL_MAP = new Map([
   ['螤', 'Π'],
+  ['Π', 'Π'],
+  ['π', 'Π'],
   ['蟽', 'σ'],
   ['蟻', 'ρ'],
   ['梅', '÷'],
   ['÷', '÷'],
-  ['Π', 'Π'],
   ['σ', 'σ'],
   ['ρ', 'ρ'],
   ['⋈', '⋈'],
   ['∪', '∪'],
   ['∩', '∩'],
   ['-', '-'],
+  ['≥', '≥'],
+  ['≤', '≤'],
+  ['≠', '≠'],
+  ['¬', '¬'],
+  ['∨', '∨'],
+  ['^', '^'],
 ])
 
 const WRAP_SYMBOLS = new Set(['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ', '螤', '蟽', '梅', '蟻'])
@@ -170,10 +177,13 @@ export function insertTextAtCursor(textarea, insertedText, options = {}) {
   }
 }
 
-export function buildRelationalAlgebraInsertion(symbol, { wrap = false } = {}) {
+export function buildRelationalAlgebraInsertion(symbol, { wrap = false, wrapStyle = 'parens' } = {}) {
   const normalized = normalizeSymbol(symbol)
   if (!normalized) return ''
-  return wrap ? `${normalized}()` : normalized
+  if (!wrap) return normalized
+  if (wrapStyle === 'brackets') return `${normalized}[]`
+  if (wrapStyle === 'quotes') return "''"
+  return `${normalized}()`
 }
 
 export function isRelationalAlgebraWrapSymbol(symbol) {
