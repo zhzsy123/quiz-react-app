@@ -47,6 +47,7 @@ export default function CleanQuizView({
   isPaused,
   revealedMap,
   relationalAlgebraExpandedMap = {},
+  subQuestionFocusMap = {},
   isFavorite,
   onToggleFavorite,
   onToggleAutoAdvance,
@@ -82,6 +83,7 @@ export default function CleanQuizView({
   onRelationalAlgebraTextChange,
   onToggleRelationalAlgebraSubQuestion,
   onRevealRelationalAlgebraQuestion,
+  onFocusSubQuestion,
 }) {
   const currentItem = getCurrentItem(quiz, currentIndex)
   const currentExplainEntry = getCurrentExplainEntry(currentItem, aiExplainMap)
@@ -108,6 +110,7 @@ export default function CleanQuizView({
         currentItem={currentItem}
         currentIndex={currentIndex}
         answers={answers}
+        subQuestionFocusMap={subQuestionFocusMap}
         mode={mode}
         submitted={submitted}
         isPaused={isPaused}
@@ -120,6 +123,7 @@ export default function CleanQuizView({
         onTogglePracticeWrongBook={onTogglePracticeWrongBook}
         onToggleExamWrongBook={onToggleExamWrongBook}
         onJump={onJump}
+        onFocusSubQuestion={onFocusSubQuestion}
       />
 
       <main className="question-list">
@@ -188,7 +192,8 @@ export default function CleanQuizView({
               revealedMap={revealedMap}
               relationalAlgebraExpandedMap={relationalAlgebraExpandedMap?.[currentItem.id] || {}}
               aiQuestionReviewMap={aiQuestionReviewMap}
-              onFocusSubQuestion={() => {}}
+              focusSubQuestionId={subQuestionFocusMap?.[currentItem.id] || ''}
+              onFocusSubQuestion={(subQuestionId) => onFocusSubQuestion?.(currentItem.id, subQuestionId)}
               onSelectReadingOption={onSelectReadingOption}
               onSelectClozeOption={onSelectClozeOption}
               onRevealCurrentObjective={onRevealCurrentObjective}

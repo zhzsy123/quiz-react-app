@@ -1250,6 +1250,13 @@ button { border: none; }
   background: rgba(2,6,23,0.32);
   border: 1px solid rgba(148,163,184,0.14);
 }
+.reading-question-item.focused,
+.answer-review-card.focused,
+.rel-algebra-subquestion-card.focused {
+  border-color: rgba(96,165,250,0.48);
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.22), 0 16px 32px rgba(15,23,42,0.22);
+  background: linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(12,20,36,0.9) 100%);
+}
 .reading-question-title {
   display: flex;
   flex-direction: column;

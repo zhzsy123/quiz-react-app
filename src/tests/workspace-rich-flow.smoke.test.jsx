@@ -8,6 +8,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 const {
   createHistoryEntryMock,
+  buildQuizDocumentFromTextMock,
+  gradeRelationalAlgebraSubquestionAttemptMock,
   updateHistoryEntryMock,
   listFavoriteEntriesBySubjectMock,
   toggleFavoriteEntryMock,
@@ -27,15 +29,17 @@ const {
 
   return {
     createHistoryEntryMock: vi.fn(async (record) => clone({ ...record, id: `attempt-${Date.now()}` })),
+    buildQuizDocumentFromTextMock: vi.fn(),
+    gradeRelationalAlgebraSubquestionAttemptMock: vi.fn(),
     updateHistoryEntryMock: vi.fn(async () => {}),
     listFavoriteEntriesBySubjectMock: vi.fn(async () => []),
     toggleFavoriteEntryMock: vi.fn(async () => ({ entries: [] })),
-    listLibraryEntriesMock: vi.fn(async (profileId, subject) => {
-      return libraryStore.filter((item) => item.profileId === profileId && item.subject === subject).map(clone)
-    }),
-    loadSessionProgressMock: vi.fn(async (profileId, subject, paperId) => {
-      return clone(sessionStore.get(`${profileId}:${subject}:${paperId}`) || {})
-    }),
+    listLibraryEntriesMock: vi.fn(async (profileId, subject) =>
+      libraryStore.filter((item) => item.profileId === profileId && item.subject === subject).map(clone)
+    ),
+    loadSessionProgressMock: vi.fn(async (profileId, subject, paperId) =>
+      clone(sessionStore.get(`${profileId}:${subject}:${paperId}`) || {})
+    ),
     saveSessionProgressMock: vi.fn(async (profileId, subject, paperId, payload) => {
       sessionStore.set(`${profileId}:${subject}:${paperId}`, clone(payload))
     }),
@@ -60,12 +64,12 @@ const richQuizFixture = {
     {
       id: 'cloze_1',
       type: 'cloze',
-      title: '完形填空 A',
-      prompt: '根据短文内容完成完形填空。',
+      title: 'Cloze A',
+      prompt: 'Complete the cloze passage.',
       article: 'A short cloze passage [[1]] one missing blank and [[2]] another blank.',
       blanks: [
         {
-          blank_id: 1,
+          blank_id: '1',
           score: 2,
           options: [
             { key: 'A', text: 'with' },
@@ -74,10 +78,10 @@ const richQuizFixture = {
             { key: 'D', text: 'by' },
           ],
           correct: 'A',
-          rationale: '固定搭配为 with one missing blank。',
+          rationale: 'cloze-rationale-1',
         },
         {
-          blank_id: 2,
+          blank_id: '2',
           score: 2,
           options: [
             { key: 'A', text: 'has' },
@@ -86,12 +90,11 @@ const richQuizFixture = {
             { key: 'D', text: 'had' },
           ],
           correct: 'A',
-          rationale: '主语 another blank 视为单数，使用 has。',
+          rationale: 'cloze-rationale-2',
         },
       ],
       answer: { type: 'objective', correct: ['A', 'A'] },
       score: 4,
-      tags: ['cloze'],
     },
     {
       id: 'reading_A',
@@ -112,11 +115,7 @@ const richQuizFixture = {
             { key: 'C', text: 'Reading one distractor' },
             { key: 'D', text: 'Reading one distractor 2' },
           ],
-          answer: {
-            type: 'objective',
-            correct: 'B',
-            rationale: 'reading-rationale-1',
-          },
+          answer: { type: 'objective', correct: 'B', rationale: 'reading-rationale-1' },
           score: 2,
         },
         {
@@ -129,11 +128,7 @@ const richQuizFixture = {
             { key: 'C', text: 'Reading two correct' },
             { key: 'D', text: 'Reading two distractor 3' },
           ],
-          answer: {
-            type: 'objective',
-            correct: 'C',
-            rationale: 'reading-rationale-2',
-          },
+          answer: { type: 'objective', correct: 'C', rationale: 'reading-rationale-2' },
           score: 2,
         },
         {
@@ -146,11 +141,7 @@ const richQuizFixture = {
             { key: 'C', text: 'Reading three distractor 2' },
             { key: 'D', text: 'Reading three distractor 3' },
           ],
-          answer: {
-            type: 'objective',
-            correct: 'A',
-            rationale: 'reading-rationale-3',
-          },
+          answer: { type: 'objective', correct: 'A', rationale: 'reading-rationale-3' },
           score: 2,
         },
       ],
@@ -174,11 +165,7 @@ const richQuizFixture = {
             { key: 'C', text: 'Composite option C' },
             { key: 'D', text: 'Composite option D' },
           ],
-          answer: {
-            type: 'objective',
-            correct: ['A', 'C'],
-            rationale: 'composite-multi-rationale',
-          },
+          answer: { type: 'objective', correct: ['A', 'C'], rationale: 'composite-multi-rationale' },
           score: 2,
         },
         {
@@ -193,11 +180,7 @@ const richQuizFixture = {
               score: 2,
             },
           ],
-          answer: {
-            type: 'objective',
-            correct: [['heap']],
-            rationale: '',
-          },
+          answer: { type: 'objective', correct: [['heap']], rationale: '' },
           score: 2,
         },
       ],
@@ -214,13 +197,173 @@ const richQuizDocument = {
     subjectiveTotal: 0,
     paperTotal: 14,
   },
-  validation: {
-    warnings: [],
+  validation: { warnings: [] },
+  compatibility: { supportedCount: 3, skippedCount: 0 },
+}
+
+const autoAdvanceQuizFixture = {
+  title: 'Workspace auto advance smoke',
+  subject: 'english',
+  duration_minutes: 90,
+  items: [
+    {
+      id: 'cloze_auto',
+      type: 'cloze',
+      title: 'Cloze auto',
+      prompt: 'Complete the cloze passage.',
+      article: 'Auto advance cloze [[1]] with one blank and [[2]] with another blank.',
+      blanks: [
+        {
+          blank_id: 'blank_1',
+          score: 2,
+          options: [
+            { key: 'A', text: 'starts' },
+            { key: 'B', text: 'start' },
+            { key: 'C', text: 'started' },
+            { key: 'D', text: 'starting' },
+          ],
+          correct: 'A',
+          rationale: 'blank-1',
+        },
+        {
+          blank_id: 'blank_2',
+          score: 2,
+          options: [
+            { key: 'A', text: 'moves' },
+            { key: 'B', text: 'move' },
+            { key: 'C', text: 'moving' },
+            { key: 'D', text: 'moved' },
+          ],
+          correct: 'A',
+          rationale: 'blank-2',
+        },
+      ],
+      answer: { type: 'objective', correct: ['A', 'A'] },
+      score: 4,
+    },
+    {
+      id: 'reading_auto',
+      type: 'reading',
+      title: 'Passage A',
+      passage: {
+        title: 'Passage A',
+        content: 'Auto advance reading passage.',
+      },
+      questions: [
+        {
+          id: 'reading_auto_q1',
+          type: 'single_choice',
+          prompt: 'Reading auto 1',
+          options: [
+            { key: 'A', text: 'Wrong 1' },
+            { key: 'B', text: 'Correct 1' },
+            { key: 'C', text: 'Wrong 1-2' },
+            { key: 'D', text: 'Wrong 1-3' },
+          ],
+          answer: { type: 'objective', correct: 'B', rationale: 'r1' },
+          score: 2,
+        },
+        {
+          id: 'reading_auto_q2',
+          type: 'single_choice',
+          prompt: 'Reading auto 2',
+          options: [
+            { key: 'A', text: 'Wrong 2' },
+            { key: 'B', text: 'Wrong 2-2' },
+            { key: 'C', text: 'Correct 2' },
+            { key: 'D', text: 'Wrong 2-3' },
+          ],
+          answer: { type: 'objective', correct: 'C', rationale: 'r2' },
+          score: 2,
+        },
+      ],
+      answer: { type: 'objective' },
+      score: 4,
+    },
+    {
+      id: 'composite_auto',
+      type: 'composite',
+      prompt: 'Composite auto root',
+      material_title: 'Composite material',
+      material: 'Composite material body',
+      questions: [
+        {
+          id: 'composite_auto_multi',
+          type: 'multiple_choice',
+          prompt: 'Composite auto multi',
+          options: [
+            { key: 'A', text: 'Correct A' },
+            { key: 'B', text: 'Wrong B' },
+            { key: 'C', text: 'Correct C' },
+            { key: 'D', text: 'Wrong D' },
+          ],
+          answer: { type: 'objective', correct: ['A', 'C'], rationale: 'cm' },
+          score: 2,
+        },
+        {
+          id: 'composite_auto_blank',
+          type: 'fill_blank',
+          prompt: 'Composite auto blank',
+          blanks: [{ blank_id: 'blank_1', accepted_answers: ['heap'], rationale: 'cb', score: 2 }],
+          answer: { type: 'objective', correct: [['heap']], rationale: '' },
+          score: 2,
+        },
+      ],
+      answer: { type: 'objective' },
+      score: 4,
+    },
+    {
+      id: 'ra_auto',
+      type: 'relational_algebra',
+      prompt: 'Use relational algebra to answer the following.',
+      score: 10,
+      schemas: [
+        { name: '学生', attributes: ['学号', '姓名', '专业'] },
+        { name: '选课', attributes: ['学号', '课程号', '成绩'] },
+      ],
+      subquestions: [
+        {
+          id: '1',
+          label: '(1)',
+          prompt: 'Relational algebra part 1',
+          score: 5,
+          reference_answer: 'π[学号](学生)',
+        },
+        {
+          id: '2',
+          label: '(2)',
+          prompt: 'Relational algebra part 2',
+          score: 5,
+          reference_answer: 'π[姓名](学生)',
+        },
+      ],
+      answer: { type: 'subjective' },
+    },
+    {
+      id: 'single_auto',
+      type: 'single_choice',
+      prompt: 'Final single choice',
+      options: [
+        { key: 'A', text: 'Final wrong' },
+        { key: 'B', text: 'Final correct' },
+        { key: 'C', text: 'Final wrong 2' },
+        { key: 'D', text: 'Final wrong 3' },
+      ],
+      answer: { type: 'objective', correct: 'B', rationale: 'final' },
+      score: 2,
+    },
+  ],
+}
+
+const autoAdvanceQuizDocument = {
+  quiz: autoAdvanceQuizFixture,
+  scoreBreakdown: {
+    objectiveTotal: 14,
+    subjectiveTotal: 10,
+    paperTotal: 24,
   },
-  compatibility: {
-    supportedCount: 3,
-    skippedCount: 0,
-  },
+  validation: { warnings: [] },
+  compatibility: { supportedCount: 5, skippedCount: 0 },
 }
 
 vi.mock('../app/providers/AppContext', () => ({
@@ -236,11 +379,14 @@ vi.mock('../app/providers/AppContext', () => ({
 }))
 
 vi.mock('../entities/quiz/lib/quizPipeline', () => ({
-  buildQuizDocumentFromText: vi.fn(() => richQuizDocument),
+  buildQuizDocumentFromText: buildQuizDocumentFromTextMock,
 }))
 
 vi.mock('../entities/quiz/lib/scoring/getQuizScoreBreakdown', () => ({
-  getQuizScoreBreakdown: vi.fn(() => richQuizDocument.scoreBreakdown),
+  getQuizScoreBreakdown: vi.fn((items) => {
+    const fixture = Array.isArray(items) && items.some((item) => item.id === 'ra_auto') ? autoAdvanceQuizDocument : richQuizDocument
+    return fixture.scoreBreakdown
+  }),
 }))
 
 vi.mock('../entities/history/api/historyRepository', () => ({
@@ -285,12 +431,45 @@ vi.mock('../shared/lib/preferences/preferenceRepository', () => ({
   savePreference: savePreferenceMock,
 }))
 
+vi.mock('../features/ai/reviewService', () => ({
+  auditQuizQuestionCompliance: vi.fn(async () => ({})),
+  explainQuizQuestionWithMode: vi.fn(async () => ({
+    status: 'completed',
+    title: 'AI explain',
+    explanation: 'ok',
+    keyPoints: [],
+    commonMistakes: [],
+    answerStrategy: [],
+    error: '',
+  })),
+  generateSimilarQuestions: vi.fn(async () => ({
+    status: 'completed',
+    title: 'AI similar',
+    questions: [],
+    error: '',
+  })),
+  gradeSubjectiveAttempt: vi.fn(async () => ({
+    status: 'completed',
+    score: 0,
+    totalScore: 0,
+    breakdown: [],
+  })),
+  gradeRelationalAlgebraAttempt: vi.fn(async () => ({
+    question_id: 'ra',
+    subquestion_results: [],
+    total_score: 0,
+    max_score: 0,
+  })),
+  gradeRelationalAlgebraSubquestionAttempt: gradeRelationalAlgebraSubquestionAttemptMock,
+}))
+
 vi.mock('../entities/subject/model/subjects', () => {
   const questionTypeOptions = [
     { key: 'single_choice', label: 'Single Choice', shortLabel: 'Single', family: 'objective' },
     { key: 'cloze', label: 'Cloze', shortLabel: 'Cloze', family: 'objective' },
     { key: 'reading', label: 'Reading', shortLabel: 'Reading', family: 'objective' },
     { key: 'composite', label: 'Composite', shortLabel: 'Composite', family: 'subjective' },
+    { key: 'relational_algebra', label: 'Relational Algebra', shortLabel: 'RA', family: 'subjective' },
   ]
 
   const subjectMeta = {
@@ -301,7 +480,7 @@ vi.mock('../entities/subject/model/subjects', () => {
     description: 'English paper library and mock exam.',
     route: '/exam/english',
     workspaceRoute: '/workspace/english',
-    expectedPaperTotal: 14,
+    expectedPaperTotal: 24,
     defaultDurationMinutes: 90,
     isAvailable: true,
     questionTypeKeys: questionTypeOptions.map((item) => item.key),
@@ -312,7 +491,7 @@ vi.mock('../entities/subject/model/subjects', () => {
       defaultCounts: [5],
       defaultDifficulty: 'medium',
       defaultDurationMinutes: 90,
-      defaultPaperTotal: 14,
+      defaultPaperTotal: 24,
       promptProfile: 'english',
     },
     downloadDocs: [],
@@ -340,6 +519,8 @@ import SubjectWorkspacePage from '../pages/SubjectWorkspacePage'
 function resetStores() {
   resetMockStores()
   createHistoryEntryMock.mockClear()
+  buildQuizDocumentFromTextMock.mockClear()
+  gradeRelationalAlgebraSubquestionAttemptMock.mockClear()
   updateHistoryEntryMock.mockClear()
   listFavoriteEntriesBySubjectMock.mockClear()
   toggleFavoriteEntryMock.mockClear()
@@ -359,13 +540,12 @@ async function flushAsyncWork() {
   })
 }
 
-async function waitFor(predicate, attempts = 40) {
+async function waitFor(predicate, attempts = 60) {
   for (let index = 0; index < attempts; index += 1) {
     if (predicate()) return
     await flushAsyncWork()
   }
-
-  throw new Error('Timed out waiting for workspace rich smoke condition.')
+  throw new Error('Timed out waiting for workspace smoke condition.')
 }
 
 async function renderWorkspace(initialEntry) {
@@ -389,38 +569,47 @@ async function renderWorkspace(initialEntry) {
 function findButtonByText(container, text) {
   const buttons = Array.from(container.querySelectorAll('button'))
   const matched = buttons.find((button) => button.textContent?.includes(text))
-  if (!matched) {
-    throw new Error(`Unable to find button containing text: ${text}`)
-  }
+  if (!matched) throw new Error(`Unable to find button containing text: ${text}`)
   return matched
 }
 
 function getNextButton(container) {
   const buttons = container.querySelectorAll('.question-actions button')
-  if (buttons.length < 2) {
-    throw new Error('Unable to find next-question button.')
-  }
+  if (buttons.length < 2) throw new Error('Unable to find next-question button.')
   return buttons[1]
 }
 
 function getSubmitButton(container) {
   const button = container.querySelector('.quiz-submit-row button')
-  if (!button) {
-    throw new Error('Unable to find submit button.')
-  }
+  if (!button) throw new Error('Unable to find submit button.')
+  return button
+}
+
+function getInlineActionButton(container) {
+  const button = container.querySelector('.question-inline-actions button')
+  if (!button) throw new Error('Unable to find inline action button.')
   return button
 }
 
 function getCompositeRevealButtons(container) {
   const buttons = [...container.querySelectorAll('.question-inline-actions button')]
-  if (!buttons.length) {
-    throw new Error('Unable to find composite reveal button.')
-  }
+  if (!buttons.length) throw new Error('Unable to find composite reveal button.')
   return buttons
 }
 
+function getRelationalAlgebraGradeButton(container) {
+  const button =
+    container.querySelector('.rel-algebra-subquestion-card.focused .rel-algebra-grade-btn') ||
+    container.querySelector('.rel-algebra-grade-btn')
+  if (!button) throw new Error('Unable to find relational algebra grade button.')
+  return button
+}
+
 function setNativeInputValue(input, value) {
-  const prototype = input instanceof window.HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype
+  const prototype =
+    input instanceof window.HTMLTextAreaElement
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype
   const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value')
   descriptor?.set?.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -441,10 +630,43 @@ describe('workspace rich smoke flow', () => {
             rawText: 'rich-fixture',
             importedAt: Date.now(),
           },
+          {
+            id: 'library-entry-auto',
+            profileId,
+            subject,
+            paperId: 'paper-auto-advance',
+            title: 'Workspace auto advance smoke',
+            rawText: 'auto-advance-fixture',
+            importedAt: Date.now(),
+          },
         ]
       }
       return []
     })
+
+    buildQuizDocumentFromTextMock.mockImplementation((rawText) =>
+      rawText === 'auto-advance-fixture' ? autoAdvanceQuizDocument : richQuizDocument
+    )
+
+    gradeRelationalAlgebraSubquestionAttemptMock.mockImplementation(async ({ subQuestion, userAnswer }) => ({
+      questionId: `ra_auto:${subQuestion.id}`,
+      subquestionId: String(subQuestion.id),
+      verdict: 'correct',
+      equivalent: true,
+      score: Number(subQuestion.score) || 0,
+      maxScore: Number(subQuestion.score) || 0,
+      completion: 100,
+      confidence: 100,
+      feedback: `${String(userAnswer || '').trim()} matches the reference semantics.`,
+      strengths: [],
+      weaknesses: [],
+      suggestions: [],
+      earned_points: ['表达式语义正确'],
+      missing_points: [],
+      error_points: [],
+      normalizedReference: subQuestion.reference_answer,
+      normalizedUserAnswer: String(userAnswer || '').trim(),
+    }))
   })
 
   afterEach(() => {
@@ -455,7 +677,7 @@ describe('workspace rich smoke flow', () => {
   it('covers cloze, reading and composite interactions from navigation to submit', async () => {
     const { container, root } = await renderWorkspace('/workspace/english?paper=paper-rich&mode=practice')
 
-    await waitFor(() => container.textContent?.includes('根据短文内容完成完形填空。'))
+    await waitFor(() => container.textContent?.includes('Complete the cloze passage.'))
     expect(container.textContent).toContain('(1) ______')
     expect(container.textContent).toContain('(2) ______')
 
@@ -464,13 +686,12 @@ describe('workspace rich smoke flow', () => {
       findButtonByText(container, 'has').click()
     })
 
-    await waitFor(() => container.textContent?.includes('检查整篇完形'))
-
+    await waitFor(() => container.querySelector('.question-inline-actions button'))
     await act(async () => {
-      findButtonByText(container, '检查整篇完形').click()
+      getInlineActionButton(container).click()
     })
 
-    await waitFor(() => container.textContent?.includes('固定搭配为 with one missing blank。'))
+    await waitFor(() => container.textContent?.includes('cloze-rationale-1'))
     expect(saveSessionProgressMock.mock.calls.length).toBeGreaterThan(0)
 
     await act(async () => {
@@ -515,7 +736,6 @@ describe('workspace rich smoke flow', () => {
       findButtonByText(container, 'Composite option A').click()
       findButtonByText(container, 'Composite option C').click()
     })
-
     await act(async () => {
       getCompositeRevealButtons(container)[0].click()
     })
@@ -537,6 +757,94 @@ describe('workspace rich smoke flow', () => {
 
     await waitFor(() => createHistoryEntryMock.mock.calls.length === 1)
     expect(container.querySelector('.score-card')).not.toBeNull()
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('auto advances through nested subquestions before moving to the next top-level item', async () => {
+    loadPreferenceMock.mockImplementation((key) => (key === 'quiz:pref:autoAdvance' ? 'true' : null))
+
+    const { container, root } = await renderWorkspace('/workspace/english?paper=paper-auto-advance&mode=practice')
+
+    await waitFor(() => container.textContent?.includes('Complete the cloze passage.'))
+
+    await act(async () => {
+      findButtonByText(container, 'starts').click()
+    })
+    await waitFor(() => container.querySelector('.answer-review-card.focused')?.textContent?.includes('2'))
+    expect(container.textContent).toContain('Complete the cloze passage.')
+
+    await act(async () => {
+      findButtonByText(container, 'moves').click()
+    })
+    await waitFor(() => container.querySelector('.question-inline-actions button'))
+    await act(async () => {
+      getInlineActionButton(container).click()
+    })
+    await waitFor(() => container.textContent?.includes('Auto advance reading passage.'))
+
+    await act(async () => {
+      findButtonByText(container, 'Correct 1').click()
+    })
+    await waitFor(() => container.querySelector('.reading-question-item.focused')?.textContent?.includes('Reading auto 2'))
+    expect(container.textContent).toContain('Auto advance reading passage.')
+
+    await act(async () => {
+      findButtonByText(container, 'Correct 2').click()
+    })
+    await waitFor(() => container.textContent?.includes('Composite auto root'))
+
+    await act(async () => {
+      findButtonByText(container, 'Correct A').click()
+      findButtonByText(container, 'Correct C').click()
+    })
+    await act(async () => {
+      getCompositeRevealButtons(container)[0].click()
+    })
+    await waitFor(() => container.querySelector('.answer-review-card.focused')?.textContent?.includes('Composite auto blank'))
+    expect(container.textContent).toContain('Composite auto root')
+
+    const compositeInput = container.querySelector('.fill-blank-input')
+    expect(compositeInput).not.toBeNull()
+    await act(async () => {
+      setNativeInputValue(compositeInput, 'heap')
+    })
+    await act(async () => {
+      getCompositeRevealButtons(container)[0].click()
+    })
+    await waitFor(() => container.textContent?.includes('Use relational algebra to answer the following.'))
+
+    await waitFor(() =>
+      container.querySelector('.rel-algebra-subquestion-card.focused')?.textContent?.includes('Relational algebra part 1')
+    )
+    await act(async () => {
+      container.querySelector('.rel-algebra-subquestion-card.focused .rel-algebra-subquestion-head')?.click()
+    })
+    await waitFor(() => container.querySelectorAll('.rel-algebra-editor').length > 0)
+    let raTextareas = container.querySelectorAll('.rel-algebra-editor')
+    expect(raTextareas.length).toBeGreaterThan(0)
+    await act(async () => {
+      setNativeInputValue(raTextareas[0], 'π[学号](学生)')
+    })
+    await act(async () => {
+      getRelationalAlgebraGradeButton(container).click()
+    })
+    await waitFor(() => gradeRelationalAlgebraSubquestionAttemptMock.mock.calls.length === 1)
+    await waitFor(() =>
+      container.querySelector('.rel-algebra-subquestion-card.focused')?.textContent?.includes('Relational algebra part 2')
+    )
+
+    raTextareas = container.querySelectorAll('.rel-algebra-editor')
+    await act(async () => {
+      setNativeInputValue(raTextareas[1], 'π[姓名](学生)')
+    })
+    await act(async () => {
+      getRelationalAlgebraGradeButton(container).click()
+    })
+    await waitFor(() => gradeRelationalAlgebraSubquestionAttemptMock.mock.calls.length === 2)
+    await waitFor(() => container.textContent?.includes('Final single choice'))
 
     await act(async () => {
       root.unmount()

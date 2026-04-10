@@ -84,6 +84,7 @@ export default function RelationalAlgebraSubquestionCard({
   subquestion,
   index,
   expanded,
+  focused = false,
   disabled,
   value,
   review,
@@ -108,7 +109,7 @@ export default function RelationalAlgebraSubquestionCard({
         : 0
 
   return (
-    <article className={`rel-algebra-subquestion-card ${expanded ? 'expanded' : ''}`}>
+    <article className={`rel-algebra-subquestion-card ${expanded ? 'expanded' : ''} ${focused ? 'focused' : ''}`}>
       <button type="button" className="rel-algebra-subquestion-head" onClick={() => onToggle?.(subquestion.id)}>
         <div className="rel-algebra-subquestion-title-wrap">
           <span className="rel-algebra-subquestion-index">{subquestion?.label || `(${index + 1})`}</span>

@@ -58,6 +58,12 @@ import {
   toggleRelationalAlgebraSubQuestionExpanded,
   updateRelationalAlgebraAnswer,
 } from './subjectWorkspaceRelationalAlgebra.js'
+import {
+  getFirstNestedStepId,
+  getNextNestedStepId,
+  normalizeNestedFocusMap,
+  setNestedFocusForItem,
+} from './subjectWorkspaceNestedFlow.js'
 
 const AUTO_ADVANCE_KEY = 'quiz:pref:autoAdvance'
 const SPOILER_PREF_KEY = 'quiz:pref:showSpoilerTags'
@@ -82,6 +88,7 @@ export function useSubjectWorkspaceState() {
   const [answers, setAnswers] = useState({})
   const answersRef = useRef({})
   const [relationalAlgebraExpandedMap, setRelationalAlgebraExpandedMap] = useState({})
+  const [subQuestionFocusMap, setSubQuestionFocusMap] = useState({})
   const [revealedMap, setRevealedMap] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
@@ -178,6 +185,7 @@ export function useSubjectWorkspaceState() {
         setAnswers(nextAnswers)
         setRevealedMap(progress?.revealedMap || {})
         setRelationalAlgebraExpandedMap(progress?.relationalAlgebraExpandedMap || {})
+        setSubQuestionFocusMap(normalizeNestedFocusMap(resolvedQuiz, progress?.subQuestionFocusMap || {}))
         setSubmitted(Boolean(progress?.submitted))
         setScore(progress?.score || 0)
         setAttemptId(progress?.attemptId || '')
@@ -224,6 +232,7 @@ export function useSubjectWorkspaceState() {
       answers,
       revealedMap,
       relationalAlgebraExpandedMap,
+      subQuestionFocusMap,
       submitted,
       score,
       attemptId,
@@ -261,11 +270,10 @@ export function useSubjectWorkspaceState() {
     await persistAttemptPatch(nextAttemptId, { aiReview: nextReview })
   }
 
-  const upsertAiQuestionReview = async (reviewKey, reviewEntry, patch = {}) => {
+  const upsertAiQuestionReview = async (reviewKey, reviewEntry, progressOverrides = {}) => {
     const baseReview = aiReviewRef.current || createWorkspacePendingAiReview(subjectivePendingScore || 0)
     const nextReview = {
       ...baseReview,
-      ...patch,
       questionReviews: {
         ...(baseReview.questionReviews || {}),
         [reviewKey]: {
@@ -277,7 +285,7 @@ export function useSubjectWorkspaceState() {
 
     setAiReview(nextReview)
     aiReviewRef.current = nextReview
-    await persistNow({ aiReview: nextReview })
+    await persistNow({ aiReview: nextReview, ...progressOverrides })
     await persistAttemptPatch(attemptId, { aiReview: nextReview })
     return nextReview
   }
@@ -300,6 +308,31 @@ export function useSubjectWorkspaceState() {
   const objectiveTotalScore = scoreSummary.objectiveTotal
   const paperTotalScore = scoreSummary.paperTotal
   const subjectivePendingScore = scoreSummary.subjectiveTotal
+
+  const buildNextSubQuestionFocusMap = (item, subQuestionId, baseMap = subQuestionFocusMap) => {
+    if (!item?.id) return baseMap
+    return setNestedFocusForItem(baseMap, item, subQuestionId)
+  }
+
+  const applySubQuestionFocus = (item, subQuestionId, baseMap = subQuestionFocusMap) => {
+    const nextMap = buildNextSubQuestionFocusMap(item, subQuestionId, baseMap)
+    setSubQuestionFocusMap(nextMap)
+    return nextMap
+  }
+
+  const moveToNextNestedTarget = (item, currentSubQuestionId, baseMap = subQuestionFocusMap) => {
+    const nextSubQuestionId = getNextNestedStepId(item, currentSubQuestionId)
+    let nextFocusMap = baseMap
+
+    if (nextSubQuestionId) {
+      nextFocusMap = applySubQuestionFocus(item, nextSubQuestionId, baseMap)
+    }
+
+    return {
+      nextFocusMap,
+      nextSubQuestionId,
+    }
+  }
 
   const practiceAccuracy = useMemo(() => {
     if (!quiz || mode !== 'practice') return { correct: 0, answered: 0, rate: 0 }
@@ -584,6 +617,14 @@ export function useSubjectWorkspaceState() {
     void persistNow({ currentIndex: nextIndex })
   }
 
+  const handleFocusSubQuestion = (questionId, subQuestionId) => {
+    if (!quiz) return
+    const currentItem = quiz.items.find((item) => item.id === questionId)
+    if (!currentItem || !subQuestionId) return
+    const nextMap = applySubQuestionFocus(currentItem, subQuestionId)
+    void persistNow({ subQuestionFocusMap: nextMap })
+  }
+
   const handlePrev = () => {
     const nextIndex = Math.max(currentIndex - 1, 0)
     setCurrentIndex(nextIndex)
@@ -655,24 +696,36 @@ export function useSubjectWorkspaceState() {
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'cloze' || currentItem.id !== questionId) return
 
+    let nextFocusMap = applySubQuestionFocus(currentItem, blankId)
     const nextItemResponse = { ...(answersRef.current[questionId] || {}), [blankId]: optionLetter }
     const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
     if (mode === 'practice') {
-      void persistNow({ answers: nextAnswers })
+      if (autoAdvance) {
+        const nextBlankId = getNextNestedStepId(currentItem, blankId)
+        if (nextBlankId) {
+          nextFocusMap = applySubQuestionFocus(currentItem, nextBlankId, nextFocusMap)
+        }
+      }
+      void persistNow({ answers: nextAnswers, subQuestionFocusMap: nextFocusMap })
       return
     }
 
     const allAnswered = currentItem.blanks.every((blank) => isNonEmptyText(nextItemResponse[blank.blank_id]))
     let nextIndex = currentIndex
-    if (autoAdvance && allAnswered && currentIndex < quiz.items.length - 1) {
-      nextIndex = currentIndex + 1
-      setCurrentIndex(nextIndex)
+    if (autoAdvance) {
+      const nextBlankId = getNextNestedStepId(currentItem, blankId)
+      if (nextBlankId) {
+        nextFocusMap = applySubQuestionFocus(currentItem, nextBlankId, nextFocusMap)
+      } else if (allAnswered && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
     }
 
-    void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
   }
 
   const handleSelectCompositeOption = (parentQuestionId, subQuestionId, optionLetter) => {
@@ -697,6 +750,7 @@ export function useSubjectWorkspaceState() {
 
     const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextValue }
     const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
+    let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -707,11 +761,43 @@ export function useSubjectWorkspaceState() {
       if (shouldRevealNow) {
         setRevealedMap(nextRevealed)
       }
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+
+      let nextIndex = currentIndex
+      const shouldAdvanceWithinComposite =
+        autoAdvance &&
+        shouldRevealNow &&
+        isObjectiveGradable(subQuestion) &&
+        isObjectiveResponseCorrect(subQuestion, nextValue)
+
+      if (shouldAdvanceWithinComposite) {
+        const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+        nextFocusMap = nestedAdvance.nextFocusMap
+        if (!nestedAdvance.nextSubQuestionId && currentIndex < quiz.items.length - 1) {
+          nextIndex = currentIndex + 1
+          setCurrentIndex(nextIndex)
+        }
+      }
+
+      void persistNow({
+        answers: nextAnswers,
+        revealedMap: nextRevealed,
+        currentIndex: nextIndex,
+        subQuestionFocusMap: nextFocusMap,
+      })
       return
     }
 
-    void persistNow({ answers: nextAnswers })
+    let nextIndex = currentIndex
+    if (autoAdvance && subQuestion.type !== 'multiple_choice') {
+      const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+      nextFocusMap = nestedAdvance.nextFocusMap
+      if (!nestedAdvance.nextSubQuestionId && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
+    }
+
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
   }
 
   const handleSelectReadingOption = (questionId, subQuestionId, optionLetter) => {
@@ -722,6 +808,7 @@ export function useSubjectWorkspaceState() {
     const readingQuestions = Array.isArray(currentItem.questions) ? currentItem.questions : []
     if (!readingQuestions.length) return
 
+    let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     const nextItemResponse = { ...(answersRef.current[questionId] || {}), [subQuestionId]: optionLetter }
     const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
     setAnswers(nextAnswers)
@@ -732,27 +819,45 @@ export function useSubjectWorkspaceState() {
       setRevealedMap(nextRevealed)
       const answeredCount = readingQuestions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
       const gradableReadingQuestions = readingQuestions.filter((question) => isObjectiveGradable(question))
+      const currentSubQuestion = readingQuestions.find((question) => String(question.id) === String(subQuestionId))
+      const currentIsCorrect =
+        currentSubQuestion && isObjectiveGradable(currentSubQuestion)
+          ? nextItemResponse[subQuestionId] === currentSubQuestion.answer?.correct
+          : false
       const allCorrect =
         answeredCount === readingQuestions.length &&
         gradableReadingQuestions.length > 0 &&
         gradableReadingQuestions.every((question) => nextItemResponse[question.id] === question.answer?.correct)
       let nextIndex = currentIndex
-      if (autoAdvance && allCorrect && currentIndex < quiz.items.length - 1) {
-        nextIndex = currentIndex + 1
-        setCurrentIndex(nextIndex)
+      if (autoAdvance && currentIsCorrect) {
+        const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+        nextFocusMap = nestedAdvance.nextFocusMap
+        if (!nestedAdvance.nextSubQuestionId && allCorrect && currentIndex < quiz.items.length - 1) {
+          nextIndex = currentIndex + 1
+          setCurrentIndex(nextIndex)
+        }
       }
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed, currentIndex: nextIndex })
+      void persistNow({
+        answers: nextAnswers,
+        revealedMap: nextRevealed,
+        currentIndex: nextIndex,
+        subQuestionFocusMap: nextFocusMap,
+      })
       return
     }
 
     const answeredCount = readingQuestions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
     let nextIndex = currentIndex
-    if (autoAdvance && answeredCount === readingQuestions.length && currentIndex < quiz.items.length - 1) {
-      nextIndex = currentIndex + 1
-      setCurrentIndex(nextIndex)
+    if (autoAdvance) {
+      const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+      nextFocusMap = nestedAdvance.nextFocusMap
+      if (!nestedAdvance.nextSubQuestionId && answeredCount === readingQuestions.length && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
     }
 
-    void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
   }
 
   const handleFillBlankChange = (questionId, blankId, text) => {
@@ -788,15 +893,27 @@ export function useSubjectWorkspaceState() {
     const nextSubResponse = { ...currentSubResponse, [blankId]: text }
     const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextSubResponse }
     const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
+    let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
     if (mode === 'practice') {
-      void persistNow({ answers: nextAnswers })
+      void persistNow({ answers: nextAnswers, subQuestionFocusMap: nextFocusMap })
       return
     }
 
-    void persistNow({ answers: nextAnswers })
+    const isComplete = isObjectiveAnswered(subQuestion, nextSubResponse)
+    let nextIndex = currentIndex
+    if (autoAdvance && isComplete) {
+      const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+      nextFocusMap = nestedAdvance.nextFocusMap
+      if (!nestedAdvance.nextSubQuestionId && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
+    }
+
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
   }
 
   const handleRevealCurrentObjective = () => {
@@ -858,7 +975,19 @@ export function useSubjectWorkspaceState() {
     const revealKey = `${parentQuestionId}:${subQuestionId}`
     const nextRevealed = { ...revealedMap, [revealKey]: true }
     setRevealedMap(nextRevealed)
-    void persistNow({ revealedMap: nextRevealed })
+    let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
+    let nextIndex = currentIndex
+
+    if (autoAdvance && isObjectiveResponseCorrect(subQuestion, currentResponse)) {
+      const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+      nextFocusMap = nestedAdvance.nextFocusMap
+      if (!nestedAdvance.nextSubQuestionId && currentIndex < quiz.items.length - 1) {
+        nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
+      }
+    }
+
+    void persistNow({ revealedMap: nextRevealed, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
   }
 
   const handleTextChange = (questionId, text) => {
@@ -893,6 +1022,7 @@ export function useSubjectWorkspaceState() {
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'relational_algebra' || currentItem.id !== questionId) return
 
+    const nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     const nextQuestionState = updateRelationalAlgebraAnswer(currentItem, answersRef.current[questionId], subQuestionId, text)
     const nextAnswers = { ...answersRef.current, [questionId]: nextQuestionState }
     setAnswers(nextAnswers)
@@ -904,7 +1034,7 @@ export function useSubjectWorkspaceState() {
     const currentReview = aiReviewRef.current
     const hasReview = Boolean(currentReview?.questionReviews?.[reviewKey])
     if (!hasReview) {
-      void persistNow({ answers: nextAnswers })
+      void persistNow({ answers: nextAnswers, subQuestionFocusMap: nextFocusMap })
       return
     }
 
@@ -931,7 +1061,7 @@ export function useSubjectWorkspaceState() {
 
     setAiReview(nextReview)
     aiReviewRef.current = nextReview
-    void persistNow({ answers: nextAnswers, aiReview: nextReview })
+    void persistNow({ answers: nextAnswers, aiReview: nextReview, subQuestionFocusMap: nextFocusMap })
   }
 
   const handleToggleRelationalAlgebraSubQuestion = (questionId, subQuestionId, nextExpanded) => {
@@ -950,8 +1080,9 @@ export function useSubjectWorkspaceState() {
       ...relationalAlgebraExpandedMap,
       [questionId]: nextExpandedMap,
     }
+    const nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     setRelationalAlgebraExpandedMap(nextMap)
-    void persistNow({ relationalAlgebraExpandedMap: nextMap })
+    void persistNow({ relationalAlgebraExpandedMap: nextMap, subQuestionFocusMap: nextFocusMap })
   }
 
   const handleRevealRelationalAlgebraQuestion = (questionId, subQuestionId) => {
@@ -1006,9 +1137,39 @@ export function useSubjectWorkspaceState() {
 
         if (relationalAlgebraReviewRequestRef.current[reviewKey] !== requestId) return
 
+        let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
+        let nextExpandedMap = relationalAlgebraExpandedMap
+        let nextIndex = currentIndex
+
+        if (autoAdvance && completedReview.verdict === 'correct') {
+          const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+          nextFocusMap = nestedAdvance.nextFocusMap
+
+          if (nestedAdvance.nextSubQuestionId) {
+            const expandedForItem = toggleRelationalAlgebraSubQuestionExpanded(
+              currentItem,
+              relationalAlgebraExpandedMap[questionId] || {},
+              nestedAdvance.nextSubQuestionId,
+              true
+            )
+            nextExpandedMap = {
+              ...relationalAlgebraExpandedMap,
+              [questionId]: expandedForItem,
+            }
+            setRelationalAlgebraExpandedMap(nextExpandedMap)
+          } else if (currentIndex < quiz.items.length - 1) {
+            nextIndex = currentIndex + 1
+            setCurrentIndex(nextIndex)
+          }
+        }
+
         await upsertAiQuestionReview(reviewKey, {
           ...completedReview,
           status: 'completed',
+        }, {
+          currentIndex: nextIndex,
+          subQuestionFocusMap: nextFocusMap,
+          relationalAlgebraExpandedMap: nextExpandedMap,
         })
       } catch (error) {
         if (relationalAlgebraReviewRequestRef.current[reviewKey] !== requestId) return
@@ -1057,6 +1218,7 @@ export function useSubjectWorkspaceState() {
     setAiReview(null)
     setAiExplainMap({})
     setCurrentIndex(0)
+    setSubQuestionFocusMap(normalizeNestedFocusMap(quiz, {}))
     setRemainingSeconds(examDurationSeconds)
     setIsPaused(false)
 
@@ -1069,6 +1231,7 @@ export function useSubjectWorkspaceState() {
       aiReview: null,
       aiExplainMap: {},
       relationalAlgebraExpandedMap: {},
+      subQuestionFocusMap: normalizeNestedFocusMap(quiz, {}),
       currentIndex: 0,
       timerSecondsRemaining: examDurationSeconds,
       isPaused: false,
@@ -1146,6 +1309,7 @@ export function useSubjectWorkspaceState() {
     aiPracticeModal,
     currentIndex,
     relationalAlgebraExpandedMap,
+    subQuestionFocusMap,
     autoAdvance,
     practiceWritesWrongBook,
     examWritesWrongBook,
@@ -1162,6 +1326,7 @@ export function useSubjectWorkspaceState() {
     handleToggleFavorite,
     handleToggleSpoiler,
     handleToggleAutoAdvance,
+    handleFocusSubQuestion,
     handleTogglePracticeWrongBook,
     handleToggleExamWrongBook,
     handleTogglePause,

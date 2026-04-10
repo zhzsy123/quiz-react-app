@@ -58,6 +58,8 @@ export default function QuizClozeBlock({
   isPaused,
   mode,
   revealedMap,
+  focusBlankId,
+  onFocusBlank,
   onSelectClozeOption,
   onRevealCurrentObjective,
 }) {
@@ -84,9 +86,10 @@ export default function QuizClozeBlock({
       <div className="answer-review-grid cloze-grid">
         {blanks.map((blank, index) => {
           const selectedValue = clozeResponse[blank.blank_id] || ''
+          const isFocused = String(focusBlankId || '') === String(blank.blank_id)
 
           return (
-            <article key={blank.blank_id} className="answer-review-card">
+            <article key={blank.blank_id} className={`answer-review-card ${isFocused ? 'focused' : ''}`}>
               <div className="answer-review-prompt">
                 第 {index + 1} 空
                 <span className="essay-word-count">{blank.score || 0} 分</span>
@@ -120,7 +123,10 @@ export default function QuizClozeBlock({
                       type="button"
                       className={className}
                       disabled={submitted || isPaused || (mode === 'practice' && showFeedback)}
-                      onClick={() => onSelectClozeOption(item.id, blank.blank_id, option.key)}
+                      onClick={() => {
+                        onFocusBlank?.(blank.blank_id)
+                        onSelectClozeOption(item.id, blank.blank_id, option.key)
+                      }}
                     >
                       <span>
                         {option.key}. {option.text}

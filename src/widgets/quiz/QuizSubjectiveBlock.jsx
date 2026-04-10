@@ -182,7 +182,9 @@ function ReadingBlock({
   useEffect(() => {
     if (!focusSubQuestionId) return
     const target = questionRefs.current[focusSubQuestionId]
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
   }, [focusSubQuestionId])
 
   return (
@@ -492,6 +494,8 @@ function CompositeBlock({
   disabled,
   mode,
   revealedMap,
+  focusSubQuestionId,
+  onFocusSubQuestion,
   onSelectOption,
   onFillBlankChange,
   onTextChange,
@@ -540,7 +544,10 @@ function CompositeBlock({
           const isGradable = isObjectiveGradable(question)
 
           return (
-            <article key={question.id} className="answer-review-card">
+            <article
+              key={question.id}
+              className={`answer-review-card ${String(focusSubQuestionId || '') === String(question.id) ? 'focused' : ''}`}
+            >
               <div className="answer-review-prompt">
                 第 {index + 1} 小题
                 <span className="tag purple" style={{ marginLeft: 8 }}>
@@ -562,9 +569,15 @@ function CompositeBlock({
                   canRevealMultiChoice={canRevealMultiChoice}
                   canRevealFillBlank={canRevealFillBlank}
                   isGradable={isGradable}
-                  onSelectOption={onSelectOption}
+                  onSelectOption={(targetId, optionKey) => {
+                    onFocusSubQuestion?.(targetId)
+                    onSelectOption(targetId, optionKey)
+                  }}
                   onRevealQuestion={onRevealQuestion}
-                  onFillBlankChange={onFillBlankChange}
+                  onFillBlankChange={(targetId, blankId, text) => {
+                    onFocusSubQuestion?.(targetId)
+                    onFillBlankChange(targetId, blankId, text)
+                  }}
                 />
               ) : isTranslation ? (
                 <TranslationBlock
@@ -572,7 +585,10 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={onTextChange}
+                  onTextChange={(targetId, text) => {
+                    onFocusSubQuestion?.(targetId)
+                    onTextChange(targetId, text)
+                  }}
                 />
               ) : isGenericSubjective ? (
                 <GenericSubjectiveBlock
@@ -580,7 +596,10 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={onTextChange}
+                  onTextChange={(targetId, text) => {
+                    onFocusSubQuestion?.(targetId)
+                    onTextChange(targetId, text)
+                  }}
                 />
               ) : isEssay ? (
                 <EssayBlock
@@ -588,7 +607,10 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={onTextChange}
+                  onTextChange={(targetId, text) => {
+                    onFocusSubQuestion?.(targetId)
+                    onTextChange(targetId, text)
+                  }}
                 />
               ) : (
                 <GenericSubjectiveBlock
@@ -596,7 +618,10 @@ function CompositeBlock({
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
                   submitted={submitted}
-                  onTextChange={onTextChange}
+                  onTextChange={(targetId, text) => {
+                    onFocusSubQuestion?.(targetId)
+                    onTextChange(targetId, text)
+                  }}
                 />
               )}
             </article>
@@ -642,6 +667,8 @@ export default function QuizSubjectiveBlock({
         isPaused={isPaused}
         mode={mode}
         revealedMap={revealedMap}
+        focusBlankId={focusSubQuestionId}
+        onFocusBlank={onFocusSubQuestion}
         onSelectClozeOption={onSelectClozeOption}
         onRevealCurrentObjective={onRevealCurrentObjective}
       />
@@ -675,6 +702,8 @@ export default function QuizSubjectiveBlock({
         disabled={isPaused}
         mode={mode}
         revealedMap={revealedMap}
+        focusSubQuestionId={focusSubQuestionId}
+        onFocusSubQuestion={onFocusSubQuestion}
         onSelectOption={(subQuestionId, optionKey) => onSelectCompositeOption(item.id, subQuestionId, optionKey)}
         onFillBlankChange={(subQuestionId, blankId, text) =>
           onCompositeFillBlankChange(item.id, subQuestionId, blankId, text)
@@ -718,9 +747,11 @@ export default function QuizSubjectiveBlock({
         isPaused={isPaused}
         expandedMap={relationalAlgebraExpandedMap}
         reviewMap={aiQuestionReviewMap}
+        focusSubQuestionId={focusSubQuestionId}
         onTextChange={onRelationalAlgebraTextChange}
         onToggleSubQuestion={onToggleRelationalAlgebraSubQuestion}
         onRevealQuestion={onRevealRelationalAlgebraQuestion}
+        onFocusSubQuestion={onFocusSubQuestion}
       />
     )
   }

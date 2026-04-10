@@ -27,17 +27,19 @@ export default function RelationalAlgebraBlock({
   isPaused,
   expandedMap,
   reviewMap = {},
+  focusSubQuestionId,
   onTextChange,
   onToggleSubQuestion,
   onRevealQuestion,
+  onFocusSubQuestion,
 }) {
   const subquestions = Array.isArray(item?.subquestions) ? item.subquestions : []
   const subquestionSignature = subquestions
     .map((subquestion, index) => `${String(subquestion.id ?? index + 1)}:${String(subquestion.prompt || '')}`)
     .join('|')
   const editorRefs = useRef({})
-  const [activeSubquestionId, setActiveSubquestionId] = useState(getFirstQuestionId(subquestions))
   const [draftMap, setDraftMap] = useState(() => normalizeRelationalAlgebraResponse(response, subquestions))
+  const activeSubquestionId = focusSubQuestionId || getFirstQuestionId(subquestions)
 
   const effectiveExpandedMap = buildExpandedMap(subquestions, expandedMap)
   const contentScore = subquestions.reduce((sum, subquestion) => sum + (Number(subquestion?.score) || 0), 0)
@@ -53,12 +55,6 @@ export default function RelationalAlgebraBlock({
   useEffect(() => {
     setDraftMap(normalizeRelationalAlgebraResponse(response, subquestions))
   }, [response, item?.id, subquestionSignature])
-
-  useEffect(() => {
-    if (!activeSubquestionId && subquestions.length > 0) {
-      setActiveSubquestionId(getFirstQuestionId(subquestions))
-    }
-  }, [activeSubquestionId, subquestions])
 
   function commitDraft(nextDraft, subquestionId) {
     setDraftMap(nextDraft)
@@ -93,12 +89,13 @@ export default function RelationalAlgebraBlock({
     if (!targetId) return
     insertIntoSubquestion(targetId, token, options)
     onToggleSubQuestion?.(item.id, targetId, true)
+    onFocusSubQuestion?.(targetId)
   }
 
   function handleToggle(subquestionId) {
     const nextExpanded = !Boolean(effectiveExpandedMap[String(subquestionId)])
     onToggleSubQuestion?.(item.id, String(subquestionId), nextExpanded)
-    setActiveSubquestionId(String(subquestionId))
+    onFocusSubQuestion?.(String(subquestionId))
   }
 
   function handleRegisterTextarea(subquestionId, node) {
@@ -157,8 +154,9 @@ export default function RelationalAlgebraBlock({
                   disabled={isPaused || submitted}
                   value={draftMap[subquestionId] || ''}
                   review={reviewMap?.[`${item.id}:${subquestionId}`] || null}
+                  focused={String(activeSubquestionId || '') === subquestionId}
                   onToggle={handleToggle}
-                  onFocus={setActiveSubquestionId}
+                  onFocus={onFocusSubQuestion}
                   onChange={updateSubquestionValue}
                   onInsert={insertIntoSubquestion}
                   onRegisterTextarea={handleRegisterTextarea}

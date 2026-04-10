@@ -14,6 +14,7 @@ export default function SubjectWorkspacePage() {
     subjectMeta,
     answers,
     relationalAlgebraExpandedMap,
+    subQuestionFocusMap,
     revealedMap,
     submitted,
     score,
@@ -56,6 +57,7 @@ export default function SubjectWorkspacePage() {
     handleRelationalAlgebraTextChange,
     handleToggleRelationalAlgebraSubQuestion,
     handleRevealRelationalAlgebraQuestion,
+    handleFocusSubQuestion,
     handleTextChange,
     handleCompositeTextChange,
     handleReset,
@@ -240,6 +242,7 @@ export default function SubjectWorkspacePage() {
           quiz={quiz}
           answers={answers}
           relationalAlgebraExpandedMap={relationalAlgebraExpandedMap}
+          subQuestionFocusMap={subQuestionFocusMap}
           submitted={submitted}
           currentIndex={currentIndex}
           mode={mode}
@@ -271,6 +274,7 @@ export default function SubjectWorkspacePage() {
           onRelationalAlgebraTextChange={handleRelationalAlgebraTextChange}
           onToggleRelationalAlgebraSubQuestion={handleToggleRelationalAlgebraSubQuestion}
           onRevealRelationalAlgebraQuestion={handleRevealRelationalAlgebraQuestion}
+          onFocusSubQuestion={handleFocusSubQuestion}
           onTextChange={handleTextChange}
           onCompositeTextChange={handleCompositeTextChange}
           aiReview={aiReview}

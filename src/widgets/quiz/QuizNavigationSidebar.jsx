@@ -13,6 +13,7 @@ export default function QuizNavigationSidebar({
   currentItem,
   currentIndex,
   answers,
+  subQuestionFocusMap = {},
   mode = 'exam',
   submitted = false,
   isPaused = false,
@@ -25,9 +26,9 @@ export default function QuizNavigationSidebar({
   onTogglePracticeWrongBook,
   onToggleExamWrongBook,
   onJump,
+  onFocusSubQuestion,
 }) {
   const [openGroups, setOpenGroups] = useState({})
-  const [focusedReadingQuestion, setFocusedReadingQuestion] = useState(null)
 
   const groupedNavSections = useMemo(() => {
     const order = [
@@ -78,15 +79,6 @@ export default function QuizNavigationSidebar({
 
     const currentGroupKey = getNavGroupMeta(currentItem).key
     setOpenGroups((prev) => (prev[currentGroupKey] === false ? { ...prev, [currentGroupKey]: true } : prev))
-
-    if (currentItem.type === 'reading') {
-      setFocusedReadingQuestion((prev) => {
-        if (prev?.itemId === currentItem.id && prev?.subQuestionId) return prev
-        return { itemId: currentItem.id, subQuestionId: currentItem.questions?.[0]?.id || null }
-      })
-    } else {
-      setFocusedReadingQuestion(null)
-    }
   }, [currentItem?.id])
 
   const disabled = isPaused && mode === 'exam'
@@ -207,8 +199,7 @@ export default function QuizNavigationSidebar({
                         const wrong = submitted && answered && readingResponse[question.id] !== question.answer?.correct
                         const active =
                           index === currentIndex &&
-                          focusedReadingQuestion?.itemId === item.id &&
-                          focusedReadingQuestion?.subQuestionId === question.id
+                          String(subQuestionFocusMap?.[item.id] || '') === String(question.id)
 
                         return (
                           <button
@@ -216,7 +207,7 @@ export default function QuizNavigationSidebar({
                             className={`nav-item nav-sub-item ${active ? 'active' : ''} ${answered ? 'answered' : ''} ${wrong ? 'wrong' : ''}`}
                             onClick={() => {
                               if (disabled) return
-                              setFocusedReadingQuestion({ itemId: item.id, subQuestionId: question.id })
+                              onFocusSubQuestion?.(item.id, question.id)
                               onJump(index)
                             }}
                             disabled={disabled}
