@@ -25,7 +25,7 @@ describe('relationalAlgebraNormalize', () => {
       questions: [
         {
           id: 1,
-          prompt: '  检索  ',
+          prompt: '  检索 ',
           score: '5',
           reference_answer: ' project [ 学号 ] ( 学生 JOIN 学习 ) ',
         },

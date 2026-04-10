@@ -1,30 +1,32 @@
 const OPERATOR_ALIASES = [
-  [/螤|蟺|Π|PI|PROJECT/gi, 'π'],
-  [/危|蟽|Σ|SIGMA|SELECT/gi, 'σ'],
-  [/蟻|RENAME/gi, 'ρ'],
-  [/∞|JOIN/gi, '⋈'],
-  [/梅|DIVIDE/gi, '÷'],
-  [/UNION/gi, '∪'],
-  [/INTERSECT/gi, '∩'],
-  [/NOT/gi, '¬'],
-  [/\bOR\b/gi, '∨'],
-  [/\bAND\b/gi, '^'],
+  [/Π|PI|PROJECT/gi, 'π'],
+  [/Σ|σ|SIGMA|SELECT/gi, 'σ'],
+  [/ρ|RENAME/gi, 'ρ'],
+  [/⨝|⋈|JOIN|∞/gi, '⋈'],
+  [/÷|DIVIDE/gi, '÷'],
+  [/∪|UNION/gi, '∪'],
+  [/∩|INTERSECT/gi, '∩'],
+  [/¬|NOT/gi, '¬'],
+  [/\bOR\b|∨/gi, '∨'],
+  [/\bAND\b|∧/gi, '^'],
 ]
 
 function normalizePunctuation(text) {
   return String(text || '')
     .replace(/（/g, '(')
     .replace(/）/g, ')')
-    .replace(/【/g, '[')
-    .replace(/】/g, ']')
+    .replace(/【|［/g, '[')
+    .replace(/】|］/g, ']')
     .replace(/，/g, ',')
     .replace(/；/g, ';')
-    .replace(/“|”/g, "'")
-    .replace(/‘|’/g, "'")
-    .replace(/≥/g, '≥')
-    .replace(/<=/g, '≤')
-    .replace(/>=/g, '≥')
+    .replace(/[“”‘’]/g, "'")
+    .replace(/≥|>=/g, '≥')
+    .replace(/≤|<=/g, '≤')
     .replace(/<>|!=/g, '≠')
+}
+
+function normalizeSymbolLike(value = '') {
+  return normalizeRelationalAlgebraExpression(String(value || '')).trim()
 }
 
 export function normalizeRelationalAlgebraExpression(expression = '') {
@@ -35,14 +37,19 @@ export function normalizeRelationalAlgebraExpression(expression = '') {
 
   return normalized
     .replace(/\s+/g, ' ')
-    .replace(/\s*([()[\],^=≥≤≠∨∪∩⋈÷])\s*/g, '$1')
+    .replace(/\s*([()[\],^=≥≤≠¬∨∪∩⋈÷;])\s*/g, '$1')
     .replace(/\s*-\s*/g, '-')
     .trim()
 }
 
 export function normalizeRelationalAlgebraQuestion(item = {}) {
   if (!item || typeof item !== 'object') return item
-  const rawSubquestions = Array.isArray(item.subquestions) ? item.subquestions : Array.isArray(item.questions) ? item.questions : []
+
+  const rawSubquestions = Array.isArray(item.subquestions)
+    ? item.subquestions
+    : Array.isArray(item.questions)
+      ? item.questions
+      : []
   const tooling = item.tooling || {}
   const normalizedSubquestions = rawSubquestions.map((subquestion, index) => ({
     ...subquestion,
@@ -82,12 +89,10 @@ export function normalizeRelationalAlgebraQuestion(item = {}) {
   }
 }
 
-function normalizeSymbolLike(value = '') {
-  return normalizeRelationalAlgebraExpression(String(value || '')).trim()
-}
-
 export function getRelationalAlgebraSubquestions(item = {}) {
-  return Array.isArray(item?.subquestions) ? item.subquestions : []
+  if (Array.isArray(item?.subquestions)) return item.subquestions
+  if (Array.isArray(item?.questions)) return item.questions
+  return []
 }
 
 export function getRelationalAlgebraResponseText(response, itemId, subquestionId) {

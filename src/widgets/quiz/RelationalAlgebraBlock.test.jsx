@@ -20,7 +20,7 @@ function Harness() {
     prompt: '请完成下列查询。',
     schemas: [
       { name: '学生', attributes: ['学号', '姓名'] },
-      { name: '课程', attributes: ['课程号', '名称'] },
+      { name: '课程', attributes: ['课程号', '课程名'] },
     ],
     subquestions: [
       {

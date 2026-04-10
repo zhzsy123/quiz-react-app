@@ -459,9 +459,14 @@ button { border: none; }
   border-color: rgba(96, 165, 250, 0.32);
   color: #eff6ff;
 }
+.rel-algebra-meta-pill.neutral {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+}
 .rel-algebra-workbench {
   display: grid;
-  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -674,14 +679,30 @@ button { border: none; }
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.rel-algebra-answer-state.filled {
-  background: rgba(16,185,129,0.14);
-  color: #6ee7b7;
-}
-.rel-algebra-answer-state.empty {
+.rel-algebra-answer-state.empty,
+.rel-algebra-answer-state.waiting {
   background: rgba(148,163,184,0.12);
   color: #cbd5e1;
+}
+.rel-algebra-answer-state.pending {
+  background: rgba(59,130,246,0.16);
+  color: #bfdbfe;
+}
+.rel-algebra-answer-state.correct {
+  background: rgba(16,185,129,0.16);
+  color: #bbf7d0;
+}
+.rel-algebra-answer-state.partial {
+  background: rgba(245,158,11,0.18);
+  color: #fde68a;
+}
+.rel-algebra-answer-state.incorrect {
+  background: rgba(239,68,68,0.16);
+  color: #fecaca;
 }
 .rel-algebra-score {
   color: #94a3b8;
@@ -775,7 +796,7 @@ button { border: none; }
   color: #cbd5e1;
 }
 .rel-algebra-workbench.spacious {
-  grid-template-columns: minmax(180px, 232px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
   gap: 14px;
 }
 .rel-algebra-sidebar.narrow {
@@ -795,8 +816,8 @@ button { border: none; }
   border-radius: 12px;
 }
 .rel-algebra-schema-line {
-  font-size: 0.95rem;
-  line-height: 1.85;
+  font-size: 1rem;
+  line-height: 1.95;
 }
 .rel-algebra-token.inline {
   padding: 0 1px;
@@ -852,6 +873,10 @@ button { border: none; }
   border-color: rgba(16, 185, 129, 0.34);
   background: rgba(6, 78, 59, 0.2);
 }
+.rel-algebra-review-card.waiting {
+  border-color: rgba(148, 163, 184, 0.24);
+  background: rgba(51, 65, 85, 0.22);
+}
 .rel-algebra-review-card.partial {
   border-color: rgba(245, 158, 11, 0.34);
   background: rgba(120, 53, 15, 0.2);
@@ -884,6 +909,10 @@ button { border: none; }
 .rel-algebra-review-badge.correct {
   background: rgba(16, 185, 129, 0.16);
   color: #bbf7d0;
+}
+.rel-algebra-review-badge.waiting {
+  background: rgba(148, 163, 184, 0.14);
+  color: #e2e8f0;
 }
 .rel-algebra-review-badge.partial {
   background: rgba(245, 158, 11, 0.18);

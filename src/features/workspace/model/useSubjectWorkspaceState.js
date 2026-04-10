@@ -86,6 +86,7 @@ export function useSubjectWorkspaceState() {
   const [score, setScore] = useState(0)
   const [attemptId, setAttemptId] = useState('')
   const [aiReview, setAiReview] = useState(null)
+  const aiReviewRef = useRef(null)
   const [aiExplainMap, setAiExplainMap] = useState({})
   const [aiExplainMode, setAiExplainMode] = useState('standard')
   const [aiPracticeModal, setAiPracticeModal] = useState(null)
@@ -100,10 +101,15 @@ export function useSubjectWorkspaceState() {
   const [loadError, setLoadError] = useState('')
   const [readyToPersist, setReadyToPersist] = useState(false)
   const [favoriteEntries, setFavoriteEntries] = useState([])
+  const relationalAlgebraReviewRequestRef = useRef({})
 
   useEffect(() => {
     answersRef.current = answers
   }, [answers])
+
+  useEffect(() => {
+    aiReviewRef.current = aiReview
+  }, [aiReview])
 
   useEffect(() => {
     const storedAdvance = loadPreference(AUTO_ADVANCE_KEY, null)
@@ -249,12 +255,13 @@ export function useSubjectWorkspaceState() {
 
   const syncAiReview = async (nextReview, nextAttemptId = attemptId) => {
     setAiReview(nextReview)
+    aiReviewRef.current = nextReview
     await persistNow({ aiReview: nextReview, attemptId: nextAttemptId })
     await persistAttemptPatch(nextAttemptId, { aiReview: nextReview })
   }
 
   const upsertAiQuestionReview = async (reviewKey, reviewEntry, patch = {}) => {
-    const baseReview = aiReview || createWorkspacePendingAiReview(subjectivePendingScore || 0)
+    const baseReview = aiReviewRef.current || createWorkspacePendingAiReview(subjectivePendingScore || 0)
     const nextReview = {
       ...baseReview,
       ...patch,
@@ -268,6 +275,7 @@ export function useSubjectWorkspaceState() {
     }
 
     setAiReview(nextReview)
+    aiReviewRef.current = nextReview
     await persistNow({ aiReview: nextReview })
     await persistAttemptPatch(attemptId, { aiReview: nextReview })
     return nextReview
@@ -894,8 +902,41 @@ export function useSubjectWorkspaceState() {
     const nextAnswers = { ...answersRef.current, [questionId]: nextQuestionState }
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
+    const reviewKey = `${questionId}:${subQuestionId}`
+    relationalAlgebraReviewRequestRef.current[reviewKey] =
+      (relationalAlgebraReviewRequestRef.current[reviewKey] || 0) + 1
 
-    void persistNow({ answers: nextAnswers })
+    const currentReview = aiReviewRef.current
+    const hasReview = Boolean(currentReview?.questionReviews?.[reviewKey])
+    if (!hasReview) {
+      void persistNow({ answers: nextAnswers })
+      return
+    }
+
+    const nextReview = {
+      ...currentReview,
+      questionReviews: {
+        ...(currentReview.questionReviews || {}),
+        [reviewKey]: {
+          ...(currentReview.questionReviews?.[reviewKey] || {}),
+          status: 'stale',
+          verdict: 'unverified',
+          score: 0,
+          completion: 0,
+          feedback: '答案已更新，请再次点击 AI 判题。',
+          strengths: [],
+          earned_points: [],
+          missing_points: [],
+          error_points: [],
+          normalizedUserAnswer: '',
+          answerText: String(text || '').trim(),
+        },
+      },
+    }
+
+    setAiReview(nextReview)
+    aiReviewRef.current = nextReview
+    void persistNow({ answers: nextAnswers, aiReview: nextReview })
   }
 
   const handleToggleRelationalAlgebraSubQuestion = (questionId, subQuestionId, nextExpanded) => {
@@ -933,6 +974,9 @@ export function useSubjectWorkspaceState() {
 
     const reviewKey = `${questionId}:${subQuestionId}`
 
+    const requestId = (relationalAlgebraReviewRequestRef.current[reviewKey] || 0) + 1
+    relationalAlgebraReviewRequestRef.current[reviewKey] = requestId
+
     void (async () => {
       await upsertAiQuestionReview(reviewKey, {
         status: 'pending',
@@ -942,11 +986,14 @@ export function useSubjectWorkspaceState() {
         equivalent: false,
         score: 0,
         maxScore: Number(subQuestion.score) || 0,
+        completion: 0,
         confidence: 0,
         feedback: 'AI 正在判题，请稍候。',
         strengths: [],
         weaknesses: [],
         suggestions: [],
+        earned_points: [],
+        answerText: String(userAnswer || '').trim(),
         normalizedReference: '',
         normalizedUserAnswer: '',
       })
@@ -955,18 +1002,22 @@ export function useSubjectWorkspaceState() {
         const completedReview = await runWorkspaceRelationalAlgebraSubquestionAi({
           quiz,
           item: currentItem,
-          answers,
+          answers: answersRef.current,
           subQuestion,
           objectiveScore: score,
           objectiveTotal: objectiveTotalScore,
           paperTotal: paperTotalScore,
         })
 
+        if (relationalAlgebraReviewRequestRef.current[reviewKey] !== requestId) return
+
         await upsertAiQuestionReview(reviewKey, {
           ...completedReview,
           status: 'completed',
         })
       } catch (error) {
+        if (relationalAlgebraReviewRequestRef.current[reviewKey] !== requestId) return
+
         await upsertAiQuestionReview(reviewKey, {
           status: 'failed',
           questionId: reviewKey,
@@ -975,11 +1026,14 @@ export function useSubjectWorkspaceState() {
           equivalent: false,
           score: 0,
           maxScore: Number(subQuestion.score) || 0,
+          completion: 0,
           confidence: 0,
           feedback: error?.message || 'AI 判题失败，请稍后重试。',
           strengths: [],
           weaknesses: [],
           suggestions: [],
+          earned_points: [],
+          answerText: String(userAnswer || '').trim(),
           normalizedReference: '',
           normalizedUserAnswer: String(userAnswer || '').trim(),
         })

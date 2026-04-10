@@ -24,7 +24,7 @@ export default function RelationalAlgebraToolbar({ disabled = false, onInsert, c
         <div className="rel-algebra-panel-header">
           <div>
             <div className="rel-algebra-panel-title">关系代数符号</div>
-            <div className="rel-algebra-panel-caption">点击符号即可插入，括号类符号会自动补全。</div>
+            <div className="rel-algebra-panel-caption">点击即可插入，括号类符号会自动补全。</div>
           </div>
         </div>
       )}

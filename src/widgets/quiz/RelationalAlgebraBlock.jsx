@@ -122,13 +122,13 @@ export default function RelationalAlgebraBlock({
           <div className="rel-algebra-meta-pills">
             <span className="rel-algebra-meta-pill">{subquestions.length} 个子题</span>
             <span className="rel-algebra-meta-pill">{contentScore} 分</span>
-            <span className="rel-algebra-meta-pill emphasis">已作答 {answeredCount} / {subquestions.length}</span>
+            <span className="rel-algebra-meta-pill neutral">待AI核验 {answeredCount} / {subquestions.length}</span>
           </div>
         </div>
       </section>
 
       <div className="rel-algebra-workbench spacious">
-        <aside className="rel-algebra-sidebar narrow">
+        <aside className="rel-algebra-sidebar wide">
           <RelationalAlgebraSchemaPanel
             schemas={item?.schemas || []}
             activeToken=""

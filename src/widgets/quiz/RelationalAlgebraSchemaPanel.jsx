@@ -34,7 +34,7 @@ export default function RelationalAlgebraSchemaPanel({
       <div className="rel-algebra-panel-header">
         <div>
           <div className="rel-algebra-panel-title">关系模式</div>
-          <div className="rel-algebra-panel-caption">每行一个关系，点击关系名或属性即可插入到当前表达式。</div>
+          <div className="rel-algebra-panel-caption">每行一个关系，点击关系名或属性即可插入当前表达式。</div>
         </div>
       </div>
 

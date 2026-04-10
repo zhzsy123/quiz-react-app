@@ -23,10 +23,12 @@ describe('reviewService relational algebra grading', () => {
           equivalent: true,
           score: 5,
           max_score: 5,
+          completion: 100,
           confidence: 98,
+          earned_points: ['投影字段正确', '筛选条件正确'],
           missing_points: [],
           error_points: [],
-          comment: '表达式语义等价。',
+          comment: '表达式与参考答案语义等价。',
         },
         model: 'deepseek-reasoner',
       })
@@ -36,7 +38,9 @@ describe('reviewService relational algebra grading', () => {
           equivalent: false,
           score: 0,
           max_score: 5,
+          completion: 20,
           confidence: 94,
+          earned_points: ['连接关系基本正确'],
           missing_points: ['缺少对课程名称的筛选条件'],
           error_points: ['投影字段与题意不一致'],
           comment: '表达式与标准答案不等价。',
@@ -66,14 +70,14 @@ describe('reviewService relational algebra grading', () => {
                 label: '(1)',
                 prompt: '查找英语专业学生。',
                 score: 5,
-                reference_answer: "π[sid,name](σ[major='English'](Student JOIN Enrollment))",
+                reference_answer: "Π[sid,name](σ[major='English'](Student JOIN Enrollment))",
               },
               {
                 id: '2',
                 label: '(2)',
                 prompt: '查找数据库课程高分学生。',
                 score: 5,
-                reference_answer: "π[sid,name](σ[title='Database'](Student JOIN Enrollment JOIN Course))",
+                reference_answer: "Π[sid,name](σ[title='Database'](Student JOIN Enrollment JOIN Course))",
               },
             ],
           },
@@ -83,7 +87,7 @@ describe('reviewService relational algebra grading', () => {
         ra_1: {
           responses: {
             1: "PI [ sid , name ] ( sigma [ major = 'English' ] ( Student JOIN Enrollment ) )",
-            2: "π[sid,name](σ[title='Database'](Student⋈Enrollment⋈Course))",
+            2: "Π[sid,name](σ[title='Database'](Student⋈Enrollment⋈Course))",
           },
         },
       },
@@ -109,6 +113,8 @@ describe('reviewService relational algebra grading', () => {
         maxScore: 5,
         verdict: 'correct',
         equivalent: true,
+        completion: 100,
+        strengths: ['投影字段正确', '筛选条件正确'],
       })
     )
     expect(result.questionReviews['ra_1:2']).toEqual(
@@ -119,6 +125,7 @@ describe('reviewService relational algebra grading', () => {
         maxScore: 5,
         verdict: 'incorrect',
         equivalent: false,
+        completion: 20,
       })
     )
   })
@@ -139,7 +146,7 @@ describe('reviewService relational algebra grading', () => {
                 id: '1',
                 prompt: '执行查询。',
                 score: 5,
-                reference_answer: 'π[sid](Student)',
+                reference_answer: 'Π[sid](Student)',
               },
             ],
           },
@@ -160,6 +167,7 @@ describe('reviewService relational algebra grading', () => {
         verdict: 'unanswered',
         equivalent: false,
         score: 0,
+        completion: 0,
       })
     )
     expect(result.totalRelationalAlgebraScore).toBe(0)

@@ -43,23 +43,43 @@ function buildRelationalAlgebraReviewMap(reviews = []) {
   return reviews.reduce((map, review) => {
     const reviewKey = review?.question_id || review?.subquestion_id
     if (!reviewKey) return map
+    const maxScore = Number(review.max_score) || 0
+    const score = Number(review.score) || 0
+    const derivedCompletion =
+      typeof review.completion === 'number'
+        ? review.completion
+        : maxScore > 0
+          ? Math.round((score / maxScore) * 100)
+          : 0
+
     map[reviewKey] = {
       status: review.status || 'completed',
       questionId: reviewKey,
       subquestionId: review.subquestion_id || reviewKey,
-      score: Number(review.score) || 0,
-      maxScore: Number(review.max_score) || 0,
+      score,
+      maxScore,
       verdict: review.verdict || 'incorrect',
       equivalent: Boolean(review.equivalent),
-      confidence: Number(review.confidence) || 0,
+      completion: Math.max(0, Math.min(100, Number(derivedCompletion) || 0)),
+      confidence: Math.max(0, Math.min(100, Number(review.confidence) || 0)),
       feedback: review.comment || '',
-      strengths: Array.isArray(review.strengths) ? review.strengths : [],
+      strengths: Array.isArray(review.earned_points)
+        ? review.earned_points
+        : Array.isArray(review.strengths)
+          ? review.strengths
+          : [],
       weaknesses: Array.isArray(review.missing_points) ? review.missing_points : [],
       suggestions: Array.isArray(review.error_points) ? review.error_points : [],
+      earned_points: Array.isArray(review.earned_points)
+        ? review.earned_points
+        : Array.isArray(review.strengths)
+          ? review.strengths
+          : [],
       missing_points: Array.isArray(review.missing_points) ? review.missing_points : [],
       error_points: Array.isArray(review.error_points) ? review.error_points : [],
       normalizedReference: review.normalized_reference || '',
       normalizedUserAnswer: review.normalized_user_answer || '',
+      answerText: review.answer_text || '',
     }
     return map
   }, {})
@@ -119,6 +139,17 @@ function buildRelationalAlgebraReviewRecord({ target, subQuestion, content, mode
   const maxScore = Number(content?.max_score) || resolveRelationalAlgebraSubquestionScore(subQuestion, target.score || 0)
   const score = Math.max(0, Math.min(Number(content?.score) || 0, maxScore))
   const equivalent = Boolean(content?.equivalent)
+  const earnedPoints = Array.isArray(content?.earned_points)
+    ? content.earned_points
+    : Array.isArray(content?.strengths)
+      ? content.strengths
+      : []
+  const completion =
+    typeof content?.completion === 'number'
+      ? content.completion
+      : maxScore > 0
+        ? Math.round((score / maxScore) * 100)
+        : 0
 
   return {
     status,
@@ -128,12 +159,16 @@ function buildRelationalAlgebraReviewRecord({ target, subQuestion, content, mode
     equivalent,
     score,
     max_score: maxScore,
-    confidence: Number(content?.confidence) || 0,
+    completion: Math.max(0, Math.min(100, Number(completion) || 0)),
+    confidence: Math.max(0, Math.min(100, Number(content?.confidence) || 0)),
+    earned_points: earnedPoints,
+    strengths: earnedPoints,
     missing_points: Array.isArray(content?.missing_points) ? content.missing_points : [],
     error_points: Array.isArray(content?.error_points) ? content.error_points : [],
     comment: content?.comment || '',
     normalized_reference: target.normalized_reference_answer,
     normalized_user_answer: target.normalized_user_answer,
+    answer_text: target.user_answer,
     provider: 'deepseek',
     model,
   }
@@ -153,7 +188,7 @@ async function requestRelationalAlgebraReview({
     subject: subject || quiz?.subject || 'database_principles',
     temperature: 0.1,
     systemPrompt:
-      '你是一名数据库原理考试中的关系代数判题老师。只返回 JSON。请严格围绕当前小题判断学生表达式与参考答案是否语义等价。忽略空格、换行、常见运算符别名和括号风格差异。comment、missing_points、error_points 必须使用中文。',
+      '你是一名数据库原理考试中的关系代数判题老师。只返回 JSON。请严格围绕当前小题判断学生表达式与参考答案是否语义等价。忽略空格、换行、常见运算符别名和括号风格差异。comment、earned_points、missing_points、error_points 必须使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'judge_relational_algebra_equivalence',
@@ -166,12 +201,14 @@ async function requestRelationalAlgebraReview({
         question: target,
         equivalence_rules: [
           '将 π/Π/PROJECT/PI 视为等价投影符号。',
-          '将 σ/SELECT/SIGMA 视为等价选择符号。',
+          '将 σ/Σ/SELECT/SIGMA 视为等价选择符号。',
           '将 ρ/RENAME 视为等价重命名符号。',
-          '将 ⋈/JOIN/∞ 视为等价连接符号。',
+          '将 ⋈/JOIN/∞/⨝ 视为等价连接符号。',
           '将 ∪/UNION、∩/INTERSECT、÷/DIVIDE、∨/OR、¬/NOT、^/AND 视为等价别名。',
           '忽略空格、换行、全角半角和括号风格差异。',
           '只判断当前小题，不要评价其他小题。',
+          '完成度表示学生答案逼近正确答案的程度，取值 0-100。',
+          'earned_points 应该描述学生已经答对的关键得分点。',
           '如果学生答案核心语义正确但有次要缺失，可以给 partial。',
         ],
         output_schema: {
@@ -179,7 +216,9 @@ async function requestRelationalAlgebraReview({
           equivalent: 'boolean',
           score: 'number',
           max_score: 'number',
+          completion: 'number(0-100)',
           confidence: 'number(0-100)',
+          earned_points: ['中文字符串'],
           missing_points: ['中文字符串'],
           error_points: ['中文字符串'],
           comment: '中文字符串',
@@ -257,8 +296,7 @@ export async function gradeSubjectiveAttempt({
     feature: 'subjective_grading',
     title: quiz?.title || 'Untitled paper',
     subject: quiz?.subject || '',
-    systemPrompt:
-      '你是一名严格但专业的考试阅卷老师。只返回 JSON。分数必须在 0 到 max_score 之间，反馈必须具体、可执行，并且使用中文。',
+    systemPrompt: '你是一名严格但专业的考试阅卷老师。只返回 JSON。分数必须在 0 到 max_score 之间，反馈必须具体、可执行，并且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'grade_subjective_questions',
@@ -349,12 +387,15 @@ export async function gradeRelationalAlgebraAttempt({
           equivalent: false,
           score: 0,
           max_score: resolveRelationalAlgebraSubquestionScore(subQuestion, normalizedItem.score || 0),
+          completion: 0,
           confidence: 100,
+          earned_points: [],
           missing_points: ['未提供作答内容'],
           error_points: [],
           comment: '未作答，无法判题。',
           normalized_reference: normalizeRelationalAlgebraExpression(subQuestion.reference_answer || ''),
           normalized_user_answer: '',
+          answer_text: '',
         })
         continue
       }
@@ -389,7 +430,9 @@ export async function gradeRelationalAlgebraAttempt({
       reviewRecords.length > 0
         ? reviewRecords
             .map((review) =>
-              `${review.subquestion_id}：${review.comment || (review.equivalent ? '表达式语义等价。' : '表达式语义不等价。')}`
+              `${review.subquestion_id}：${
+                review.comment || (review.equivalent ? '表达式与参考答案语义等价。' : '表达式与参考答案语义不等价。')
+              }`
             )
             .join(' ')
         : '本次没有可判定的关系代数题。',
@@ -423,12 +466,15 @@ export async function gradeRelationalAlgebraSubquestionAttempt({
         equivalent: false,
         score: 0,
         max_score: resolveRelationalAlgebraSubquestionScore(subQuestion, normalizedItem.score || 0),
+        completion: 0,
         confidence: 100,
+        earned_points: [],
         missing_points: ['未提供作答内容'],
         error_points: [],
         comment: '未作答，无法判题。',
         normalized_reference: target.normalized_reference_answer,
         normalized_user_answer: '',
+        answer_text: '',
       },
     ])[target.question_id]
   }
@@ -472,8 +518,7 @@ export async function explainQuizQuestionWithMode({
     feature: focus === 'audit' ? 'question_audit' : 'question_explanation',
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
-    systemPrompt:
-      '你是一名讲解清晰的考试辅导老师。只返回 JSON。请解释答案为什么对或错，指出考查点，并给出改进建议，且使用中文。',
+    systemPrompt: '你是一名讲解清晰的考试辅导老师。只返回 JSON。请解释答案为什么对或错，指出考查点，并给出改进建议，且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'explain_quiz_question',
@@ -514,8 +559,7 @@ export async function auditQuizQuestionCompliance({ paperTitle, item, response, 
     feature: 'question_audit',
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
-    systemPrompt:
-      '你是一名考试质量审核员。只返回 JSON。请检查题目、答案、解析和选项是否规范、明确且内部一致，并使用中文。',
+    systemPrompt: '你是一名考试质量审核员。只返回 JSON。请检查题目、答案、解析和选项是否规范、明确且内部一致，并使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'audit_quiz_question_compliance',
@@ -558,8 +602,7 @@ export async function generateSimilarQuestions({ paperTitle, item, response, cou
     feature: 'similar_question_generation',
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
-    systemPrompt:
-      '你是一名考试命题助手。只返回 JSON。请基于原题生成同类题，并按难度递进组织，且使用中文。',
+    systemPrompt: '你是一名考试命题助手。只返回 JSON。请基于原题生成同类题，并按难度递进组织，且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'generate_similar_questions',
