@@ -27,6 +27,10 @@ export function countWords(text) {
 export function isAnswered(item, response) {
   if (!item) return false
 
+  if (item.type === 'generation_placeholder') {
+    return false
+  }
+
   if (item.type === 'composite') {
     if (!response || typeof response !== 'object') return false
     return (item.questions || []).every((question) => isAnswered(question, response[question.id]))
@@ -73,6 +77,15 @@ export function getSpoilerTags(item) {
 }
 
 export function getNavGroupMeta(item) {
+  if (item?.type === 'generation_placeholder') {
+    const generatedType = item.generation_type_key || item.source_type || 'generation_placeholder'
+    const meta = getQuestionTypeMeta(generatedType)
+    return {
+      key: meta.key,
+      label: meta.label,
+    }
+  }
+
   const normalizedType = item.source_type === 'cloze' ? 'cloze' : item.type
   const meta = getQuestionTypeMeta(normalizedType)
   return {

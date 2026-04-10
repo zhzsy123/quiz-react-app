@@ -250,6 +250,7 @@ vi.mock('../entities/subject/model/subjects', () => {
       key: subjectKey,
       routeSlug: subjectKey,
     }),
+    getSubjectGenerationConfig: () => subjectMeta.generation,
     getSubjectMetaByRouteParam: () => subjectMeta,
     getSubjectQuestionTypeOptions: () => [
       {
@@ -374,7 +375,7 @@ describe('question generation smoke flow', () => {
     vi.clearAllMocks()
   })
 
-  it('generates questions and saves them into the current subject library', async () => {
+  it('starts generation and autosaves the generated paper in the background', async () => {
     const { container, root } = await renderAt('/exam/english')
 
     await act(async () => {
@@ -385,15 +386,10 @@ describe('question generation smoke flow', () => {
       getByTestId(container, 'start-ai-generation').click()
     })
 
-    await waitFor(() => !getByTestId(container, 'save-generated-paper').disabled)
-
-    await act(async () => {
-      getByTestId(container, 'save-generated-paper').click()
-    })
-
     await waitFor(() => upsertLibraryEntryMock.mock.calls.length > 0)
-    expect(upsertLibraryEntryMock.mock.calls[0][0].subject).toBe('english')
-    expect(upsertLibraryEntryMock.mock.calls[0][0].questionCount).toBe(1)
+    const lastCall = upsertLibraryEntryMock.mock.calls.at(-1)?.[0]
+    expect(lastCall.subject).toBe('english')
+    expect(lastCall.questionCount).toBe(1)
 
     await waitFor(() => listLibraryEntriesMock.mock.calls.length >= 2)
 
@@ -402,7 +398,7 @@ describe('question generation smoke flow', () => {
     })
   })
 
-  it('generates questions and jumps straight into practice mode', async () => {
+  it('jumps straight into practice mode as soon as generation starts', async () => {
     const { container, root } = await renderAt('/exam/english')
 
     await act(async () => {
@@ -411,12 +407,6 @@ describe('question generation smoke flow', () => {
 
     await act(async () => {
       getByTestId(container, 'start-ai-generation').click()
-    })
-
-    await waitFor(() => !getByTestId(container, 'start-generated-paper-practice').disabled)
-
-    await act(async () => {
-      getByTestId(container, 'start-generated-paper-practice').click()
     })
 
     await waitFor(() => container.textContent?.includes('Generated question prompt'))

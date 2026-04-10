@@ -1,4 +1,5 @@
 import React from 'react'
+import { LoaderCircle, Sparkles, XCircle } from 'lucide-react'
 import QuizNavigationSidebar from './QuizNavigationSidebar.jsx'
 import QuizObjectiveBlock from './QuizObjectiveBlock.jsx'
 import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
@@ -32,6 +33,42 @@ function InvalidQuizFallback() {
           </div>
         </section>
       </main>
+    </div>
+  )
+}
+
+function GenerationPlaceholderBlock({ item }) {
+  const placeholder = item?.generation_placeholder || {}
+  const status = placeholder.status || 'queued'
+  const isFailed = status === 'failed'
+
+  return (
+    <div className={`generation-placeholder-panel ${isFailed ? 'failed' : status}`}>
+      <div className="generation-placeholder-head">
+        <span className={`generation-placeholder-pill ${isFailed ? 'failed' : 'running'}`}>
+          {isFailed ? <XCircle size={14} /> : <LoaderCircle size={14} className="spin" />}
+          {isFailed ? '生成失败' : 'AI 正在生成本题'}
+        </span>
+        <span className="generation-placeholder-meta">
+          {placeholder.label || item?.generation_type_key || '题目'} · {placeholder.score || 0} 分
+        </span>
+      </div>
+      <div className="generation-placeholder-summary">
+        {placeholder.summary || '系统正在后台生成本题，请稍候。'}
+      </div>
+      {Array.isArray(placeholder.details) && placeholder.details.length > 0 ? (
+        <ul className="generation-placeholder-details">
+          {placeholder.details.map((detail, index) => (
+            <li key={`${item.id}-detail-${index}`}>{detail}</li>
+          ))}
+        </ul>
+      ) : null}
+      {!isFailed ? (
+        <div className="generation-placeholder-note">
+          <Sparkles size={14} />
+          左侧导航中的转圈题目会在生成完成后自动替换成可作答内容。
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -96,12 +133,17 @@ export default function CleanQuizView({
   }
 
   const renderObjectiveBlock =
+    currentItem.type !== 'generation_placeholder' &&
     currentItem.type !== 'cloze' &&
     currentItem.type !== 'reading' &&
     currentItem.type !== 'composite' &&
     (currentItem.answer?.type === 'objective' || currentItem.type === 'fill_blank')
 
-  const prompt = currentItem.prompt || currentItem.passage?.title || currentItem.title || '未命名题目'
+  const hasPendingGeneration = quiz.items.some((item) => item.type === 'generation_placeholder')
+  const prompt =
+    currentItem.type === 'generation_placeholder'
+      ? currentItem.prompt || 'AI 正在生成题目'
+      : currentItem.prompt || currentItem.passage?.title || currentItem.title || '未命名题目'
 
   return (
     <div className="quiz-layout">
@@ -167,10 +209,12 @@ export default function CleanQuizView({
             onExplainQuestion={onExplainQuestion}
             onExplainWhyWrong={onExplainWhyWrong}
             onGenerateSimilarQuestions={onGenerateSimilarQuestions}
-            disabled={isPaused || submitted}
+            disabled={isPaused || submitted || currentItem.type === 'generation_placeholder'}
           />
 
-          {renderObjectiveBlock ? (
+          {currentItem.type === 'generation_placeholder' ? (
+            <GenerationPlaceholderBlock item={currentItem} />
+          ) : renderObjectiveBlock ? (
             <QuizObjectiveBlock
               item={currentItem}
               userResponse={answers[currentItem.id]}
@@ -230,8 +274,13 @@ export default function CleanQuizView({
         </section>
 
         <div className="quiz-submit-row">
-          <button type="button" className="primary-btn" onClick={onSubmit}>
-            {mode === 'practice' ? '提交练习' : '提交考试'}
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={onSubmit}
+            disabled={hasPendingGeneration}
+          >
+            {hasPendingGeneration ? 'AI 正在生成题目' : mode === 'practice' ? '提交练习' : '提交考试'}
           </button>
         </div>
       </main>

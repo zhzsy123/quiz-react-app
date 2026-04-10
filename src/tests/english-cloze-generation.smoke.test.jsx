@@ -330,8 +330,8 @@ vi.mock('../entities/subject/model/subjects', () => {
     generation: {
       enabled: true,
       supportedModes: ['practice', 'mock_exam'],
-      supportedQuestionTypes: questionTypeOptions.map((item) => item.key),
-      defaultCounts: [5],
+      supportedQuestionTypes: ['cloze'],
+      defaultCounts: [1],
       defaultDifficulty: 'medium',
       defaultDurationMinutes: 90,
       defaultPaperTotal: 4,
@@ -343,6 +343,7 @@ vi.mock('../entities/subject/model/subjects', () => {
   return {
     SUBJECT_REGISTRY: [subjectMeta],
     getSubjectMeta: () => subjectMeta,
+    getSubjectGenerationConfig: () => subjectMeta.generation,
     getSubjectMetaByRouteParam: () => subjectMeta,
     getSubjectQuestionTypeOptions: () => questionTypeOptions,
     getQuestionTypeMeta: (type) =>
@@ -459,7 +460,7 @@ describe('english cloze generation smoke flow', () => {
     vi.clearAllMocks()
   })
 
-  it('generates a cloze draft, saves it, opens practice mode, and completes the whole cloze on one page', async () => {
+  it('generates a cloze draft, jumps straight into practice mode, and completes the whole cloze on one page', async () => {
     const { container, root } = await renderAt('/exam/english')
 
     await act(async () => {
@@ -470,14 +471,8 @@ describe('english cloze generation smoke flow', () => {
       getByTestId(container, 'start-ai-generation').click()
     })
 
-    await waitFor(() => !getByTestId(container, 'start-generated-paper-practice').disabled)
-
-    await act(async () => {
-      getByTestId(container, 'start-generated-paper-practice').click()
-    })
-
     await waitFor(() => upsertLibraryEntryMock.mock.calls.length > 0)
-    expect(upsertLibraryEntryMock.mock.calls[0][0].questionCount).toBe(1)
+    expect(upsertLibraryEntryMock.mock.calls.at(-1)?.[0]?.questionCount).toBe(1)
 
     await waitFor(() => container.textContent?.includes('阅读短文并完成完形填空。'))
     expect(container.textContent).toContain('(1) ______')

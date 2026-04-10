@@ -19,6 +19,10 @@ import {
 import { requestConfirmDialog, requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
 import { useDocumentImport } from '../../document-import/model/useDocumentImport'
 import { startQuestionGeneration } from '../../question-generator/api/questionGenerationService'
+import {
+  extractQuestionGenerationSessionId,
+  startLiveQuestionGenerationSession,
+} from '../../question-generator/model/liveQuestionGenerationSession.js'
 import { useAiQuestionGenerator } from '../../question-generator/model/useAiQuestionGenerator'
 
 function buildGeneratedPaperPayload({ draftPaper, subjectKey, profileId }) {
@@ -363,7 +367,13 @@ export function useFileHubPageState() {
   }
 
   const openWorkspace = (entry, mode) => {
-    navigate(`/workspace/${subjectMeta.routeSlug}?paper=${encodeURIComponent(entry.paperId)}&mode=${mode}`)
+    const generationSessionId = extractQuestionGenerationSessionId(entry.tags || [])
+    const generationQuery = generationSessionId
+      ? `&generation=${encodeURIComponent(generationSessionId)}`
+      : ''
+    navigate(
+      `/workspace/${subjectMeta.routeSlug}?paper=${encodeURIComponent(entry.paperId)}&mode=${mode}${generationQuery}`
+    )
   }
 
   const openGeneratorDialog = () => {
@@ -374,8 +384,14 @@ export function useFileHubPageState() {
     documentImport.setOpen(true)
   }
 
-  const startGenerator = () =>
-    generator.startGeneration({
+  const startGenerator = async () => {
+    if (!activeProfile?.id) {
+      return null
+    }
+
+    const liveSession = await startLiveQuestionGenerationSession({
+      profileId: activeProfile.id,
+      subjectMeta,
       config: {
         ...generator.config,
         subject: subjectKey,
@@ -385,6 +401,14 @@ export function useFileHubPageState() {
         subject: subjectKey,
       },
     })
+
+    generator.setOpen(false)
+    void refreshEntries()
+    navigate(
+      `/workspace/${subjectMeta.routeSlug}?paper=${encodeURIComponent(liveSession.paperId)}&mode=practice&generation=${encodeURIComponent(liveSession.sessionId)}`
+    )
+    return liveSession
+  }
 
   const saveGeneratedPaper = () => generator.saveGeneratedPaper()
 

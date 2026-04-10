@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, Clock3, Pause, Play } from 'lucide-react'
+import { ChevronDown, ChevronUp, Clock3, LoaderCircle, Pause, Play, XCircle } from 'lucide-react'
 import { isObjectiveWrong } from '../../entities/quiz/lib/objectiveAnswers'
 import {
   formatRemainingSeconds,
@@ -169,10 +169,12 @@ export default function QuizNavigationSidebar({
       <div className="nav-accordion">
         {groupedNavSections.map((section) => {
           const isOpen = openGroups[section.key] ?? true
-          const displayCount =
-            section.key === 'reading'
-              ? section.items.reduce((sum, { item }) => sum + (item.questions?.length || 0), 0)
-              : section.items.length
+          const safeDisplayCount = section.key === 'reading'
+            ? section.items.reduce((sum, { item }) => {
+                if (item.type === 'generation_placeholder') return sum + 1
+                return sum + (item.questions?.length || 0)
+              }, 0)
+            : section.items.length
 
           return (
             <div key={section.key} className="nav-group">
@@ -183,7 +185,7 @@ export default function QuizNavigationSidebar({
               >
                 <div className="nav-group-title-wrap">
                   <span className="nav-group-title">{section.label}</span>
-                  <span className="nav-group-count">{displayCount}</span>
+                  <span className="nav-group-count">{safeDisplayCount}</span>
                 </div>
                 {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
@@ -194,6 +196,25 @@ export default function QuizNavigationSidebar({
                     if (section.key === 'reading') {
                       const readingQuestions = Array.isArray(item.questions) ? item.questions : []
                       const readingResponse = answers[item.id] || {}
+                      if (item.type === 'generation_placeholder' || readingQuestions.length === 0) {
+                        const active = index === currentIndex
+                        const status = item.generation_placeholder?.status || 'queued'
+                        return (
+                          <button
+                            key={item.id}
+                            className={`nav-item nav-sub-item ${active ? 'active' : ''} generation ${status}`}
+                            onClick={() => onJump(index)}
+                            disabled={disabled}
+                          >
+                            {status === 'failed' ? (
+                              <XCircle size={14} />
+                            ) : (
+                              <LoaderCircle size={14} className="nav-spinner" />
+                            )}
+                          </button>
+                        )
+                      }
+
                       return readingQuestions.map((question, subIndex) => {
                         const answered = typeof readingResponse[question.id] === 'string' && readingResponse[question.id].length > 0
                         const wrong = submitted && answered && readingResponse[question.id] !== question.answer?.correct
@@ -221,6 +242,25 @@ export default function QuizNavigationSidebar({
                     const answered = isAnswered(item, answers[item.id])
                     const active = index === currentIndex
                     const wrong = submitted && isObjectiveWrong(item, answers[item.id])
+                    const generationStatus = item.generation_placeholder?.status || ''
+
+                    if (item.type === 'generation_placeholder') {
+                      return (
+                        <button
+                          key={item.id}
+                          className={`nav-item generation ${active ? 'active' : ''} ${generationStatus}`}
+                          onClick={() => onJump(index)}
+                          disabled={disabled}
+                          title={item.generation_placeholder?.summary || 'AI 正在生成本题'}
+                        >
+                          {generationStatus === 'failed' ? (
+                            <XCircle size={14} />
+                          ) : (
+                            <LoaderCircle size={14} className="nav-spinner" />
+                          )}
+                        </button>
+                      )
+                    }
 
                     return (
                       <button

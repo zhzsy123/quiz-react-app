@@ -53,6 +53,10 @@ import {
   runSubjectiveAiReview as runWorkspaceSubjectiveAiReview,
 } from './subjectWorkspaceAi.js'
 import {
+  getQuestionGenerationSessionSnapshot,
+  subscribeQuestionGenerationSession,
+} from '../../question-generator/model/liveQuestionGenerationSession.js'
+import {
   isRelationalAlgebraAnswered,
   normalizeRelationalAlgebraProgress,
   toggleRelationalAlgebraSubQuestionExpanded,
@@ -81,6 +85,7 @@ export function useSubjectWorkspaceState() {
   const paperId = searchParams.get('paper') || ''
   const source = searchParams.get('source') || 'library'
   const mode = searchParams.get('mode') === 'practice' ? 'practice' : 'exam'
+  const generationSessionId = searchParams.get('generation') || ''
   const sessionPaperId = source === 'favorites' ? `favorites:${mode}` : `${paperId}:${mode}`
 
   const [entry, setEntry] = useState(null)
@@ -147,28 +152,43 @@ export function useSubjectWorkspaceState() {
 
         let resolvedEntry = null
         let resolvedQuiz = null
+        let progress = null
+        let resolvedDurationSeconds = (subjectMeta.defaultDurationMinutes || 90) * 60
+        const liveGenerationSnapshot =
+          source !== 'favorites' && generationSessionId
+            ? getQuestionGenerationSessionSnapshot(generationSessionId)
+            : null
 
-        const snapshot = await loadWorkspaceSnapshotModel({
-          activeProfileId: activeProfile.id,
-          subjectKey,
-          subjectMeta,
-          source,
-          paperId,
-          sessionPaperId,
-          favoriteRows,
-          listLibraryEntries,
-          loadSessionProgress,
-        })
+        if (
+          liveGenerationSnapshot &&
+          liveGenerationSnapshot.subjectKey === subjectKey &&
+          liveGenerationSnapshot.paperId === paperId
+        ) {
+          resolvedEntry = liveGenerationSnapshot.entry
+          resolvedQuiz = liveGenerationSnapshot.quiz
+          progress = await loadSessionProgress(activeProfile.id, subjectKey, sessionPaperId)
+        } else {
+          const snapshot = await loadWorkspaceSnapshotModel({
+            activeProfileId: activeProfile.id,
+            subjectKey,
+            subjectMeta,
+            source,
+            paperId,
+            sessionPaperId,
+            favoriteRows,
+            listLibraryEntries,
+            loadSessionProgress,
+          })
 
-        if (!snapshot || cancelled) {
-          setLoading(false)
-          return
+          if (!snapshot || cancelled) {
+            setLoading(false)
+            return
+          }
+
+          ;({ entry: resolvedEntry, quiz: resolvedQuiz, progress } = snapshot)
+          resolvedDurationSeconds = snapshot.resolvedDurationSeconds
         }
 
-        const { entry: nextEntry, quiz: nextQuiz, progress, resolvedDurationSeconds: nextDurationSeconds } = snapshot
-
-        resolvedEntry = nextEntry
-        resolvedQuiz = nextQuiz
         if (cancelled) return
 
         setEntry(resolvedEntry)
@@ -195,7 +215,7 @@ export function useSubjectWorkspaceState() {
         setRemainingSeconds(
           typeof progress?.timerSecondsRemaining === 'number'
             ? progress.timerSecondsRemaining
-            : nextDurationSeconds
+            : resolvedDurationSeconds
         )
         setIsPaused(Boolean(progress?.isPaused))
         setPracticeWritesWrongBook(
@@ -225,7 +245,25 @@ export function useSubjectWorkspaceState() {
     return () => {
       cancelled = true
     }
-  }, [activeProfile?.id, paperId, source, sessionPaperId, subjectKey, subjectMeta.shortLabel])
+  }, [activeProfile?.id, generationSessionId, paperId, source, sessionPaperId, subjectKey, subjectMeta.shortLabel])
+
+  useEffect(() => {
+    if (!generationSessionId || source === 'favorites') return undefined
+
+    const snapshot = getQuestionGenerationSessionSnapshot(generationSessionId)
+    if (!snapshot || snapshot.subjectKey !== subjectKey || snapshot.paperId !== paperId) {
+      return undefined
+    }
+
+    return subscribeQuestionGenerationSession(generationSessionId, (nextSnapshot) => {
+      setEntry(nextSnapshot.entry)
+      setQuiz(nextSnapshot.quiz)
+      setLoadError('')
+      setCurrentIndex((current) =>
+        Math.max(0, Math.min(current, Math.max((nextSnapshot.quiz?.items?.length || 1) - 1, 0)))
+      )
+    })
+  }, [generationSessionId, paperId, source, subjectKey])
 
   const buildProgressPayload = (overrides = {}) =>
     buildWorkspaceProgressPayload({
