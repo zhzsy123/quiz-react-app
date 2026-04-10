@@ -1,26 +1,51 @@
-const LEGACY_SYMBOL_MAP = new Map([
-  ['螤', 'Π'],
-  ['Π', 'Π'],
-  ['π', 'Π'],
+const SYMBOL_ALIAS_MAP = new Map([
+  ['螤', 'π'],
+  ['蟺', 'π'],
+  ['PI', 'π'],
+  ['pi', 'π'],
+  ['Π', 'π'],
+  ['危', 'σ'],
   ['蟽', 'σ'],
-  ['蟻', 'ρ'],
+  ['SIGMA', 'σ'],
+  ['sigma', 'σ'],
+  ['Σ', 'σ'],
+  ['∞', '⋈'],
+  ['鈰�', '⋈'],
+  ['JOIN', '⋈'],
+  ['join', '⋈'],
   ['梅', '÷'],
   ['÷', '÷'],
-  ['σ', 'σ'],
-  ['ρ', 'ρ'],
-  ['⋈', '⋈'],
-  ['∪', '∪'],
-  ['∩', '∩'],
-  ['-', '-'],
-  ['≥', '≥'],
-  ['≤', '≤'],
-  ['≠', '≠'],
-  ['¬', '¬'],
+  ['DIVIDE', '÷'],
+  ['divide', '÷'],
+  ['鈭�', '∪'],
+  ['UNION', '∪'],
+  ['union', '∪'],
+  ['鈭�∩', '∩'],
+  ['INTERSECT', '∩'],
+  ['intersect', '∩'],
+  ['卢', '¬'],
+  ['NOT', '¬'],
+  ['not', '¬'],
   ['∨', '∨'],
-  ['^', '^'],
+  ['OR', '∨'],
+  ['or', '∨'],
+  ['∧', '^'],
+  ['AND', '^'],
+  ['and', '^'],
+  ['≥', '≥'],
+  ['>=', '≥'],
+  ['≤', '≤'],
+  ['<=', '≤'],
+  ['≠', '≠'],
+  ['!=', '≠'],
+  ['<>', '≠'],
+  ['蟻', 'ρ'],
+  ['ρ', 'ρ'],
+  ['RENAME', 'ρ'],
+  ['rename', 'ρ'],
 ])
 
-const WRAP_SYMBOLS = new Set(['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ', '螤', '蟽', '梅', '蟻'])
+const WRAP_SYMBOLS = new Set(['π', 'σ', 'ρ'])
 
 function safeParseJson(text) {
   if (typeof text !== 'string') return null
@@ -31,9 +56,9 @@ function safeParseJson(text) {
   }
 }
 
-function normalizeSymbol(value = '') {
+export function normalizeSymbol(value = '') {
   const trimmed = String(value || '').trim()
-  return LEGACY_SYMBOL_MAP.get(trimmed) || trimmed
+  return SYMBOL_ALIAS_MAP.get(trimmed) || trimmed
 }
 
 function normalizeSubquestionId(subquestion, fallbackIndex) {
@@ -119,27 +144,27 @@ export function getRelationalAlgebraSchemaTokens(schemas = []) {
   const seen = new Set()
 
   schemas.forEach((schema) => {
-    const schemaName = String(schema?.name || '').trim()
-    if (schemaName && !seen.has(`relation:${schemaName}`)) {
-      seen.add(`relation:${schemaName}`)
+    const relationName = String(schema?.name || '').trim()
+    if (relationName && !seen.has(`relation:${relationName}`)) {
+      seen.add(`relation:${relationName}`)
       tokens.push({
         kind: 'relation',
-        value: schemaName,
-        label: schemaName,
+        value: relationName,
+        label: relationName,
       })
     }
 
     ;(schema?.attributes || []).forEach((attribute) => {
       const attr = String(attribute || '').trim()
       if (!attr) return
-      const cacheKey = `attribute:${schemaName}:${attr}`
+      const cacheKey = `attribute:${relationName}:${attr}`
       if (seen.has(cacheKey)) return
       seen.add(cacheKey)
       tokens.push({
         kind: 'attribute',
         value: attr,
         label: attr,
-        relation: schemaName,
+        relation: relationName,
       })
     })
   })
@@ -155,7 +180,7 @@ export function insertTextAtCursor(textarea, insertedText, options = {}) {
   const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : value.length
   const insertion = String(insertedText || '')
   const nextValue = `${value.slice(0, start)}${insertion}${value.slice(end)}`
-  const normalizedSymbol = normalizeSymbol(insertion.replace(/\(\)$/, ''))
+  const normalizedSymbol = normalizeSymbol(insertion.replace(/\[\]$|\(\)$|''$/g, ''))
   const cursorOffset =
     typeof options.cursorOffset === 'number'
       ? options.cursorOffset

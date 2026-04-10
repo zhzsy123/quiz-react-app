@@ -26,7 +26,7 @@ export default function RelationalAlgebraSchemaPanel({
   onInsertToken,
 }) {
   if (!Array.isArray(schemas) || schemas.length === 0) {
-    return <div className="rel-algebra-schema-empty">当前题目没有提供关系模式，暂时无法使用快捷插入。</div>
+    return <div className="rel-algebra-schema-empty">当前题目没有提供关系模式，无法使用快捷插入。</div>
   }
 
   return (
@@ -34,7 +34,7 @@ export default function RelationalAlgebraSchemaPanel({
       <div className="rel-algebra-panel-header">
         <div>
           <div className="rel-algebra-panel-title">关系模式</div>
-          <div className="rel-algebra-panel-caption">每行一个关系，点击关系名或属性即可插入。</div>
+          <div className="rel-algebra-panel-caption">每行一个关系，点击关系名或属性即可插入到当前表达式。</div>
         </div>
       </div>
 
@@ -45,10 +45,6 @@ export default function RelationalAlgebraSchemaPanel({
 
           return (
             <section key={`${relationName}-${index}`} className="rel-algebra-schema-card">
-              <div className="rel-algebra-schema-head">
-                <span className="rel-algebra-schema-meta">{attributes.length} 个属性</span>
-              </div>
-
               <div className="rel-algebra-schema-line">
                 <SchemaToken
                   token={{ kind: 'relation', value: relationName, label: relationName }}

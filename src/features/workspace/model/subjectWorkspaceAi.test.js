@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   gradeSubjectiveAttemptMock,
   gradeRelationalAlgebraAttemptMock,
+  gradeRelationalAlgebraSubquestionAttemptMock,
   explainQuizQuestionWithModeMock,
   auditQuizQuestionComplianceMock,
   generateSimilarQuestionsMock,
 } = vi.hoisted(() => ({
   gradeSubjectiveAttemptMock: vi.fn(),
   gradeRelationalAlgebraAttemptMock: vi.fn(),
+  gradeRelationalAlgebraSubquestionAttemptMock: vi.fn(),
   explainQuizQuestionWithModeMock: vi.fn(),
   auditQuizQuestionComplianceMock: vi.fn(),
   generateSimilarQuestionsMock: vi.fn(),
@@ -17,6 +19,7 @@ const {
 vi.mock('../../ai/reviewService', () => ({
   gradeSubjectiveAttempt: gradeSubjectiveAttemptMock,
   gradeRelationalAlgebraAttempt: gradeRelationalAlgebraAttemptMock,
+  gradeRelationalAlgebraSubquestionAttempt: gradeRelationalAlgebraSubquestionAttemptMock,
   explainQuizQuestionWithMode: explainQuizQuestionWithModeMock,
   auditQuizQuestionCompliance: auditQuizQuestionComplianceMock,
   generateSimilarQuestions: generateSimilarQuestionsMock,
@@ -28,6 +31,7 @@ describe('subjectWorkspaceAi', () => {
   beforeEach(() => {
     gradeSubjectiveAttemptMock.mockReset()
     gradeRelationalAlgebraAttemptMock.mockReset()
+    gradeRelationalAlgebraSubquestionAttemptMock.mockReset()
   })
 
   it('accepts subjectivePendingTotal and uses built-in pending review creator', async () => {

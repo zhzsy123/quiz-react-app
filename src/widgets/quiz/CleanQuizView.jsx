@@ -187,6 +187,7 @@ export default function CleanQuizView({
               mode={mode}
               revealedMap={revealedMap}
               relationalAlgebraExpandedMap={relationalAlgebraExpandedMap?.[currentItem.id] || {}}
+              aiQuestionReviewMap={aiQuestionReviewMap}
               onFocusSubQuestion={() => {}}
               onSelectReadingOption={onSelectReadingOption}
               onSelectClozeOption={onSelectClozeOption}

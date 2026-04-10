@@ -6,8 +6,8 @@ import {
 
 describe('relationalAlgebraNormalize', () => {
   it('normalizes common operator aliases and whitespace', () => {
-    expect(normalizeRelationalAlgebraExpression(' Π [ 学号 , 姓名 ] ( 学生 JOIN 学习 ∪ 课程 ) ')).toBe(
-      'Π[学号,姓名](学生⋈学习∪课程)'
+    expect(normalizeRelationalAlgebraExpression(" PI [ 学号 , 姓名 ] ( 学生 JOIN 学习 UNION 课程 ) ")).toBe(
+      'π[学号,姓名](学生⋈学习∪课程)'
     )
   })
 
@@ -31,8 +31,8 @@ describe('relationalAlgebraNormalize', () => {
         },
       ],
       tooling: {
-        symbols: ['Π', 'Π', 'JOIN'],
-        wrap_symbols: ['σ', 'σ'],
+        symbols: ['PI', 'PI', 'JOIN'],
+        wrap_symbols: ['SIGMA', 'SIGMA'],
         default_join_symbol: ' JOIN ',
       },
     })
@@ -41,7 +41,7 @@ describe('relationalAlgebraNormalize', () => {
     expect(normalized.schemas).toEqual([
       {
         name: '学生',
-        attributes: ['学号', '姓名'],
+        attributes: ['学号', '姓名', '学号'],
       },
     ])
     expect(normalized.subquestions).toHaveLength(1)
@@ -50,14 +50,14 @@ describe('relationalAlgebraNormalize', () => {
         id: '1',
         prompt: '检索',
         score: 5,
-        reference_answer: 'Π[学号](学生⋈学习)',
+        reference_answer: 'π[学号](学生⋈学习)',
       })
     )
     expect(normalized.tooling).toEqual(
       expect.objectContaining({
-        symbols: ['Π', 'JOIN'],
+        symbols: ['π', '⋈'],
         wrap_symbols: ['σ'],
-        default_join_symbol: 'JOIN',
+        default_join_symbol: '⋈',
       })
     )
     expect(normalized.questions).toEqual(normalized.subquestions)

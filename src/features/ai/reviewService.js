@@ -1,4 +1,4 @@
-import { requestAiJson } from '../../shared/api/aiGateway'
+import { requestAiJson } from '../../shared/api/aiGateway.js'
 import {
   getRelationalAlgebraResponseText,
   getRelationalAlgebraSubquestions,
@@ -44,6 +44,7 @@ function buildRelationalAlgebraReviewMap(reviews = []) {
     const reviewKey = review?.question_id || review?.subquestion_id
     if (!reviewKey) return map
     map[reviewKey] = {
+      status: review.status || 'completed',
       questionId: reviewKey,
       subquestionId: review.subquestion_id || reviewKey,
       score: Number(review.score) || 0,
@@ -55,6 +56,8 @@ function buildRelationalAlgebraReviewMap(reviews = []) {
       strengths: Array.isArray(review.strengths) ? review.strengths : [],
       weaknesses: Array.isArray(review.missing_points) ? review.missing_points : [],
       suggestions: Array.isArray(review.error_points) ? review.error_points : [],
+      missing_points: Array.isArray(review.missing_points) ? review.missing_points : [],
+      error_points: Array.isArray(review.error_points) ? review.error_points : [],
       normalizedReference: review.normalized_reference || '',
       normalizedUserAnswer: review.normalized_user_answer || '',
     }
@@ -103,6 +106,89 @@ function buildRelationalAlgebraQuestionTarget(item, subQuestion, userAnswer) {
     normalized_reference_answer: normalizedReference,
     normalized_user_answer: normalizedUserAnswer,
   }
+}
+
+function resolveRelationalAlgebraVerdict(verdict, equivalent, score, maxScore) {
+  if (['correct', 'partial', 'incorrect', 'unanswered'].includes(verdict)) return verdict
+  if (equivalent) return 'correct'
+  if (Number(score) > 0 && Number(score) < Number(maxScore)) return 'partial'
+  return 'incorrect'
+}
+
+function buildRelationalAlgebraReviewRecord({ target, subQuestion, content, model, status = 'completed' }) {
+  const maxScore = Number(content?.max_score) || resolveRelationalAlgebraSubquestionScore(subQuestion, target.score || 0)
+  const score = Math.max(0, Math.min(Number(content?.score) || 0, maxScore))
+  const equivalent = Boolean(content?.equivalent)
+
+  return {
+    status,
+    question_id: target.question_id,
+    subquestion_id: subQuestion.id,
+    verdict: resolveRelationalAlgebraVerdict(content?.verdict, equivalent, score, maxScore),
+    equivalent,
+    score,
+    max_score: maxScore,
+    confidence: Number(content?.confidence) || 0,
+    missing_points: Array.isArray(content?.missing_points) ? content.missing_points : [],
+    error_points: Array.isArray(content?.error_points) ? content.error_points : [],
+    comment: content?.comment || '',
+    normalized_reference: target.normalized_reference_answer,
+    normalized_user_answer: target.normalized_user_answer,
+    provider: 'deepseek',
+    model,
+  }
+}
+
+async function requestRelationalAlgebraReview({
+  quiz,
+  subject,
+  target,
+  objectiveScore = 0,
+  objectiveTotal = 0,
+  paperTotal = 0,
+}) {
+  return requestAiJson({
+    feature: 'relational_algebra_grading',
+    title: quiz?.title || 'Untitled paper',
+    subject: subject || quiz?.subject || 'database_principles',
+    temperature: 0.1,
+    systemPrompt:
+      '你是一名数据库原理考试中的关系代数判题老师。只返回 JSON。请严格围绕当前小题判断学生表达式与参考答案是否语义等价。忽略空格、换行、常见运算符别名和括号风格差异。comment、missing_points、error_points 必须使用中文。',
+    userPrompt: JSON.stringify(
+      {
+        task: 'judge_relational_algebra_equivalence',
+        paper_title: quiz?.title || 'Untitled paper',
+        scoring_context: {
+          objective_score: objectiveScore,
+          objective_total: objectiveTotal,
+          paper_total: paperTotal,
+        },
+        question: target,
+        equivalence_rules: [
+          '将 π/Π/PROJECT/PI 视为等价投影符号。',
+          '将 σ/SELECT/SIGMA 视为等价选择符号。',
+          '将 ρ/RENAME 视为等价重命名符号。',
+          '将 ⋈/JOIN/∞ 视为等价连接符号。',
+          '将 ∪/UNION、∩/INTERSECT、÷/DIVIDE、∨/OR、¬/NOT、^/AND 视为等价别名。',
+          '忽略空格、换行、全角半角和括号风格差异。',
+          '只判断当前小题，不要评价其他小题。',
+          '如果学生答案核心语义正确但有次要缺失，可以给 partial。',
+        ],
+        output_schema: {
+          verdict: 'correct | partial | incorrect',
+          equivalent: 'boolean',
+          score: 'number',
+          max_score: 'number',
+          confidence: 'number(0-100)',
+          missing_points: ['中文字符串'],
+          error_points: ['中文字符串'],
+          comment: '中文字符串',
+        },
+      },
+      null,
+      2
+    ),
+  })
 }
 
 function buildQuestionTarget(item, response, subQuestion = null) {
@@ -172,7 +258,7 @@ export async function gradeSubjectiveAttempt({
     title: quiz?.title || 'Untitled paper',
     subject: quiz?.subject || '',
     systemPrompt:
-      'You are a strict but professional exam grader. Return JSON only. Scores must stay between 0 and max_score, and feedback must be concrete and actionable.',
+      '你是一名严格但专业的考试阅卷老师。只返回 JSON。分数必须在 0 到 max_score 之间，反馈必须具体、可执行，并且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'grade_subjective_questions',
@@ -190,14 +276,14 @@ export async function gradeSubjectiveAttempt({
               question_id: 'string',
               score: 'number',
               max_score: 'number',
-              feedback: 'string',
-              strengths: ['string'],
-              weaknesses: ['string'],
-              suggestions: ['string'],
+              feedback: '中文字符串',
+              strengths: ['中文字符串'],
+              weaknesses: ['中文字符串'],
+              suggestions: ['中文字符串'],
             },
           ],
-          overall_comment: 'string',
-          weakness_summary: ['string'],
+          overall_comment: '中文字符串',
+          weakness_summary: ['中文字符串'],
         },
       },
       null,
@@ -237,7 +323,7 @@ export async function gradeRelationalAlgebraAttempt({
       questionReviews: {},
       totalRelationalAlgebraScore: 0,
       totalScore: objectiveScore,
-      overallComment: 'This paper has no relational algebra questions to grade.',
+      overallComment: '本次没有可判定的关系代数题。',
       weaknessSummary: [],
     }
   }
@@ -256,6 +342,7 @@ export async function gradeRelationalAlgebraAttempt({
 
       if (!trimmedAnswer) {
         reviewRecords.push({
+          status: 'completed',
           question_id: target.question_id,
           subquestion_id: subQuestion.id,
           verdict: 'unanswered',
@@ -263,70 +350,25 @@ export async function gradeRelationalAlgebraAttempt({
           score: 0,
           max_score: resolveRelationalAlgebraSubquestionScore(subQuestion, normalizedItem.score || 0),
           confidence: 100,
-          missing_points: ['No answer provided'],
+          missing_points: ['未提供作答内容'],
           error_points: [],
-          comment: 'Unanswered.',
+          comment: '未作答，无法判题。',
           normalized_reference: normalizeRelationalAlgebraExpression(subQuestion.reference_answer || ''),
           normalized_user_answer: '',
         })
         continue
       }
 
-      const { content, model } = await requestAiJson({
-        feature: 'relational_algebra_grading',
-        title: quiz?.title || 'Untitled paper',
+      const { content, model } = await requestRelationalAlgebraReview({
+        quiz,
         subject: quiz?.subject || item?.subject || 'database_principles',
-        temperature: 0.1,
-        systemPrompt:
-          'You are a strict database theory examiner specialized in relational algebra. Return JSON only. Judge semantic equivalence, not surface syntax. Accept operator aliases and whitespace differences. Focus on logic equivalence only.',
-        userPrompt: JSON.stringify(
-          {
-            task: 'judge_relational_algebra_equivalence',
-            paper_title: quiz?.title || 'Untitled paper',
-            scoring_context: {
-              objective_score: objectiveScore,
-              objective_total: objectiveTotal,
-              paper_total: paperTotal,
-            },
-            question: target,
-            equivalence_rules: [
-                'Treat Π/π/PROJECT/PI and σ/SELECT/SIGMA and ρ/RENAME and ⋈/JOIN/∞ and ∪/UNION and ∩/INTERSECT and -/DIFFERENCE and ÷/DIVIDE and >=/≥ and <=/≤ and !=/≠ and OR/∨ and NOT/¬ as equivalent aliases where appropriate.',
-              'Ignore whitespace, line breaks, and bracket style differences.',
-              'Judge semantic equivalence of the relational algebra expression.',
-              'Return partial credit only when the answer is materially close but missing a non-critical component.',
-            ],
-            output_schema: {
-              verdict: 'correct | partial | incorrect',
-              equivalent: 'boolean',
-              score: 'number',
-              max_score: 'number',
-              confidence: 'number(0-100)',
-              missing_points: ['string'],
-              error_points: ['string'],
-              comment: 'string',
-            },
-          },
-          null,
-          2
-        ),
+        target,
+        objectiveScore,
+        objectiveTotal,
+        paperTotal,
       })
 
-      reviewRecords.push({
-        question_id: target.question_id,
-        subquestion_id: subQuestion.id,
-        verdict: content?.verdict || (content?.equivalent ? 'correct' : 'incorrect'),
-        equivalent: Boolean(content?.equivalent),
-        score: Number(content?.score) || 0,
-        max_score: Number(content?.max_score) || resolveRelationalAlgebraSubquestionScore(subQuestion, normalizedItem.score || 0),
-        confidence: Number(content?.confidence) || 0,
-        missing_points: Array.isArray(content?.missing_points) ? content.missing_points : [],
-        error_points: Array.isArray(content?.error_points) ? content.error_points : [],
-        comment: content?.comment || '',
-        normalized_reference: target.normalized_reference_answer,
-        normalized_user_answer: target.normalized_user_answer,
-        provider: 'deepseek',
-        model,
-      })
+      reviewRecords.push(buildRelationalAlgebraReviewRecord({ target, subQuestion, content, model }))
     }
   }
 
@@ -346,16 +388,63 @@ export async function gradeRelationalAlgebraAttempt({
     overallComment:
       reviewRecords.length > 0
         ? reviewRecords
-            .map((review) => `${review.subquestion_id}: ${review.comment || (review.equivalent ? 'Equivalent.' : 'Not equivalent.')}`)
+            .map((review) =>
+              `${review.subquestion_id}：${review.comment || (review.equivalent ? '表达式语义等价。' : '表达式语义不等价。')}`
+            )
             .join(' ')
-        : 'This paper has no relational algebra questions to grade.',
-    weaknessSummary: reviewRecords
-      .filter((review) => !review.equivalent)
-      .flatMap((review) => review.error_points || review.missing_points || []),
+        : '本次没有可判定的关系代数题。',
+    weaknessSummary: reviewRecords.filter((review) => !review.equivalent).flatMap((review) => review.error_points || []),
     questionReviews: reviewMap,
     relationalAlgebraReviews: reviewRecords,
     totalMaxScore,
   }
+}
+
+export async function gradeRelationalAlgebraSubquestionAttempt({
+  quiz,
+  item,
+  subQuestion,
+  userAnswer,
+  objectiveScore = 0,
+  objectiveTotal = 0,
+  paperTotal = 0,
+}) {
+  const normalizedItem = normalizeRelationalAlgebraQuestion(item) || item
+  const target = buildRelationalAlgebraQuestionTarget(normalizedItem, subQuestion, userAnswer)
+  const trimmedAnswer = String(userAnswer || '').trim()
+
+  if (!trimmedAnswer) {
+    return buildRelationalAlgebraReviewMap([
+      {
+        status: 'completed',
+        question_id: target.question_id,
+        subquestion_id: subQuestion.id,
+        verdict: 'unanswered',
+        equivalent: false,
+        score: 0,
+        max_score: resolveRelationalAlgebraSubquestionScore(subQuestion, normalizedItem.score || 0),
+        confidence: 100,
+        missing_points: ['未提供作答内容'],
+        error_points: [],
+        comment: '未作答，无法判题。',
+        normalized_reference: target.normalized_reference_answer,
+        normalized_user_answer: '',
+      },
+    ])[target.question_id]
+  }
+
+  const { content, model } = await requestRelationalAlgebraReview({
+    quiz,
+    subject: quiz?.subject || item?.subject || 'database_principles',
+    target,
+    objectiveScore,
+    objectiveTotal,
+    paperTotal,
+  })
+
+  return buildRelationalAlgebraReviewMap([
+    buildRelationalAlgebraReviewRecord({ target, subQuestion, content, model }),
+  ])[target.question_id]
 }
 
 export async function explainQuizQuestion({ paperTitle, item, response, subQuestion = null }) {
@@ -384,7 +473,7 @@ export async function explainQuizQuestionWithMode({
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
     systemPrompt:
-      'You are a clear exam tutor. Return JSON only. Explain why the answer is correct or wrong, identify the tested point, and give improvement advice.',
+      '你是一名讲解清晰的考试辅导老师。只返回 JSON。请解释答案为什么对或错，指出考查点，并给出改进建议，且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'explain_quiz_question',
@@ -426,15 +515,15 @@ export async function auditQuizQuestionCompliance({ paperTitle, item, response, 
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
     systemPrompt:
-      'You are an exam quality auditor. Return JSON only. Check whether the question, answer, rationale, and options are compliant, unambiguous, and internally consistent.',
+      '你是一名考试质量审核员。只返回 JSON。请检查题目、答案、解析和选项是否规范、明确且内部一致，并使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'audit_quiz_question_compliance',
         paper_title: paperTitle || 'Untitled paper',
         question: target,
-        allowed_verdicts: ['规范', '有歧义', '不规范', '错题'],
+        allowed_verdicts: ['规范', '有瑕疵', '不规范', '错题'],
         output_schema: {
-          verdict: '规范 | 有歧义 | 不规范 | 错题',
+          verdict: '规范 | 有瑕疵 | 不规范 | 错题',
           confidence: 'number(0-100)',
           summary: 'string',
           issues: ['string'],
@@ -470,7 +559,7 @@ export async function generateSimilarQuestions({ paperTitle, item, response, cou
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
     systemPrompt:
-      'You are an exam question generator. Return JSON only. Based on the source question, generate 5 similar questions with progressively increasing difficulty.',
+      '你是一名考试命题助手。只返回 JSON。请基于原题生成同类题，并按难度递进组织，且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'generate_similar_questions',
@@ -501,7 +590,7 @@ export async function generateSimilarQuestions({ paperTitle, item, response, cou
     provider: 'deepseek',
     model,
     generatedAt: Date.now(),
-    title: content?.title || 'AI Similar Questions',
+    title: content?.title || 'AI 同类题',
     questions: Array.isArray(content?.questions) ? content.questions : [],
   }
 }

@@ -5,7 +5,7 @@ const TOOLBAR_ITEMS = [
   { key: 'selection', label: 'σ()', value: 'σ', wrap: true, wrapStyle: 'parens' },
   { key: 'join', label: '⋈', value: '⋈', wrap: false },
   { key: 'divide', label: '÷', value: '÷', wrap: false },
-  { key: 'and_caret', label: '^', value: '^', wrap: false },
+  { key: 'and', label: '^', value: '^', wrap: false },
   { key: 'eq', label: '=', value: '=', wrap: false },
   { key: 'gte', label: '≥', value: '≥', wrap: false },
   { key: 'lte', label: '≤', value: '≤', wrap: false },
@@ -23,8 +23,8 @@ export default function RelationalAlgebraToolbar({ disabled = false, onInsert, c
       {!compact && (
         <div className="rel-algebra-panel-header">
           <div>
-            <div className="rel-algebra-panel-title">常用符号</div>
-            <div className="rel-algebra-panel-caption">按照考试表达习惯提供快捷插入。</div>
+            <div className="rel-algebra-panel-title">关系代数符号</div>
+            <div className="rel-algebra-panel-caption">点击符号即可插入，括号类符号会自动补全。</div>
           </div>
         </div>
       )}

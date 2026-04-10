@@ -13,7 +13,7 @@ describe('relationalAlgebraEditorUtils', () => {
         type: 'relational_algebra',
         question_id: 'ra_1',
         responses: {
-          1: 'Π[学号](学生)',
+          1: 'π[学号](学生)',
           2: 'σ[专业="英语"](学生)',
         },
       }),
@@ -21,7 +21,7 @@ describe('relationalAlgebraEditorUtils', () => {
     )
 
     expect(normalized).toEqual({
-      1: 'Π[学号](学生)',
+      1: 'π[学号](学生)',
       2: 'σ[专业="英语"](学生)',
     })
 
@@ -29,9 +29,9 @@ describe('relationalAlgebraEditorUtils', () => {
   })
 
   it('wraps algebra operators with parentheses', () => {
-    expect(buildRelationalAlgebraInsertion('π', { wrap: true, wrapStyle: 'brackets' })).toBe('Π[]')
-    expect(buildRelationalAlgebraInsertion('螤', { wrap: true, wrapStyle: 'brackets' })).toBe('Π[]')
+    expect(buildRelationalAlgebraInsertion('π', { wrap: true, wrapStyle: 'brackets' })).toBe('π[]')
+    expect(buildRelationalAlgebraInsertion('PI', { wrap: true, wrapStyle: 'brackets' })).toBe('π[]')
     expect(buildRelationalAlgebraInsertion("'", { wrap: true, wrapStyle: 'quotes' })).toBe("''")
-    expect(buildRelationalAlgebraInsertion('AND', { wrap: false })).toBe('AND')
+    expect(buildRelationalAlgebraInsertion('AND', { wrap: false })).toBe('^')
   })
 })

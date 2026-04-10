@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import RelationalAlgebraSchemaPanel from './RelationalAlgebraSchemaPanel.jsx'
-import RelationalAlgebraToolbar from './RelationalAlgebraToolbar.jsx'
 import RelationalAlgebraSubquestionCard from './RelationalAlgebraSubquestionCard.jsx'
 import {
   buildRelationalAlgebraInsertion,
@@ -26,8 +25,8 @@ export default function RelationalAlgebraBlock({
   response,
   submitted,
   isPaused,
-  mode,
   expandedMap,
+  reviewMap = {},
   onTextChange,
   onToggleSubQuestion,
   onRevealQuestion,
@@ -50,6 +49,7 @@ export default function RelationalAlgebraBlock({
       }).length,
     [draftMap, subquestions]
   )
+
   useEffect(() => {
     setDraftMap(normalizeRelationalAlgebraResponse(response, subquestions))
   }, [response, item?.id, subquestionSignature])
@@ -113,8 +113,7 @@ export default function RelationalAlgebraBlock({
   return (
     <div className="subjective-block rel-algebra-block">
       <section className="rel-algebra-overview-card">
-        <div className="rel-algebra-overview-eyebrow">Database Workspace</div>
-        <div className="rel-algebra-overview-body">
+        <div className="rel-algebra-overview-body compact">
           <div className="rel-algebra-overview-copy">
             <h3 className="rel-algebra-overview-title">{item?.title || '关系代数题'}</h3>
             {item?.prompt && <p className="rel-algebra-overview-prompt">{item.prompt}</p>}
@@ -128,8 +127,8 @@ export default function RelationalAlgebraBlock({
         </div>
       </section>
 
-      <div className="rel-algebra-workbench">
-        <aside className="rel-algebra-sidebar">
+      <div className="rel-algebra-workbench spacious">
+        <aside className="rel-algebra-sidebar narrow">
           <RelationalAlgebraSchemaPanel
             schemas={item?.schemas || []}
             activeToken=""
@@ -140,11 +139,9 @@ export default function RelationalAlgebraBlock({
           />
         </aside>
 
-        <section className="rel-algebra-canvas">
+        <section className="rel-algebra-canvas wide">
           <div className="rel-algebra-canvas-head">
-            <div>
-              <div className="rel-algebra-canvas-title">答题工作区</div>
-            </div>
+            <div className="rel-algebra-canvas-title">答题工作区</div>
           </div>
 
           <div className="rel-algebra-subquestion-list">
@@ -153,18 +150,19 @@ export default function RelationalAlgebraBlock({
               return (
                 <RelationalAlgebraSubquestionCard
                   key={subquestionId}
+                  itemId={item.id}
                   subquestion={subquestion}
                   index={index}
                   expanded={Boolean(effectiveExpandedMap[subquestionId])}
-                  submitted={submitted}
-                  disabled={isPaused || (submitted && mode !== 'practice')}
+                  disabled={isPaused || submitted}
                   value={draftMap[subquestionId] || ''}
+                  review={reviewMap?.[`${item.id}:${subquestionId}`] || null}
                   onToggle={handleToggle}
                   onFocus={setActiveSubquestionId}
                   onChange={updateSubquestionValue}
                   onInsert={insertIntoSubquestion}
                   onRegisterTextarea={handleRegisterTextarea}
-                  onReveal={() => onRevealQuestion?.(item.id)}
+                  onGrade={onRevealQuestion}
                 />
               )
             })}

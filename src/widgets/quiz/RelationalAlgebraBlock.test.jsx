@@ -27,7 +27,7 @@ function Harness() {
         id: '1',
         prompt: '找出学生信息。',
         score: 5,
-        reference_answer: 'Π(学生)',
+        reference_answer: 'π(学生)',
       },
     ],
   }
@@ -38,7 +38,6 @@ function Harness() {
       response={response}
       submitted={false}
       isPaused={false}
-      mode="practice"
       expandedMap={expandedMap}
       onTextChange={(_, subquestionId, nextValue) =>
         setResponse((current) => ({
@@ -77,7 +76,7 @@ afterEach(() => {
 })
 
 describe('RelationalAlgebraBlock', () => {
-  it('renders schema tokens and inserts operators into the active textarea', () => {
+  it('renders schema lines and inserts operators into the active textarea', () => {
     const { container, root } = mountHarness()
 
     const header = container.querySelector('.rel-algebra-subquestion-head')
@@ -102,7 +101,7 @@ describe('RelationalAlgebraBlock', () => {
       projectionBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(container.querySelector('.rel-algebra-editor').value).toContain('Π[]')
+    expect(container.querySelector('.rel-algebra-editor').value).toContain('π[]')
 
     const studentToken = Array.from(container.querySelectorAll('.rel-algebra-token')).find(
       (button) => button.textContent === '学生'

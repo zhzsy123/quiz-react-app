@@ -47,6 +47,7 @@ import {
 } from './subjectWorkspaceObjective.js'
 import {
   runExplainQuestionAi as runWorkspaceExplainQuestionAi,
+  runRelationalAlgebraSubquestionAi as runWorkspaceRelationalAlgebraSubquestionAi,
   runSimilarQuestionsAi as runWorkspaceSimilarQuestionsAi,
   runSubjectiveAiReview as runWorkspaceSubjectiveAiReview,
 } from './subjectWorkspaceAi.js'
@@ -250,6 +251,26 @@ export function useSubjectWorkspaceState() {
     setAiReview(nextReview)
     await persistNow({ aiReview: nextReview, attemptId: nextAttemptId })
     await persistAttemptPatch(nextAttemptId, { aiReview: nextReview })
+  }
+
+  const upsertAiQuestionReview = async (reviewKey, reviewEntry, patch = {}) => {
+    const baseReview = aiReview || createWorkspacePendingAiReview(subjectivePendingScore || 0)
+    const nextReview = {
+      ...baseReview,
+      ...patch,
+      questionReviews: {
+        ...(baseReview.questionReviews || {}),
+        [reviewKey]: {
+          ...(baseReview.questionReviews?.[reviewKey] || {}),
+          ...reviewEntry,
+        },
+      },
+    }
+
+    setAiReview(nextReview)
+    await persistNow({ aiReview: nextReview })
+    await persistAttemptPatch(attemptId, { aiReview: nextReview })
+    return nextReview
   }
 
   const syncAiExplainEntry = async (entryKey, nextEntry, nextAttemptId = attemptId) => {
@@ -897,28 +918,73 @@ export function useSubjectWorkspaceState() {
     void persistNow({ relationalAlgebraExpandedMap: nextMap })
   }
 
-  const handleRevealRelationalAlgebraQuestion = (questionId) => {
+  const handleRevealRelationalAlgebraQuestion = (questionId, subQuestionId) => {
     if (!quiz || submitted || mode !== 'practice') return
 
     const currentItem = quiz.items[currentIndex]
-    if (currentItem?.type !== 'relational_algebra' || currentItem.id !== questionId) return
+    if (currentItem?.type !== 'relational_algebra' || currentItem.id !== questionId || !subQuestionId) return
 
-    const currentResponse = answers[questionId]
-    if (!isRelationalAlgebraAnswered(currentItem, currentResponse)) return
+    const subQuestion = Array.isArray(currentItem.subquestions)
+      ? currentItem.subquestions.find((question) => String(question.id) === String(subQuestionId))
+      : null
+    const userAnswer = answers?.[questionId]?.responses?.[subQuestionId]
 
-    const nextRevealed = { ...revealedMap, [questionId]: true }
-    setRevealedMap(nextRevealed)
+    if (!subQuestion || !String(userAnswer || '').trim()) return
 
-    let nextIndex = currentIndex
-    if (autoAdvance && currentIndex < quiz.items.length - 1) {
-      nextIndex = currentIndex + 1
-      setCurrentIndex(nextIndex)
-    }
+    const reviewKey = `${questionId}:${subQuestionId}`
 
-    void persistNow({
-      revealedMap: nextRevealed,
-      currentIndex: nextIndex,
-    })
+    void (async () => {
+      await upsertAiQuestionReview(reviewKey, {
+        status: 'pending',
+        questionId: reviewKey,
+        subquestionId: String(subQuestionId),
+        verdict: 'pending',
+        equivalent: false,
+        score: 0,
+        maxScore: Number(subQuestion.score) || 0,
+        confidence: 0,
+        feedback: 'AI 正在判题，请稍候。',
+        strengths: [],
+        weaknesses: [],
+        suggestions: [],
+        normalizedReference: '',
+        normalizedUserAnswer: '',
+      })
+
+      try {
+        const completedReview = await runWorkspaceRelationalAlgebraSubquestionAi({
+          quiz,
+          item: currentItem,
+          answers,
+          subQuestion,
+          objectiveScore: score,
+          objectiveTotal: objectiveTotalScore,
+          paperTotal: paperTotalScore,
+        })
+
+        await upsertAiQuestionReview(reviewKey, {
+          ...completedReview,
+          status: 'completed',
+        })
+      } catch (error) {
+        await upsertAiQuestionReview(reviewKey, {
+          status: 'failed',
+          questionId: reviewKey,
+          subquestionId: String(subQuestionId),
+          verdict: 'incorrect',
+          equivalent: false,
+          score: 0,
+          maxScore: Number(subQuestion.score) || 0,
+          confidence: 0,
+          feedback: error?.message || 'AI 判题失败，请稍后重试。',
+          strengths: [],
+          weaknesses: [],
+          suggestions: [],
+          normalizedReference: '',
+          normalizedUserAnswer: String(userAnswer || '').trim(),
+        })
+      }
+    })()
   }
 
   const handleReset = async () => {

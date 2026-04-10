@@ -3,6 +3,7 @@ import {
   explainQuizQuestionWithMode,
   generateSimilarQuestions,
   gradeRelationalAlgebraAttempt,
+  gradeRelationalAlgebraSubquestionAttempt,
   gradeSubjectiveAttempt,
 } from '../../ai/reviewService'
 import { createPendingAiReview as createWorkspacePendingAiReview } from './subjectWorkspaceObjective.js'
@@ -110,5 +111,27 @@ export async function runSimilarQuestionsAi({ quiz, answers, item }) {
     paperTitle: quiz.title,
     item,
     response: answers[item.id],
+  })
+}
+
+export async function runRelationalAlgebraSubquestionAi({
+  quiz,
+  item,
+  answers,
+  subQuestion,
+  objectiveScore = 0,
+  objectiveTotal = 0,
+  paperTotal = 0,
+}) {
+  if (!quiz || !item || !subQuestion) return null
+
+  return gradeRelationalAlgebraSubquestionAttempt({
+    quiz,
+    item,
+    subQuestion,
+    userAnswer: answers?.[item.id]?.responses?.[subQuestion.id] || '',
+    objectiveScore,
+    objectiveTotal,
+    paperTotal,
   })
 }

@@ -19,6 +19,7 @@ const {
   loadPreferenceMock,
   savePreferenceMock,
   gradeSubjectiveAttemptMock,
+  gradeRelationalAlgebraSubquestionAttemptMock,
   explainQuizQuestionWithModeMock,
   auditQuizQuestionComplianceMock,
   generateSimilarQuestionsMock,
@@ -35,6 +36,7 @@ const {
   loadPreferenceMock: vi.fn(),
   savePreferenceMock: vi.fn(),
   gradeSubjectiveAttemptMock: vi.fn(),
+  gradeRelationalAlgebraSubquestionAttemptMock: vi.fn(),
   explainQuizQuestionWithModeMock: vi.fn(),
   auditQuizQuestionComplianceMock: vi.fn(),
   generateSimilarQuestionsMock: vi.fn(),
@@ -253,6 +255,7 @@ vi.mock('../../ai/reviewService', () => ({
   explainQuizQuestionWithMode: explainQuizQuestionWithModeMock,
   generateSimilarQuestions: generateSimilarQuestionsMock,
   gradeSubjectiveAttempt: gradeSubjectiveAttemptMock,
+  gradeRelationalAlgebraSubquestionAttempt: gradeRelationalAlgebraSubquestionAttemptMock,
 }))
 
 vi.mock('../../../entities/history/api/historyRepository', () => ({
@@ -370,6 +373,24 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     loadPreferenceMock.mockReturnValue(null)
     savePreferenceMock.mockReturnValue(true)
     gradeSubjectiveAttemptMock.mockResolvedValue(null)
+    gradeRelationalAlgebraSubquestionAttemptMock.mockResolvedValue({
+      status: 'completed',
+      questionId: 'ra_1:1',
+      subquestionId: '1',
+      verdict: 'correct',
+      equivalent: true,
+      score: 5,
+      maxScore: 5,
+      confidence: 96,
+      feedback: '表达式与参考答案语义等价。',
+      strengths: [],
+      weaknesses: [],
+      suggestions: [],
+      missing_points: [],
+      error_points: [],
+      normalizedReference: "π[学号,姓名](σ[专业='英语'](学生))",
+      normalizedUserAnswer: "π[学号,姓名](σ[专业='英语'](学生))",
+    })
     explainQuizQuestionWithModeMock.mockResolvedValue(null)
     auditQuizQuestionComplianceMock.mockResolvedValue(null)
     generateSimilarQuestionsMock.mockResolvedValue(null)
@@ -722,38 +743,35 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     container.remove()
   })
 
-  it('reveals relational algebra questions as a whole and can auto-advance after completion', async () => {
+  it('grades relational algebra subquestions with AI and stores structured review results', async () => {
     setQuizFixture(createRelationalAlgebraQuizFixture())
     const { root, container, stateRef } = await mountWorkspace()
 
     await act(async () => {
-      stateRef.current.handleToggleAutoAdvance()
+      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '1', "Π[学号,姓名](σ[专业='英语'](学生))")
       await flushAsyncWork()
     })
 
     await act(async () => {
-      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '1', "Π[学号,姓名](σ[专业='英语'](学生))")
-      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '2', "Π[学号,姓名](σ[姓名 LIKE '%张%'](学生))")
+      stateRef.current.handleRevealRelationalAlgebraQuestion('ra_1', '1')
       await flushAsyncWork()
     })
 
-    expect(stateRef.current.answers.ra_1).toEqual(
+    expect(gradeRelationalAlgebraSubquestionAttemptMock).toHaveBeenCalledTimes(1)
+    expect(gradeRelationalAlgebraSubquestionAttemptMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: expect.stringContaining("（1） Π[学号,姓名](σ[专业='英语'](学生))"),
-        responses: expect.objectContaining({
-          1: "Π[学号,姓名](σ[专业='英语'](学生))",
-          2: "Π[学号,姓名](σ[姓名 LIKE '%张%'](学生))",
-        }),
+        subQuestion: expect.objectContaining({ id: '1' }),
+        userAnswer: "Π[学号,姓名](σ[专业='英语'](学生))",
       })
     )
-
-    await act(async () => {
-      stateRef.current.handleRevealRelationalAlgebraQuestion('ra_1')
-      await flushAsyncWork()
-    })
-
-    expect(stateRef.current.revealedMap.ra_1).toBe(true)
-    expect(stateRef.current.currentIndex).toBe(1)
+    expect(stateRef.current.aiQuestionReviewMap['ra_1:1']).toEqual(
+      expect.objectContaining({
+        verdict: 'correct',
+        score: 5,
+        maxScore: 5,
+        feedback: '表达式与参考答案语义等价。',
+      })
+    )
 
     await act(async () => {
       root.unmount()

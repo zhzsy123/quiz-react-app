@@ -542,6 +542,7 @@ export default function QuizSubjectiveBlock({
   mode,
   revealedMap,
   relationalAlgebraExpandedMap,
+  aiQuestionReviewMap,
   focusSubQuestionId,
   onFocusSubQuestion,
   onSelectReadingOption,
@@ -642,8 +643,8 @@ export default function QuizSubjectiveBlock({
         response={response}
         submitted={submitted}
         isPaused={isPaused}
-        mode={mode}
         expandedMap={relationalAlgebraExpandedMap}
+        reviewMap={aiQuestionReviewMap}
         onTextChange={onRelationalAlgebraTextChange}
         onToggleSubQuestion={onToggleRelationalAlgebraSubQuestion}
         onRevealQuestion={onRevealRelationalAlgebraQuestion}
