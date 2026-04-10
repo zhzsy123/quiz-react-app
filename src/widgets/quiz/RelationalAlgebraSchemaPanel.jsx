@@ -26,12 +26,18 @@ export default function RelationalAlgebraSchemaPanel({
   onInsertToken,
 }) {
   if (!Array.isArray(schemas) || schemas.length === 0) {
-    return <div className="rel-algebra-schema-empty">当前题目未提供关系模式，建议先确认题干结构是否完整。</div>
+    return <div className="rel-algebra-schema-empty">当前题目没有提供关系模式，暂时无法使用快捷插入。</div>
   }
 
   return (
-    <div className="rel-algebra-schema-panel">
-      <div className="rel-algebra-schema-panel-title">关系模式</div>
+    <section className="rel-algebra-schema-panel">
+      <div className="rel-algebra-panel-header">
+        <div>
+          <div className="rel-algebra-panel-title">关系模式</div>
+          <div className="rel-algebra-panel-caption">悬停高亮，点击关系名或属性即可插入到当前编辑器。</div>
+        </div>
+      </div>
+
       <div className="rel-algebra-schema-grid">
         {schemas.map((schema, index) => {
           const relationName = String(schema?.name || `R${index + 1}`).trim()
@@ -40,10 +46,6 @@ export default function RelationalAlgebraSchemaPanel({
           return (
             <section key={`${relationName}-${index}`} className="rel-algebra-schema-card">
               <div className="rel-algebra-schema-head">
-                <span className="rel-algebra-schema-name">{relationName}</span>
-                <span className="rel-algebra-schema-meta">{attributes.length} attrs</span>
-              </div>
-              <div className="rel-algebra-token-row">
                 <SchemaToken
                   token={{ kind: 'relation', value: relationName, label: relationName }}
                   activeToken={activeToken}
@@ -52,6 +54,10 @@ export default function RelationalAlgebraSchemaPanel({
                   onLeave={onLeaveToken}
                   onInsert={onInsertToken}
                 />
+                <span className="rel-algebra-schema-meta">{attributes.length} 个属性</span>
+              </div>
+
+              <div className="rel-algebra-token-row">
                 {attributes.map((attribute, attrIndex) => {
                   const attr = String(attribute || '').trim()
                   if (!attr) return null
@@ -72,6 +78,6 @@ export default function RelationalAlgebraSchemaPanel({
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }

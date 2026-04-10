@@ -1,4 +1,19 @@
-const WRAP_SYMBOLS = new Set(['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ'])
+const LEGACY_SYMBOL_MAP = new Map([
+  ['螤', 'Π'],
+  ['蟽', 'σ'],
+  ['蟻', 'ρ'],
+  ['梅', '÷'],
+  ['÷', '÷'],
+  ['Π', 'Π'],
+  ['σ', 'σ'],
+  ['ρ', 'ρ'],
+  ['⋈', '⋈'],
+  ['∪', '∪'],
+  ['∩', '∩'],
+  ['-', '-'],
+])
+
+const WRAP_SYMBOLS = new Set(['Π', 'σ', '⋈', '∪', '∩', '-', '÷', 'ρ', '螤', '蟽', '梅', '蟻'])
 
 function safeParseJson(text) {
   if (typeof text !== 'string') return null
@@ -7,6 +22,11 @@ function safeParseJson(text) {
   } catch {
     return null
   }
+}
+
+function normalizeSymbol(value = '') {
+  const trimmed = String(value || '').trim()
+  return LEGACY_SYMBOL_MAP.get(trimmed) || trimmed
 }
 
 function normalizeSubquestionId(subquestion, fallbackIndex) {
@@ -128,10 +148,11 @@ export function insertTextAtCursor(textarea, insertedText, options = {}) {
   const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : value.length
   const insertion = String(insertedText || '')
   const nextValue = `${value.slice(0, start)}${insertion}${value.slice(end)}`
+  const normalizedSymbol = normalizeSymbol(insertion.replace(/\(\)$/, ''))
   const cursorOffset =
     typeof options.cursorOffset === 'number'
       ? options.cursorOffset
-      : WRAP_SYMBOLS.has(insertion.replace(/\(\)$/, ''))
+      : WRAP_SYMBOLS.has(normalizedSymbol)
         ? insertion.length - 1
         : insertion.length
   const nextCursor = start + cursorOffset
@@ -150,11 +171,11 @@ export function insertTextAtCursor(textarea, insertedText, options = {}) {
 }
 
 export function buildRelationalAlgebraInsertion(symbol, { wrap = false } = {}) {
-  const normalized = String(symbol || '').trim()
+  const normalized = normalizeSymbol(symbol)
   if (!normalized) return ''
   return wrap ? `${normalized}()` : normalized
 }
 
 export function isRelationalAlgebraWrapSymbol(symbol) {
-  return WRAP_SYMBOLS.has(String(symbol || '').trim())
+  return WRAP_SYMBOLS.has(normalizeSymbol(symbol))
 }

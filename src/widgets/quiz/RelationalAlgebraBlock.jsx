@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import RelationalAlgebraSchemaPanel from './RelationalAlgebraSchemaPanel.jsx'
 import RelationalAlgebraToolbar from './RelationalAlgebraToolbar.jsx'
 import RelationalAlgebraSubquestionCard from './RelationalAlgebraSubquestionCard.jsx'
@@ -43,9 +43,16 @@ export default function RelationalAlgebraBlock({
   const [draftMap, setDraftMap] = useState(() => normalizeRelationalAlgebraResponse(response, subquestions))
 
   const effectiveExpandedMap = buildExpandedMap(subquestions, expandedMap)
-  const schemaTokens = getRelationalAlgebraSchemaTokens(item?.schemas || [])
   const contentScore = subquestions.reduce((sum, subquestion) => sum + (Number(subquestion?.score) || 0), 0)
-  const isReviewMode = submitted
+  const answeredCount = useMemo(
+    () =>
+      subquestions.filter((subquestion, index) => {
+        const key = String(subquestion.id ?? index + 1)
+        return Boolean(draftMap[key]?.trim())
+      }).length,
+    [draftMap, subquestions]
+  )
+  const activeSubquestion = subquestions.find((subquestion, index) => String(subquestion.id ?? index + 1) === activeSubquestionId)
 
   useEffect(() => {
     setDraftMap(normalizeRelationalAlgebraResponse(response, subquestions))
@@ -109,47 +116,73 @@ export default function RelationalAlgebraBlock({
 
   return (
     <div className="subjective-block rel-algebra-block">
-      <section className="rel-algebra-statement-card">
-        <div className="question-context-title">{item?.title || item?.prompt || '关系代数题'}</div>
-        {item?.prompt && <div className="question-context-body rel-algebra-main-prompt">{item.prompt}</div>}
-        <div className="rel-algebra-meta-line">
-          <span>{subquestions.length} 个子题</span>
-          <span>{contentScore} 分</span>
+      <section className="rel-algebra-overview-card">
+        <div className="rel-algebra-overview-eyebrow">Database Workspace</div>
+        <div className="rel-algebra-overview-body">
+          <div className="rel-algebra-overview-copy">
+            <h3 className="rel-algebra-overview-title">{item?.title || '关系代数题'}</h3>
+            {item?.prompt && <p className="rel-algebra-overview-prompt">{item.prompt}</p>}
+          </div>
+
+          <div className="rel-algebra-meta-pills">
+            <span className="rel-algebra-meta-pill">{subquestions.length} 个子题</span>
+            <span className="rel-algebra-meta-pill">{contentScore} 分</span>
+            <span className="rel-algebra-meta-pill emphasis">已作答 {answeredCount} / {subquestions.length}</span>
+          </div>
         </div>
       </section>
 
-      <RelationalAlgebraSchemaPanel
-        schemas={item?.schemas || []}
-        activeToken={hoveredToken}
-        disabled={isPaused}
-        onHoverToken={(token) => setHoveredToken(token)}
-        onLeaveToken={() => setHoveredToken('')}
-        onInsertToken={insertIntoActive}
-      />
+      <div className="rel-algebra-workbench">
+        <aside className="rel-algebra-sidebar">
+          <RelationalAlgebraSchemaPanel
+            schemas={item?.schemas || []}
+            activeToken={hoveredToken}
+            disabled={isPaused}
+            onHoverToken={(token) => setHoveredToken(token)}
+            onLeaveToken={() => setHoveredToken('')}
+            onInsertToken={insertIntoActive}
+          />
 
-      <RelationalAlgebraToolbar disabled={isPaused || submitted} onInsert={insertIntoActive} />
+          <RelationalAlgebraToolbar disabled={isPaused || submitted} onInsert={insertIntoActive} />
+        </aside>
 
-      <div className="rel-algebra-subquestion-list">
-        {subquestions.map((subquestion, index) => {
-          const subquestionId = String(subquestion.id ?? index + 1)
-          return (
-            <RelationalAlgebraSubquestionCard
-              key={subquestionId}
-              subquestion={subquestion}
-              index={index}
-              expanded={Boolean(effectiveExpandedMap[subquestionId])}
-              submitted={isReviewMode}
-              disabled={isPaused || (submitted && mode !== 'practice')}
-              value={draftMap[subquestionId] || ''}
-              onToggle={handleToggle}
-              onFocus={setActiveSubquestionId}
-              onChange={updateSubquestionValue}
-              onInsert={insertIntoSubquestion}
-              onRegisterTextarea={handleRegisterTextarea}
-              onReveal={() => onRevealQuestion?.(item.id)}
-            />
-          )
-        })}
+        <section className="rel-algebra-canvas">
+          <div className="rel-algebra-canvas-head">
+            <div>
+              <div className="rel-algebra-canvas-title">答题工作区</div>
+              <div className="rel-algebra-canvas-caption">
+                当前焦点：
+                <span className="rel-algebra-active-badge">
+                  {activeSubquestion?.label || (activeSubquestionId ? `(${activeSubquestionId})` : '未选择')}
+                </span>
+                <span>{activeSubquestion?.prompt || '点击任一子题开始作答'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rel-algebra-subquestion-list">
+            {subquestions.map((subquestion, index) => {
+              const subquestionId = String(subquestion.id ?? index + 1)
+              return (
+                <RelationalAlgebraSubquestionCard
+                  key={subquestionId}
+                  subquestion={subquestion}
+                  index={index}
+                  expanded={Boolean(effectiveExpandedMap[subquestionId])}
+                  submitted={submitted}
+                  disabled={isPaused || (submitted && mode !== 'practice')}
+                  value={draftMap[subquestionId] || ''}
+                  onToggle={handleToggle}
+                  onFocus={setActiveSubquestionId}
+                  onChange={updateSubquestionValue}
+                  onInsert={insertIntoSubquestion}
+                  onRegisterTextarea={handleRegisterTextarea}
+                  onReveal={() => onRevealQuestion?.(item.id)}
+                />
+              )
+            })}
+          </div>
+        </section>
       </div>
     </div>
   )

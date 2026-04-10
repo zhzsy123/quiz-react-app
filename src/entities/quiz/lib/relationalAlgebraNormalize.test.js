@@ -6,8 +6,8 @@ import {
 
 describe('relationalAlgebraNormalize', () => {
   it('normalizes common operator aliases and whitespace', () => {
-    expect(normalizeRelationalAlgebraExpression(' Π [ 学号 , 姓名 ] ( 学生 JOIN 学习 ∩ 课程 ) ')).toBe(
-      'Π[学号,姓名](学生⋈学习∩课程)'
+    expect(normalizeRelationalAlgebraExpression(' Π [ 学号 , 姓名 ] ( 学生 JOIN 学习 ∪ 课程 ) ')).toBe(
+      'Π[学号,姓名](学生⋈学习∪课程)'
     )
   })
 
@@ -25,7 +25,7 @@ describe('relationalAlgebraNormalize', () => {
       questions: [
         {
           id: 1,
-          prompt: '  检索 ',
+          prompt: '  检索  ',
           score: '5',
           reference_answer: ' project [ 学号 ] ( 学生 JOIN 学习 ) ',
         },

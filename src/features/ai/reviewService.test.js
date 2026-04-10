@@ -56,24 +56,24 @@ describe('reviewService relational algebra grading', () => {
             prompt: 'Use relational algebra to answer.',
             schemas: [
               {
-                name: '学生',
-                attributes: ['学号', '姓名'],
+                name: 'Student',
+                attributes: ['sid', 'name'],
               },
             ],
             subquestions: [
               {
                 id: '1',
-                label: '（1）',
-                prompt: '检索英语专业学生信息。',
+                label: '(1)',
+                prompt: 'Find English majors.',
                 score: 5,
-                reference_answer: "Π[学号,姓名](σ[专业='英语'](学生 JOIN 学习))",
+                reference_answer: "Π[sid,name](σ[major='English'](Student JOIN Enrollment))",
               },
               {
                 id: '2',
-                label: '（2）',
-                prompt: '检索数据库原理课程高分学生。',
+                label: '(2)',
+                prompt: 'Find high-scoring database students.',
                 score: 5,
-                reference_answer: "Π[学号,姓名](σ[名称='数据库原理'](学生 JOIN 学习 JOIN 课程))",
+                reference_answer: "Π[sid,name](σ[title='Database'](Student JOIN Enrollment JOIN Course))",
               },
             ],
           },
@@ -82,8 +82,8 @@ describe('reviewService relational algebra grading', () => {
       answers: {
         ra_1: {
           responses: {
-            1: "PI [ 学号 , 姓名 ] ( sigma [ 专业 = '英语' ] ( 学生 JOIN 学习 ) )",
-            2: "Π[学号,姓名](σ[名称='数据库原理'](学生⋈学习⋈课程))",
+            1: "PI [ sid , name ] ( sigma [ major = 'English' ] ( Student JOIN Enrollment ) )",
+            2: "Π[sid,name](σ[title='Database'](Student⋈Enrollment∪Course))",
           },
         },
       },
@@ -93,9 +93,9 @@ describe('reviewService relational algebra grading', () => {
     expect(requestAiJsonMock.mock.calls[0][0].feature).toBe('relational_algebra_grading')
     expect(requestAiJsonMock.mock.calls[0][0].temperature).toBe(0.1)
     expect(requestAiJsonMock.mock.calls[0][0].userPrompt).toMatch(/"question_id":\s*"ra_1:1"/)
-    expect(requestAiJsonMock.mock.calls[0][0].userPrompt).toContain("Π[学号,姓名](σ[专业='英语'](学生⋈学习))")
+    expect(requestAiJsonMock.mock.calls[0][0].userPrompt).toContain("Π[sid,name](σ[major='English'](Student⋈Enrollment))")
     expect(requestAiJsonMock.mock.calls[1][0].userPrompt).toContain(
-      "Π[学号,姓名](σ[名称='数据库原理'](学生⋈学习⋈课程))"
+      "Π[sid,name](σ[title='Database'](Student⋈Enrollment∪Course))"
     )
 
     expect(result.status).toBe('completed')
@@ -139,7 +139,7 @@ describe('reviewService relational algebra grading', () => {
                 id: '1',
                 prompt: 'Do something.',
                 score: 5,
-                reference_answer: 'Π[学号](学生)',
+                reference_answer: 'Π[sid](Student)',
               },
             ],
           },

@@ -25,7 +25,7 @@ function Harness() {
     subquestions: [
       {
         id: '1',
-        prompt: '检索学生信息。',
+        prompt: '找出学生信息。',
         score: 5,
         reference_answer: 'Π(学生)',
       },

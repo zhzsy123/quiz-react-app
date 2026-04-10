@@ -17,16 +17,19 @@ function normalizeExpressionAliases(value = '') {
     [/\bJOIN\b/gi, '⋈'],
     [/\bPROJECT\b/gi, 'Π'],
     [/\bPI\b/gi, 'Π'],
+    [/螤/g, 'Π'],
     [/\bSIGMA\b/gi, 'σ'],
     [/\bSELECT\b/gi, 'σ'],
+    [/蟽/g, 'σ'],
     [/\bRENAME\b/gi, 'ρ'],
+    [/蟻/g, 'ρ'],
     [/\bUNION\b/gi, '∪'],
     [/\bINTERSECT\b/gi, '∩'],
     [/\bDIFFERENCE\b/gi, '-'],
     [/\bMINUS\b/gi, '-'],
     [/\bDIVIDE\b/gi, '÷'],
     [/\bOVER\b/gi, '÷'],
-    [/∞/g, '⋈'],
+    [/梅/g, '÷'],
   ]
 
   for (const [pattern, replacement] of aliasRules) {

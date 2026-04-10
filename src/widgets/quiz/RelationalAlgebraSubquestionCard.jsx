@@ -2,6 +2,13 @@ import React from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { buildPreviewText } from './quizViewUtils.jsx'
 
+const QUICK_INSERT_SYMBOLS = [
+  { label: 'Π()', value: 'Π', wrap: true },
+  { label: 'σ()', value: 'σ', wrap: true },
+  { label: '⋈()', value: '⋈', wrap: true },
+  { label: 'AND', value: 'AND', wrap: false },
+]
+
 export default function RelationalAlgebraSubquestionCard({
   subquestion,
   index,
@@ -17,7 +24,7 @@ export default function RelationalAlgebraSubquestionCard({
   onReveal,
 }) {
   const preview = buildPreviewText(value || '')
-  const answerLabel = value?.trim() ? '已填写' : '未填写'
+  const answerLabel = value?.trim() ? '已作答' : '未填写'
   const scoreLabel = Number(subquestion?.score) || 0
   const referenceAnswer = subquestion?.reference_answer || subquestion?.answer?.reference_answer || ''
 
@@ -25,9 +32,10 @@ export default function RelationalAlgebraSubquestionCard({
     <article className={`rel-algebra-subquestion-card ${expanded ? 'expanded' : ''}`}>
       <button type="button" className="rel-algebra-subquestion-head" onClick={() => onToggle?.(subquestion.id)}>
         <div className="rel-algebra-subquestion-title-wrap">
-          <span className="rel-algebra-subquestion-index">({index + 1})</span>
-          <span className="rel-algebra-subquestion-title">{subquestion?.prompt || '关系代数小题'}</span>
+          <span className="rel-algebra-subquestion-index">{subquestion?.label || `(${index + 1})`}</span>
+          <span className="rel-algebra-subquestion-title">{subquestion?.prompt || '关系代数子题'}</span>
         </div>
+
         <div className="rel-algebra-subquestion-meta">
           <span className={`rel-algebra-answer-state ${value?.trim() ? 'filled' : 'empty'}`}>{answerLabel}</span>
           <span className="rel-algebra-score">{scoreLabel} 分</span>
@@ -40,7 +48,7 @@ export default function RelationalAlgebraSubquestionCard({
       {expanded && (
         <div className="rel-algebra-subquestion-body">
           <div className="rel-algebra-subquestion-statement">
-            <span className="rel-algebra-subquestion-label">题目</span>
+            <span className="rel-algebra-subquestion-label">查询目标</span>
             <div>{subquestion?.prompt || '请使用关系代数表达式作答。'}</div>
           </div>
 
@@ -52,6 +60,11 @@ export default function RelationalAlgebraSubquestionCard({
           )}
 
           <div className="rel-algebra-editor-shell">
+            <div className="rel-algebra-editor-head">
+              <div className="rel-algebra-editor-title">关系代数表达式</div>
+              <div className="rel-algebra-editor-caption">左侧关系模式和上方算子都可以点击插入。</div>
+            </div>
+
             <textarea
               ref={(node) => onRegisterTextarea?.(subquestion.id, node)}
               className="rel-algebra-editor"
@@ -59,46 +72,28 @@ export default function RelationalAlgebraSubquestionCard({
               onChange={(event) => onChange?.(subquestion.id, event.target.value)}
               onFocus={() => onFocus?.(subquestion.id)}
               disabled={disabled}
-              rows={4}
+              rows={6}
               spellCheck={false}
               autoCorrect="off"
               autoCapitalize="off"
-              placeholder="在这里输入关系代数表达式"
+              placeholder="在这里编写关系代数表达式"
             />
 
             <div className="rel-algebra-editor-actions">
-              <button
-                type="button"
-                className="secondary-btn small-btn"
-                disabled={disabled}
-                onClick={() => onInsert?.(subquestion.id, 'Π', { wrap: true })}
-              >
-                Π()
-              </button>
-              <button
-                type="button"
-                className="secondary-btn small-btn"
-                disabled={disabled}
-                onClick={() => onInsert?.(subquestion.id, 'σ', { wrap: true })}
-              >
-                σ()
-              </button>
-              <button
-                type="button"
-                className="secondary-btn small-btn"
-                disabled={disabled}
-                onClick={() => onInsert?.(subquestion.id, '⋈', { wrap: true })}
-              >
-                ⋈()
-              </button>
-              <button
-                type="button"
-                className="secondary-btn small-btn"
-                disabled={disabled}
-                onClick={() => onInsert?.(subquestion.id, 'AND', { wrap: false })}
-              >
-                AND
-              </button>
+              <div className="rel-algebra-editor-quick-actions">
+                {QUICK_INSERT_SYMBOLS.map((symbol) => (
+                  <button
+                    key={symbol.label}
+                    type="button"
+                    className="secondary-btn small-btn"
+                    disabled={disabled}
+                    onClick={() => onInsert?.(subquestion.id, symbol.value, { wrap: symbol.wrap })}
+                  >
+                    {symbol.label}
+                  </button>
+                ))}
+              </div>
+
               <button
                 type="button"
                 className="secondary-btn small-btn"
