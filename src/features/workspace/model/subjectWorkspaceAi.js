@@ -5,6 +5,7 @@ import {
   gradeRelationalAlgebraAttempt,
   gradeSubjectiveAttempt,
 } from '../../ai/reviewService'
+import { createPendingAiReview as createWorkspacePendingAiReview } from './subjectWorkspaceObjective.js'
 
 export async function runSubjectiveAiReview({
   quiz,
@@ -13,11 +14,15 @@ export async function runSubjectiveAiReview({
   objectiveTotal,
   paperTotal,
   subjectiveTotal,
+  subjectivePendingTotal,
   createPendingAiReview,
 }) {
-  if (!quiz || subjectiveTotal <= 0) return null
+  const resolvedSubjectiveTotal = Number(subjectiveTotal ?? subjectivePendingTotal ?? 0)
+  if (!quiz || resolvedSubjectiveTotal <= 0) return null
 
-  const pendingReview = createPendingAiReview(subjectiveTotal)
+  const buildPendingReview =
+    typeof createPendingAiReview === 'function' ? createPendingAiReview : createWorkspacePendingAiReview
+  const pendingReview = buildPendingReview(resolvedSubjectiveTotal)
 
   const completedReview = await gradeSubjectiveAttempt({
     quiz,
@@ -25,16 +30,19 @@ export async function runSubjectiveAiReview({
     objectiveScore,
     objectiveTotal,
     paperTotal,
-    subjectivePendingTotal: subjectiveTotal,
+    subjectivePendingTotal: resolvedSubjectiveTotal,
   })
 
-  const relationalAlgebraReview = await gradeRelationalAlgebraAttempt({
-    quiz,
-    answers,
-    objectiveScore,
-    objectiveTotal,
-    paperTotal,
-  })
+  const relationalAlgebraReview =
+    typeof gradeRelationalAlgebraAttempt === 'function'
+      ? await gradeRelationalAlgebraAttempt({
+          quiz,
+          answers,
+          objectiveScore,
+          objectiveTotal,
+          paperTotal,
+        })
+      : null
 
   if (!completedReview && !relationalAlgebraReview) return pendingReview
 

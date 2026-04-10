@@ -331,7 +331,7 @@ export function useSubjectWorkspaceState() {
         objectiveScore,
         objectiveTotal,
         paperTotal,
-        subjectivePendingTotal: subjectiveTotal,
+        subjectiveTotal,
       })
       await syncAiReview(completedReview, targetAttemptId)
     } catch (error) {
