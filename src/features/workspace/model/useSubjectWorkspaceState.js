@@ -25,6 +25,7 @@ import {
 } from '../../../entities/session/api/sessionRepository'
 import { upsertWrongbookEntries } from '../../../entities/wrongbook/api/wrongbookRepository'
 import { loadPreference, savePreference } from '../../../shared/lib/preferences/preferenceRepository'
+import { requestConfirmDialog } from '../../../shared/ui/dialogs/dialogService'
 import {
   buildProgressPayload as buildWorkspaceProgressPayload,
   formatRemainingSeconds as formatWorkspaceRemainingSeconds,
@@ -461,7 +462,13 @@ export function useSubjectWorkspaceState() {
     const answeredCount = quiz.items.filter((item) => isResponseAnswered(item, answers[item.id])).length
 
     if (mode === 'exam' && !forced && answeredCount < totalQuestions) {
-      const ok = window.confirm('还有未作答题目，确定现在交卷吗？')
+      const ok = await requestConfirmDialog({
+        title: '确认交卷',
+        message: '还有未作答题目，确定现在交卷吗？',
+        confirmLabel: '立即交卷',
+        cancelLabel: '继续作答',
+        tone: 'danger',
+      })
       if (!ok) return
     }
 
@@ -1043,7 +1050,13 @@ export function useSubjectWorkspaceState() {
 
   const handleReset = async () => {
     if (!activeProfile?.id || !sessionPaperId) return
-    const ok = window.confirm('Reset current progress?')
+    const ok = await requestConfirmDialog({
+      title: '重置当前进度',
+      message: '确定重置当前试卷进度吗？这会清空当前作答内容。',
+      confirmLabel: '重置',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!ok) return
 
     await clearSessionProgress(activeProfile.id, subjectKey, sessionPaperId)

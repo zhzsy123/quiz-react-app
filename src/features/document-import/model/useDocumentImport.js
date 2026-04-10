@@ -4,154 +4,21 @@ import {
   createDocumentImportError,
 } from '../../../entities/document-import/lib/documentImportContracts'
 import {
+  appendDocumentImportLog as appendLog,
+  applyDocumentImportStageActivity as applyStageActivity,
+  buildDocumentImportFileMeta as buildFileMeta,
+  deriveDocumentImportState as deriveState,
+  DOCUMENT_IMPORT_STAGE_ACTIVITY_META as STAGE_ACTIVITY_META,
+  markDocumentImportActivityCompleted as markActivityCompleted,
+  markDocumentImportActivityFailed as markActivityFailed,
+  upsertDocumentImportActivity as upsertActivityEntry,
+} from './documentImportStateHelpers'
+import {
   importDocumentWithAi as importDocumentWithAiDefault,
   repairImportedQuestionWithAi as repairImportedQuestionWithAiDefault,
 } from '../api/documentImportService'
 import { extractDocumentDraft as extractDocumentDraftDefault } from '../../../shared/document'
 import { rebuildDocumentImportResult } from './documentImportResultState'
-
-const BUSY_STATUSES = new Set([
-  'reading_file',
-  'extracting_text',
-  'calling_ai',
-  'validating',
-  'saving',
-  'launching',
-])
-
-const STAGE_ACTIVITY_META = {
-  reading_file: { id: 'reading_file', title: '读取文件' },
-  extracting_text: { id: 'extracting_text', title: '提取文本' },
-  calling_ai: { id: 'calling_ai', title: 'AI 解析试卷' },
-  validating: { id: 'validating', title: '校验与标准化' },
-  saving: { id: 'saving', title: '保存到题库' },
-  launching: { id: 'launching', title: '进入练习' },
-}
-
-function buildFileMeta(file) {
-  if (!file) return null
-  return {
-    name: file.name || '',
-    size: Number(file.size) || 0,
-    mimeType: file.type || '',
-  }
-}
-
-function appendLog(currentLogs = [], message) {
-  if (!message) return currentLogs
-  return [...currentLogs, message]
-}
-
-function normalizeActivityPatch(patch = {}, entries = []) {
-  const id = patch.id || `activity-${entries.length + 1}`
-  const details = Array.isArray(patch.details)
-    ? patch.details
-    : patch.detail
-      ? [patch.detail]
-      : []
-
-  return {
-    id,
-    title: patch.title || '处理中',
-    status: patch.status || 'running',
-    summary: patch.summary || '',
-    details,
-    meta: patch.meta || '',
-  }
-}
-
-function upsertActivityEntry(entries = [], patch = {}) {
-  const nextEntry = normalizeActivityPatch(patch, entries)
-  const index = entries.findIndex((entry) => entry.id === nextEntry.id)
-
-  if (index < 0) {
-    return [...entries, nextEntry]
-  }
-
-  const current = entries[index]
-  const mergedDetails = [...(current.details || [])]
-  nextEntry.details.forEach((detail) => {
-    if (detail && !mergedDetails.includes(detail)) {
-      mergedDetails.push(detail)
-    }
-  })
-
-  const mergedEntry = {
-    ...current,
-    ...nextEntry,
-    details: mergedDetails,
-  }
-
-  return [...entries.slice(0, index), mergedEntry, ...entries.slice(index + 1)]
-}
-
-function markOtherStagesCompleted(entries = [], activeStage) {
-  return entries.map((entry) => {
-    if (!STAGE_ACTIVITY_META[entry.id] || entry.id === activeStage) return entry
-    if (entry.status === 'running') {
-      return { ...entry, status: 'completed' }
-    }
-    return entry
-  })
-}
-
-function applyStageActivity(entries = [], stage, message) {
-  const meta = STAGE_ACTIVITY_META[stage]
-  if (!meta) return entries
-
-  const completedEntries = markOtherStagesCompleted(entries, meta.id)
-  return upsertActivityEntry(completedEntries, {
-    id: meta.id,
-    title: meta.title,
-    status: 'running',
-    summary: message || '',
-    detail: message || '',
-  })
-}
-
-function markActivityCompleted(entries = [], id, message = '') {
-  return upsertActivityEntry(entries, {
-    id,
-    status: 'completed',
-    summary: message || undefined,
-    detail: message || undefined,
-  })
-}
-
-function markActivityFailed(entries = [], id, title, message) {
-  return upsertActivityEntry(entries, {
-    id,
-    title,
-    status: 'failed',
-    summary: message,
-    detail: message,
-  })
-}
-
-function deriveState(state) {
-  const hasBlockingErrors = Array.isArray(state.errors) && state.errors.length > 0
-  const hasBlockingInvalidReasons =
-    !DOCUMENT_IMPORT_PREVIEW_POLICY.canSaveWithInvalidQuestions &&
-    Array.isArray(state.invalidReasons) &&
-    state.invalidReasons.length > 0
-
-  const canSave =
-    (state.status === 'preview_ready' || state.status === 'completed') &&
-    !!state.importResult &&
-    !hasBlockingErrors &&
-    !hasBlockingInvalidReasons
-
-  const canStartPractice =
-    !!state.saveResult ||
-    (DOCUMENT_IMPORT_PREVIEW_POLICY.reuseSavedPaperForPractice && canSave)
-
-  return {
-    ...state,
-    canSave,
-    canStartPractice,
-    isBusy: BUSY_STATUSES.has(state.status),
-  }
-}
 
 export function createInitialDocumentImportState({ open = false, subject = '' } = {}) {
   return {
@@ -398,7 +265,7 @@ export function useDocumentImport({
         status: 'preview_ready',
         importResult: result,
         preview: result.preview,
-        warnings: result.warnings || extractionWarnings,
+        warnings: [...extractionWarnings, ...(result.warnings || [])],
         errors: result.errors || [],
         invalidReasons: result.invalidReasons || [],
         progressLog: appendLog(current.progressLog, '解析完成，可预览并保存题库。'),
@@ -555,7 +422,7 @@ export function useDocumentImport({
           },
           subjectKey: current.subject,
           warnings: current.warnings,
-          errors: current.errors,
+          errors: [],
           invalidReasons: current.invalidReasons,
         })
 
@@ -675,7 +542,6 @@ export function useDocumentImport({
         const message = error instanceof Error ? error.message : '局部重解析失败。'
         updateState((current) => ({
           ...current,
-          errors: [message],
           progressLog: appendLog(current.progressLog, `局部重解析失败：${message}`),
           activityEntries: markActivityFailed(
             current.activityEntries,

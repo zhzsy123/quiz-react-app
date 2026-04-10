@@ -1,4 +1,5 @@
-import { callDeepSeekJson, callDeepSeekStream } from './deepseekClient'
+import { resolveAiModel } from './aiModelPolicy'
+import { callDeepSeekJson, callDeepSeekStream, getDeepSeekModelPreference } from './deepseekClient'
 
 export const AVAILABLE_AI_PROVIDERS = ['deepseek']
 
@@ -10,7 +11,15 @@ export async function requestAiJson({
   feature = 'general',
   title = '',
   subject = '',
+  model = '',
 }) {
+  const preferredModel = provider === 'deepseek' ? getDeepSeekModelPreference() : ''
+  const resolvedModel = resolveAiModel({
+    feature,
+    preferredModel,
+    explicitModel: model,
+  })
+
   switch (provider) {
     case 'deepseek':
       return callDeepSeekJson({
@@ -20,6 +29,7 @@ export async function requestAiJson({
         feature,
         title,
         subject,
+        model: resolvedModel,
       })
     default:
       throw new Error(`Unsupported AI provider: ${provider}`)
@@ -37,7 +47,15 @@ export async function requestAiStream({
   feature = 'general',
   title = '',
   subject = '',
+  model = '',
 }) {
+  const preferredModel = provider === 'deepseek' ? getDeepSeekModelPreference() : ''
+  const resolvedModel = resolveAiModel({
+    feature,
+    preferredModel,
+    explicitModel: model,
+  })
+
   try {
     switch (provider) {
       case 'deepseek':
@@ -51,6 +69,7 @@ export async function requestAiStream({
           feature,
           title,
           subject,
+          model: resolvedModel,
         })
       default:
         throw new Error(`Unsupported AI provider: ${provider}`)

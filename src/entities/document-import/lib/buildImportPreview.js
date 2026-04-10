@@ -50,7 +50,7 @@ function getSubQuestionCount(item = {}) {
 }
 
 function buildQuestionPreviews(items = []) {
-  return items.slice(0, 20).map((item, index) => {
+  return items.map((item, index) => {
     const typeKey = item.source_type || item.type || 'unknown'
     const typeMeta = getQuestionTypeMeta(typeKey)
     const subQuestionCount = getSubQuestionCount(item)

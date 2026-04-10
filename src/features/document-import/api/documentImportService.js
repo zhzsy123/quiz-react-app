@@ -385,9 +385,9 @@ export async function importDocumentWithAi({
         ...(sectionedImport.detection.coverage < 0.85
           ? ['本次为基于本地规则的 section 粗切分，请在预览中重点检查题型边界。']
           : []),
-        ...((sectionedImport.failedSections || []).map(
-          (item) => `${item.section.label} 瑙ｆ瀽澶辫触锛屽凡璺宠繃锛?{item.reason}`
-        )),
+        ...((sectionedImport.failedSections || [])
+          .filter((item) => item.section.optional)
+          .map((item) => `${item.section.label} 解析失败，已跳过：${item.reason}`)),
       ]
     } else {
       const prompt = buildImportPrompt({
@@ -433,13 +433,21 @@ export async function importDocumentWithAi({
   const invalidReasons = []
   const skippedCount = Number(normalizedDocument?.validation?.skippedCount) || 0
   const skippedTypes = normalizedDocument?.validation?.skippedTypes || []
+  const blockingSectionFailures = (sectionedImport?.failedSections || []).filter((item) => !item.section.optional)
   if (skippedCount > 0) {
     invalidReasons.push(`已跳过 ${skippedCount} 道当前不支持的题目。`)
+  }
+  if (blockingSectionFailures.length > 0) {
+    invalidReasons.push(
+      ...blockingSectionFailures.map((item) => `${item.section.label} 解析失败：${item.reason}`)
+    )
   }
 
   const warnings = [
     ...promptWarnings,
-    ...((sectionedImport?.failedSections || []).map(
+    ...((sectionedImport?.failedSections || [])
+      .filter((item) => item.section.optional)
+      .map(
       (item) => `${item.section.label} 解析失败，已跳过：${item.reason}`
     )),
     ...(normalizedDocument?.validation?.warnings || []),

@@ -7,6 +7,7 @@ import {
   renameProfile,
   setActiveProfileId,
 } from '../../entities/profile/api/profileRepository'
+import AppDialogHost from '../../shared/ui/dialogs/AppDialogHost.jsx'
 
 const AppContext = createContext(null)
 
@@ -92,7 +93,12 @@ export function AppProvider({ children }) {
     [profiles, activeProfile, activeProfileId, loading]
   )
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      <AppDialogHost />
+    </AppContext.Provider>
+  )
 }
 
 export function useAppContext() {

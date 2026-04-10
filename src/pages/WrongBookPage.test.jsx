@@ -21,13 +21,13 @@ vi.mock('../entities/subject/model/subjects', async () => {
   return {
     ...actual,
     SUBJECT_REGISTRY: [
-      { key: 'english', label: '英语模考系统 V2.0', shortLabel: '英语' },
-      { key: 'international_trade', label: '国际贸易模考系统 V1.0', shortLabel: '国际贸易' },
+      { key: 'english', label: '英语', shortLabel: '英语' },
+      { key: 'international_trade', label: '国际贸易', shortLabel: '国际贸易' },
     ],
     getSubjectMeta: (subject) =>
       subject === 'international_trade'
-        ? { key: 'international_trade', shortLabel: '国际贸易' }
-        : { key: 'english', shortLabel: '英语' },
+        ? { key: 'international_trade', shortLabel: '国际贸易', route: '/exam/international_trade' }
+        : { key: 'english', shortLabel: '英语', route: '/exam/english' },
     getQuestionTypeMeta: (type) =>
       ({
         single_choice: { key: 'single_choice', label: '单项选择题' },
@@ -73,7 +73,7 @@ describe('WrongBookPage', () => {
           paperTitle: '国际贸易模拟卷一',
           userAnswerLabel: '认为无权拒收',
           correctAnswerLabel: '有权拒收',
-          rationale: '应结合迟延交单的后果判断。',
+          rationale: '应结合延期交单的后果判断。',
         },
       ],
       subjectFilter: 'international_trade',
@@ -91,9 +91,15 @@ describe('WrongBookPage', () => {
       practiceIndex: 0,
       setPracticeIndex: vi.fn(),
       selectedAnswer: '',
+      selectedChoices: [],
+      blankAnswers: {},
+      blankFeedback: [],
       feedback: '',
       displayPracticeItem: null,
       holdSolvedItem: null,
+      isBlankPracticeItem: false,
+      isClozePracticeItem: false,
+      isMultipleChoicePracticeItem: false,
       selectedKeys: [],
       wrongSummary: {
         totalWrongRecords: 2,
@@ -108,6 +114,11 @@ describe('WrongBookPage', () => {
       handleRemoveSelected: vi.fn(),
       handleRemoveAllFiltered: vi.fn(),
       handlePracticeAnswer: vi.fn(),
+      handleTogglePracticeChoice: vi.fn(),
+      handlePracticeBlankChange: vi.fn(),
+      handlePracticeClozeAnswer: vi.fn(),
+      handleCheckPracticeBlank: vi.fn(),
+      handleCheckPracticeObjective: vi.fn(),
       handleAdvanceAfterSolved: vi.fn(),
       resetPractice: vi.fn(),
     })

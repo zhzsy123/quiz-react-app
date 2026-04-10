@@ -10,63 +10,16 @@ import {
   hasDuplicateSignature,
   rememberSignature,
 } from '../../../entities/quiz-generation/lib/generationSignatures.js'
-import {
-  OBJECTIVE_GENERATION_TYPES,
-  sanitizeGeneratedQuestion,
-} from '../../../entities/quiz-generation/lib/generatedQuestionSanitizer.js'
+import { sanitizeGeneratedQuestion } from '../../../entities/quiz-generation/lib/generatedQuestionSanitizer.js'
 import { requestAiJson } from '../../../shared/api/aiGateway.js'
-
-function createRequestId(subjectKey = 'paper') {
-  return `gen_${subjectKey}_${Date.now()}`
-}
-
-function toNumber(value, fallback = 0) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
-
-function accumulateScoreBreakdown(question, current = { objectiveScore: 0, subjectiveScore: 0, totalScore: 0 }) {
-  if (!question || typeof question !== 'object') return current
-
-  if (question.type === 'composite' && Array.isArray(question.questions)) {
-    return question.questions.reduce((next, child) => accumulateScoreBreakdown(child, next), current)
-  }
-
-  const score = toNumber(question.score)
-  current.totalScore += score
-  if (OBJECTIVE_GENERATION_TYPES.has(question.type)) {
-    current.objectiveScore += score
-  } else {
-    current.subjectiveScore += score
-  }
-
-  return current
-}
-
-function buildScoreBreakdownFromQuestions(questions = [], meta = {}) {
-  const totals = questions.reduce(
-    (current, question) => accumulateScoreBreakdown(question, current),
-    { objectiveScore: 0, subjectiveScore: 0, totalScore: 0 }
-  )
-
-  const paperTotal = Number(meta.targetPaperTotal || totals.totalScore || 0) || 0
-  return {
-    objectiveScore: totals.objectiveScore,
-    subjectiveScore: totals.subjectiveScore,
-    totalScore: totals.totalScore,
-    paperTotal,
-    questionCount: questions.length,
-  }
-}
-
-function getDraftQuestionList(entry) {
-  if (Array.isArray(entry?.normalizedItems) && entry.normalizedItems.length > 0) {
-    return entry.normalizedItems
-  }
-
-  const question = entry?.normalizedQuestion || entry?.rawQuestion
-  return question ? [question] : []
-}
+import {
+  buildQuestionGenerationDraftPaper,
+  buildQuestionGenerationResult,
+  createQuestionGenerationMeta,
+  createQuestionGenerationRequestId,
+  emitQuestionGenerationProgress,
+  runQuestionGenerationPool,
+} from './questionGenerationRuntime.js'
 
 export function buildDraftPaper({
   config = {},
@@ -75,69 +28,13 @@ export function buildDraftPaper({
   saveResult = null,
   requestId = '',
 } = {}) {
-  const acceptedDraftQuestions = draftQuestions.filter(
-    (entry) => entry?.status === 'valid' || entry?.status === 'warning'
-  )
-  const normalizedQuestions = acceptedDraftQuestions
-    .flatMap((entry) => getDraftQuestionList(entry))
-    .filter(Boolean)
-
-  const draftPaper = buildModelDraftPaper({
+  return buildQuestionGenerationDraftPaper({
+    buildModelDraftPaper,
     config,
     meta,
     draftQuestions,
     saveResult,
-  })
-
-  return {
-    ...draftPaper,
-    paper_id: requestId || meta.requestId || config.requestId || draftPaper.paper_id,
-    questions: normalizedQuestions,
-    scoreBreakdown: buildScoreBreakdownFromQuestions(normalizedQuestions, {
-      targetPaperTotal: config.targetPaperTotal || meta.targetPaperTotal || 0,
-    }),
-  }
-}
-
-function createGenerationMeta(subjectMeta, normalized, requestId, generationPlan) {
-  return {
     requestId,
-    subject: subjectMeta.key,
-    paperTitle: normalized.paperTitle || subjectMeta.label,
-    mode: normalized.mode,
-    difficulty: normalized.difficulty,
-    targetCount: generationPlan.length,
-    durationMinutes: normalized.durationMinutes,
-    targetPaperTotal: normalized.targetPaperTotal,
-    questionPlan: generationPlan,
-  }
-}
-
-async function runPool(items, worker, limit = 3) {
-  const results = new Array(items.length)
-  let cursor = 0
-
-  async function runNext() {
-    const index = cursor
-    cursor += 1
-    if (index >= items.length) return
-    results[index] = await worker(items[index], index)
-    await runNext()
-  }
-
-  const concurrency = Math.min(limit, items.length)
-  await Promise.all(Array.from({ length: concurrency }, () => runNext()))
-  return results
-}
-
-function emitProgress(onProgress, planItem, planIndex, patch = {}) {
-  onProgress?.({
-    id: `question-${planIndex + 1}`,
-    index: planIndex + 1,
-    title: `第 ${planIndex + 1} 题 · ${planItem.label}`,
-    meta: `${planItem.score} 分`,
-    score: planItem.score,
-    ...patch,
   })
 }
 
@@ -151,9 +48,9 @@ export async function startQuestionGeneration({
   signal,
 } = {}) {
   const subjectKey = config.subject || meta.subject || ''
-  const requestId = meta.requestId || createRequestId(subjectKey || 'paper')
+  const requestId = meta.requestId || createQuestionGenerationRequestId(subjectKey || 'paper')
   const { subjectMeta, normalized, generationPlan } = normalizeGenerationParams(subjectKey, config)
-  const generationMeta = createGenerationMeta(subjectMeta, normalized, requestId, generationPlan)
+  const generationMeta = createQuestionGenerationMeta(subjectMeta, normalized, requestId, generationPlan)
   const draftQuestions = new Array(generationPlan.length)
   const warnings = []
   const signatureMap = new Map()
@@ -180,7 +77,7 @@ export async function startQuestionGeneration({
   }
 
   try {
-    await runPool(
+    await runQuestionGenerationPool(
       generationPlan,
       async (planItem, planIndex) => {
         if (signal?.aborted) {
@@ -192,7 +89,7 @@ export async function startQuestionGeneration({
           let duplicateError = null
           let previousErrorMessage = ''
 
-          emitProgress(onProgress, planItem, planIndex, {
+          emitQuestionGenerationProgress(onProgress, planItem, planIndex, {
             status: 'running',
             summary: '正在生成题目',
             detail: `正在调用模型生成 ${planItem.label}`,
@@ -228,10 +125,10 @@ export async function startQuestionGeneration({
 
             if (hasDuplicateSignature(signatureMap, planItem.typeKey, signature)) {
               duplicateError = new Error('生成题目与同批已生成内容重复度过高，请重试。')
-              emitProgress(onProgress, planItem, planIndex, {
+              emitQuestionGenerationProgress(onProgress, planItem, planIndex, {
                 status: 'running',
                 summary: '检测到重复，正在自动重试',
-                detail: '当前题目与同批已生成内容过于接近，系统正在重新生成',
+                detail: '当前题目与同批已生成内容过于接近，系统正在重新生成。',
               })
               continue
             }
@@ -245,9 +142,8 @@ export async function startQuestionGeneration({
             })
 
             if (entry.status === 'invalid') {
-              previousErrorMessage =
-                entry.errors?.[0] || entry.error || '题目结构无效，请修正后重新生成。'
-              emitProgress(onProgress, planItem, planIndex, {
+              previousErrorMessage = entry.errors?.[0] || entry.error || '题目结构无效，请修正后重新生成。'
+              emitQuestionGenerationProgress(onProgress, planItem, planIndex, {
                 status: 'running',
                 summary: '结构校验未通过，正在自动修复',
                 detail: previousErrorMessage,
@@ -265,24 +161,12 @@ export async function startQuestionGeneration({
           }
 
           draftQuestions[planIndex] = finalizedEntry
-          emitProgress(onProgress, planItem, planIndex, {
+          emitQuestionGenerationProgress(onProgress, planItem, planIndex, {
             status: finalizedEntry.status === 'warning' ? 'warning' : 'completed',
-            summary:
-              finalizedEntry.preview?.previewText ||
-              finalizedEntry.preview?.title ||
-              '题目已生成',
-            details: [
-              ...(finalizedEntry.validation?.warnings || []),
-              ...(finalizedEntry.errors || []),
-            ],
-            previewText:
-              finalizedEntry.preview?.previewText ||
-              finalizedEntry.preview?.title ||
-              '',
-            questionId:
-              finalizedEntry.rawQuestion?.id ||
-              finalizedEntry.normalizedQuestion?.id ||
-              '',
+            summary: finalizedEntry.preview?.previewText || finalizedEntry.preview?.title || '题目已生成',
+            details: [...(finalizedEntry.validation?.warnings || []), ...(finalizedEntry.errors || [])],
+            previewText: finalizedEntry.preview?.previewText || finalizedEntry.preview?.title || '',
+            questionId: finalizedEntry.rawQuestion?.id || finalizedEntry.normalizedQuestion?.id || '',
           })
           onQuestion?.(finalizedEntry.rawQuestion, {
             requestId,
@@ -319,7 +203,7 @@ export async function startQuestionGeneration({
             typeKey: planItem.typeKey,
             message,
           })
-          emitProgress(onProgress, planItem, planIndex, {
+          emitQuestionGenerationProgress(onProgress, planItem, planIndex, {
             status: 'failed',
             summary: message,
             detail: message,
@@ -337,39 +221,35 @@ export async function startQuestionGeneration({
       normalized.mode === 'practice' ? 6 : 3
     )
 
-    const finalizedEntries = draftQuestions.filter(Boolean)
-    const result = {
-      status: 'completed',
+    const result = buildQuestionGenerationResult({
+      buildModelDraftPaper,
+      normalized,
+      subjectMeta,
+      generationMeta,
+      draftQuestions,
       requestId,
-      receivedCount: finalizedEntries.length,
-      meta: generationMeta,
       warnings,
-      draftQuestions: finalizedEntries,
-      draftPaper: buildDraftPaper({
-        config: { ...normalized, subject: subjectMeta.key, title: generationMeta.paperTitle },
-        meta: generationMeta,
-        draftQuestions: finalizedEntries,
-        requestId,
-      }),
-    }
+    })
 
-    onComplete?.(result)
+    if (result.status === 'completed') {
+      onComplete?.(result)
+    } else {
+      result.error = new Error('当前没有可保存的有效题目，请调整配置后重试。')
+      onError?.(result.error)
+    }
     return result
   } catch (error) {
-    const finalizedEntries = draftQuestions.filter(Boolean)
     const result = {
-      status: 'failed',
-      requestId,
-      receivedCount: finalizedEntries.length,
-      meta: generationMeta,
-      warnings,
-      draftQuestions: finalizedEntries,
-      draftPaper: buildDraftPaper({
-        config: { ...normalized, subject: subjectMeta.key, title: generationMeta.paperTitle },
-        meta: generationMeta,
-        draftQuestions: finalizedEntries,
+      ...buildQuestionGenerationResult({
+        buildModelDraftPaper,
+        normalized,
+        subjectMeta,
+        generationMeta,
+        draftQuestions,
         requestId,
+        warnings,
       }),
+      status: 'failed',
       error,
     }
 

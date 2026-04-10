@@ -1,6 +1,7 @@
 import { createAiUsageRecord } from '../lib/ai/aiUsageRepository'
 import { calculateDeepSeekCost } from '../lib/ai/deepseekPricing'
 import { getPreference, setPreference } from '../lib/preferences/preferenceRepository'
+import { requestPromptDialog } from '../ui/dialogs/dialogService'
 import { postJson, postStream } from './httpClient'
 import { createNdjsonStreamParser } from './streamParser'
 
@@ -137,6 +138,10 @@ export function getDeepSeekConfig() {
   }
 }
 
+export function getDeepSeekModelPreference() {
+  return getPreference(MODEL_PREF, import.meta.env.VITE_DEEPSEEK_MODEL || '')
+}
+
 export function updateDeepSeekConfig(patch = {}) {
   if (typeof patch.apiKey === 'string') {
     setPreference(API_KEY_PREF, patch.apiKey.trim())
@@ -157,11 +162,16 @@ export function maskApiKey(apiKey = '') {
   return `${text.slice(0, 4)}***${text.slice(-4)}`
 }
 
-export function ensureDeepSeekConfigInteractive() {
+export async function ensureDeepSeekConfigInteractive() {
   const current = getDeepSeekConfig()
   if (current.apiKey) return current
 
-  const apiKey = window.prompt('请输入 DeepSeek API Key。它只会保存在当前浏览器本地，用于个人使用。')
+  const apiKey = await requestPromptDialog({
+    title: '配置 DeepSeek API Key',
+    message: '请输入 DeepSeek API Key。它只会保存在当前浏览器本地，用于个人使用。',
+    confirmLabel: '保存',
+    placeholder: 'sk-...',
+  })
   if (!apiKey?.trim()) return null
 
   setPreference(API_KEY_PREF, apiKey.trim())
@@ -175,12 +185,13 @@ export async function callDeepSeekJson({
   systemPrompt,
   userPrompt,
   temperature = 0.2,
+  model,
   signal,
   feature = 'general',
   title = '',
   subject = '',
 } = {}) {
-  const config = ensureDeepSeekConfigInteractive()
+  const config = await ensureDeepSeekConfigInteractive()
   if (!config?.apiKey) {
     throw new Error('未配置 DeepSeek API Key')
   }
@@ -201,7 +212,7 @@ export async function callDeepSeekJson({
         Authorization: `Bearer ${config.apiKey}`,
       },
       body: {
-        model: config.model || DEFAULT_MODEL,
+        model: model || config.model || DEFAULT_MODEL,
         temperature,
         response_format: { type: 'json_object' },
         messages: [
@@ -216,7 +227,7 @@ export async function callDeepSeekJson({
     await recordAiUsage({
       status: 'completed',
       provider: 'deepseek',
-      model: payload?.model || config.model || DEFAULT_MODEL,
+      model: payload?.model || model || config.model || DEFAULT_MODEL,
       feature,
       subject,
       title,
@@ -236,7 +247,7 @@ export async function callDeepSeekJson({
     await recordAiUsage({
       status: 'failed',
       provider: 'deepseek',
-      model: config.model || DEFAULT_MODEL,
+      model: model || config.model || DEFAULT_MODEL,
       feature,
       subject,
       title,
@@ -254,6 +265,7 @@ export async function callDeepSeekStream({
   systemPrompt,
   userPrompt,
   temperature = 0.7,
+  model,
   onEvent,
   onError,
   signal,
@@ -261,7 +273,7 @@ export async function callDeepSeekStream({
   title = '',
   subject = '',
 } = {}) {
-  const config = ensureDeepSeekConfigInteractive()
+  const config = await ensureDeepSeekConfigInteractive()
   if (!config?.apiKey) {
     throw new Error('未配置 DeepSeek API Key')
   }
@@ -283,7 +295,7 @@ export async function callDeepSeekStream({
         Accept: 'text/event-stream',
       },
       body: {
-        model: config.model || DEFAULT_MODEL,
+        model: model || config.model || DEFAULT_MODEL,
         temperature,
         stream: true,
         stream_options: { include_usage: true },
@@ -317,7 +329,7 @@ export async function callDeepSeekStream({
       await recordAiUsage({
         status: 'completed',
         provider: 'deepseek',
-        model: config.model || DEFAULT_MODEL,
+        model: model || config.model || DEFAULT_MODEL,
         feature,
         subject,
         title,
@@ -329,7 +341,7 @@ export async function callDeepSeekStream({
       })
       return {
         events,
-        model: config.model || DEFAULT_MODEL,
+        model: model || config.model || DEFAULT_MODEL,
         usage: usageMeta,
       }
     }
@@ -352,7 +364,7 @@ export async function callDeepSeekStream({
     await recordAiUsage({
       status: 'completed',
       provider: 'deepseek',
-      model: config.model || DEFAULT_MODEL,
+      model: model || config.model || DEFAULT_MODEL,
       feature,
       subject,
       title,
@@ -365,14 +377,14 @@ export async function callDeepSeekStream({
 
     return {
       events,
-      model: config.model || DEFAULT_MODEL,
+      model: model || config.model || DEFAULT_MODEL,
       usage: usageMeta,
     }
   } catch (error) {
     await recordAiUsage({
       status: 'failed',
       provider: 'deepseek',
-      model: config.model || DEFAULT_MODEL,
+      model: model || config.model || DEFAULT_MODEL,
       feature,
       subject,
       title,

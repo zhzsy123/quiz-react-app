@@ -16,6 +16,7 @@ import {
   normalizeQuestionPlan,
   SUBJECT_REGISTRY,
 } from '../../../entities/subject/model/subjects'
+import { requestConfirmDialog, requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
 import { useDocumentImport } from '../../document-import/model/useDocumentImport'
 import { startQuestionGeneration } from '../../question-generator/api/questionGenerationService'
 import { useAiQuestionGenerator } from '../../question-generator/model/useAiQuestionGenerator'
@@ -293,9 +294,13 @@ export function useFileHubPageState() {
     const expectedPaperTotal = Number(subjectMeta.expectedPaperTotal) || 0
 
     if (expectedPaperTotal > 0 && scoreBreakdown.paperTotal !== expectedPaperTotal) {
-      const shouldContinue = window.confirm(
-        `当前 ${subjectMeta.shortLabel} 试卷总分为 ${scoreBreakdown.paperTotal}，标准总分应为 ${expectedPaperTotal}。这通常说明 JSON 中缺少 score 字段或题型分值配置不完整，是否继续导入？`
-      )
+      const shouldContinue = await requestConfirmDialog({
+        title: '试卷总分与标准不一致',
+        message: `当前 ${subjectMeta.shortLabel} 试卷总分为 ${scoreBreakdown.paperTotal}，标准总分应为 ${expectedPaperTotal}。这通常说明 JSON 中缺少 score 字段或题型分值配置不完整，是否继续导入？`,
+        confirmLabel: '继续导入',
+        cancelLabel: '取消',
+        tone: 'danger',
+      })
       if (!shouldContinue) return false
     }
 
@@ -315,17 +320,24 @@ export function useFileHubPageState() {
   }
 
   const handleRename = async (entry) => {
-    const nextTitle = window.prompt('请输入新的题库名称：', entry.title)
+    const nextTitle = await requestPromptDialog({
+      title: '重命名题库',
+      message: '请输入新的题库名称：',
+      defaultValue: entry.title,
+      confirmLabel: '保存',
+    })
     if (!nextTitle) return
     await updateLibraryEntry(entry.id, { title: nextTitle })
     await refreshEntries()
   }
 
   const handleTags = async (entry) => {
-    const raw = window.prompt(
-      '请输入标签，多个标签请用英文逗号分隔：',
-      Array.isArray(entry.tags) ? entry.tags.join(', ') : ''
-    )
+    const raw = await requestPromptDialog({
+      title: '编辑标签',
+      message: '请输入标签，多个标签请用英文逗号分隔：',
+      defaultValue: Array.isArray(entry.tags) ? entry.tags.join(', ') : '',
+      confirmLabel: '保存',
+    })
     if (raw === null) return
 
     const nextTags = raw
@@ -338,7 +350,13 @@ export function useFileHubPageState() {
   }
 
   const handleDelete = async (entry) => {
-    const ok = window.confirm(`确定删除题库“${entry.title}”吗？`)
+    const ok = await requestConfirmDialog({
+      title: '删除题库',
+      message: `确定删除题库“${entry.title}”吗？`,
+      confirmLabel: '删除',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!ok) return
     await deleteLibraryEntry(entry.id)
     await refreshEntries()

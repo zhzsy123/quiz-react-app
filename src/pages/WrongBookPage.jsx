@@ -23,10 +23,12 @@ function BlankPracticePanel({
   item,
   blankAnswers,
   blankFeedback,
+  isCloze,
   disabled,
   holdSolvedItem,
   feedback,
   onBlankChange,
+  onClozeAnswer,
   onCheck,
 }) {
   return (
@@ -35,13 +37,41 @@ function BlankPracticePanel({
         {(item.blanks || []).map((blank, index) => (
           <article key={blank.blank_id} className="answer-review-card">
             <div className="answer-review-prompt">空 {index + 1}</div>
-            <input
-              className="subjective-textarea"
-              value={blankAnswers[blank.blank_id] || ''}
-              onChange={(event) => onBlankChange(blank.blank_id, event.target.value)}
-              disabled={disabled || Boolean(holdSolvedItem)}
-              placeholder="请输入答案"
-            />
+            {isCloze ? (
+              <div className="options compact-options">
+                {(blank.options || []).map((option, optionIndex) => {
+                  const selected = blankAnswers[blank.blank_id] === option.key
+                  let className = 'option'
+
+                  if (selected) className += ' selected'
+                  if (feedback) {
+                    if (option.key === blank.correct) className += ' correct'
+                    else if (selected) className += ' wrong'
+                    else className += ' muted'
+                  }
+
+                  return (
+                    <button
+                      key={optionIndex}
+                      type="button"
+                      className={className}
+                      disabled={disabled || Boolean(holdSolvedItem)}
+                      onClick={() => onClozeAnswer(blank.blank_id, option.key)}
+                    >
+                      <span>{renderWrongBookOptionLabel(option)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <input
+                className="subjective-textarea"
+                value={blankAnswers[blank.blank_id] || ''}
+                onChange={(event) => onBlankChange(blank.blank_id, event.target.value)}
+                disabled={disabled || Boolean(holdSolvedItem)}
+                placeholder="请输入答案"
+              />
+            )}
           </article>
         ))}
       </div>
@@ -68,7 +98,7 @@ function BlankPracticePanel({
               </div>
               <div className="answer-review-line">
                 <strong>参考答案</strong>
-                {blank.accepted.join(' / ')}
+                {blank.correctLabel || '暂无'}
               </div>
               <div className="answer-review-line">
                 <strong>解析</strong>
@@ -76,6 +106,70 @@ function BlankPracticePanel({
               </div>
             </article>
           ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+function MultipleChoicePracticePanel({
+  item,
+  selectedChoices,
+  feedback,
+  holdSolvedItem,
+  onToggleChoice,
+  onCheck,
+}) {
+  return (
+    <>
+      <div className="options">
+        {(item.options || []).map((option, index) => {
+          const selected = selectedChoices.includes(option.key)
+          const correctValues = Array.isArray(item.correctAnswer) ? item.correctAnswer : []
+          let className = 'option'
+          let icon = null
+
+          if (selected) className += ' selected'
+          if (feedback) {
+            if (correctValues.includes(option.key)) {
+              className += ' correct'
+              icon = <CheckCircle2 size={18} />
+            } else if (selected) {
+              className += ' wrong'
+              icon = <XCircle size={18} />
+            } else {
+              className += ' muted'
+            }
+          }
+
+          return (
+            <button
+              key={index}
+              type="button"
+              className={className}
+              disabled={Boolean(holdSolvedItem)}
+              onClick={() => onToggleChoice(option.key)}
+            >
+              <span>{renderWrongBookOptionLabel(option)}</span>
+              {icon}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="question-inline-actions">
+        <button type="button" className="secondary-btn small-btn" disabled={Boolean(holdSolvedItem)} onClick={onCheck}>
+          检查答案
+        </button>
+      </div>
+
+      {feedback && <div className="practice-feedback">{feedback}</div>}
+      {feedback && (
+        <div className="analysis-box">
+          <div>
+            正确答案：<strong>{Array.isArray(item.correctAnswer) ? item.correctAnswer.join(' / ') : '见题目配置'}</strong>
+          </div>
+          <div>解析：{item.rationale || '暂无解析'}</div>
         </div>
       )}
     </>
@@ -97,12 +191,15 @@ export default function WrongBookPage() {
     practiceIndex,
     setPracticeIndex,
     selectedAnswer,
+    selectedChoices,
     blankAnswers,
     blankFeedback,
     feedback,
     displayPracticeItem,
     holdSolvedItem,
     isBlankPracticeItem,
+    isClozePracticeItem,
+    isMultipleChoicePracticeItem,
     selectedKeys,
     wrongSummary,
     handleRemove,
@@ -112,8 +209,11 @@ export default function WrongBookPage() {
     handleRemoveSelected,
     handleRemoveAllFiltered,
     handlePracticeAnswer,
+    handleTogglePracticeChoice,
     handlePracticeBlankChange,
+    handlePracticeClozeAnswer,
     handleCheckPracticeBlank,
+    handleCheckPracticeObjective,
     handleAdvanceAfterSolved,
     resetPractice,
   } = useWrongBookPageState()
@@ -297,16 +397,27 @@ export default function WrongBookPage() {
                   </div>
                 )}
 
-                {isBlankPracticeItem ? (
+                {isBlankPracticeItem || isClozePracticeItem ? (
                   <BlankPracticePanel
                     item={displayPracticeItem}
                     blankAnswers={blankAnswers}
                     blankFeedback={blankFeedback}
+                    isCloze={isClozePracticeItem}
                     disabled={false}
                     holdSolvedItem={holdSolvedItem}
                     feedback={feedback}
                     onBlankChange={handlePracticeBlankChange}
+                    onClozeAnswer={handlePracticeClozeAnswer}
                     onCheck={handleCheckPracticeBlank}
+                  />
+                ) : isMultipleChoicePracticeItem ? (
+                  <MultipleChoicePracticePanel
+                    item={displayPracticeItem}
+                    selectedChoices={selectedChoices}
+                    feedback={feedback}
+                    holdSolvedItem={holdSolvedItem}
+                    onToggleChoice={handleTogglePracticeChoice}
+                    onCheck={handleCheckPracticeObjective}
                   />
                 ) : (
                   <>
@@ -373,11 +484,7 @@ export default function WrongBookPage() {
                   </button>
 
                   {holdSolvedItem ? (
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      onClick={handleAdvanceAfterSolved}
-                    >
+                    <button type="button" className="primary-btn" onClick={handleAdvanceAfterSolved}>
                       下一题
                     </button>
                   ) : (
@@ -446,7 +553,7 @@ export default function WrongBookPage() {
 
                       <div className="analysis-box compact-analysis-box">
                         <div>
-                          正确答案：<strong>{item.correctAnswer || '见题目配置'}</strong>
+                          正确答案：<strong>{item.correctAnswerLabel || item.correctAnswer || '见题目配置'}</strong>
                         </div>
                         <div>解析：{item.rationale || '暂无解析'}</div>
                       </div>

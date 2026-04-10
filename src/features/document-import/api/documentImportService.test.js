@@ -467,7 +467,7 @@ Write an essay.
     expect(result.preview.questionCount).toBe(3)
     expect(result.preview.diagnostics.failedSections).toHaveLength(1)
     expect(result.preview.diagnostics.failedSections[0].key).toBe('cloze')
-    expect(result.warnings.some((item) => item.includes('完形填空'))).toBe(true)
+    expect(result.invalidReasons.some((item) => item.includes('完形填空'))).toBe(true)
   })
 
   it('wraps validation failures with validating stage', async () => {

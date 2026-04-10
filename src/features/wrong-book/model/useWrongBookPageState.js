@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../../../app/providers/AppContext'
 import {
+  formatObjectiveCorrectAnswerLabel,
+  isObjectiveAnswered,
+  isObjectiveResponseCorrect,
+  normalizeChoiceArray,
+} from '../../../entities/quiz/lib/objectiveAnswers'
+import {
   getQuestionTypeMeta,
   getSubjectQuestionTypeOptions,
   normalizeQuestionTypeKey,
@@ -10,46 +16,110 @@ import {
   removeWrongbookEntries,
   removeWrongbookEntry,
 } from '../../../entities/wrongbook/api/wrongbookRepository'
+import { requestConfirmDialog } from '../../../shared/ui/dialogs/dialogService'
 
 function inferWrongItemType(item) {
   const candidates = [item.type, item.sourceType, item.source_type, item.parentType]
   const explicit = candidates.map(normalizeQuestionTypeKey).find((value) => value && value !== 'unknown')
   if (explicit && getQuestionTypeMeta(explicit).key !== 'unknown') return explicit
 
+  const blanks = Array.isArray(item?.blanks) ? item.blanks : []
   if (String(item.contextTitle || '').includes('完形')) return 'cloze'
-  if (Array.isArray(item.blanks) && item.blanks.length > 0) return 'fill_blank'
+  if (blanks.length > 0 && blanks.every((blank) => Array.isArray(blank.options) && String(blank.correct || '').trim())) {
+    return 'cloze'
+  }
+  if (blanks.length > 0) return 'fill_blank'
   return 'single_choice'
 }
 
-function isBlankLikeWrongItem(item) {
-  return ['fill_blank', 'function_fill_blank'].includes(item?.category || item?.type) ||
-    (Array.isArray(item?.blanks) && item.blanks.length > 0)
+function isFillBlankLikeWrongItem(item) {
+  const category = item?.category || item?.type
+  return ['fill_blank', 'function_fill_blank'].includes(category)
 }
 
-function isBlankAnswerCorrect(item, answers = {}) {
-  const blanks = Array.isArray(item?.blanks) ? item.blanks : []
-  if (!blanks.length) return false
-
-  return blanks.every((blank) => {
-    const value = String(answers[blank.blank_id] || '').trim().toLowerCase()
-    if (!value) return false
-    return (blank.accepted_answers || []).some((candidate) => String(candidate).trim().toLowerCase() === value)
-  })
+function isClozeWrongItem(item) {
+  return inferWrongItemType(item) === 'cloze'
 }
 
-function buildBlankFeedback(item, answers = {}) {
-  const blanks = Array.isArray(item?.blanks) ? item.blanks : []
+function isMultipleChoiceWrongItem(item) {
+  return inferWrongItemType(item) === 'multiple_choice'
+}
+
+export function buildWrongBookPracticeItem(item = {}) {
+  const category = inferWrongItemType(item)
+
+  if (category === 'multiple_choice') {
+    const expected = Array.isArray(item.correctAnswer)
+      ? item.correctAnswer
+      : Array.isArray(item.correctAnswers)
+        ? item.correctAnswers
+        : String(item.correctAnswer || '')
+            .split(/[、,/\s]+/)
+            .map((value) => value.trim())
+            .filter(Boolean)
+    return {
+      type: 'multiple_choice',
+      options: item.options || [],
+      answer: { correct: expected },
+    }
+  }
+
+  if (category === 'cloze') {
+    return {
+      type: 'cloze',
+      blanks: item.blanks || [],
+    }
+  }
+
+  if (isFillBlankLikeWrongItem(item)) {
+    return {
+      type: category,
+      blanks: item.blanks || [],
+    }
+  }
+
+  return {
+    type: category,
+    options: item.options || [],
+    answer: { correct: String(item.correctAnswer || '').trim() },
+  }
+}
+
+export function getWrongBookPracticeResponse(item, { selectedAnswer = '', selectedChoices = [], blankAnswers = {} } = {}) {
+  if (isMultipleChoiceWrongItem(item)) {
+    return normalizeChoiceArray(selectedChoices)
+  }
+
+  if (isClozeWrongItem(item) || isFillBlankLikeWrongItem(item)) {
+    return blankAnswers
+  }
+
+  return selectedAnswer
+}
+
+export function buildWrongBookBlankFeedback(item, answers = {}) {
+  const practiceItem = buildWrongBookPracticeItem(item)
+  const blanks = Array.isArray(practiceItem?.blanks) ? practiceItem.blanks : []
+
   return blanks.map((blank, index) => {
     const value = String(answers[blank.blank_id] || '').trim()
-    const accepted = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
-    const matched = accepted.some((candidate) => String(candidate).trim().toLowerCase() === value.toLowerCase())
+    const usesOptions = Array.isArray(blank.options) && blank.options.length > 0
+    const matched = usesOptions
+      ? value.length > 0 && value === String(blank.correct || '').trim()
+      : (blank.accepted_answers || []).some(
+          (candidate) => String(candidate).trim().toLowerCase() === value.toLowerCase()
+        )
+
     return {
       blankId: blank.blank_id,
       label: `空 ${index + 1}`,
       value,
-      accepted,
       matched,
+      correctLabel: usesOptions
+        ? formatObjectiveCorrectAnswerLabel({ type: 'cloze', blanks: [blank] })
+        : (blank.accepted_answers || []).join(' / '),
       rationale: blank.rationale || '',
+      options: blank.options || [],
     }
   })
 }
@@ -76,6 +146,7 @@ export function useWrongBookPageState() {
   const [practiceMode, setPracticeMode] = useState(false)
   const [practiceIndex, setPracticeIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState('')
+  const [selectedChoices, setSelectedChoices] = useState([])
   const [blankAnswers, setBlankAnswers] = useState({})
   const [feedback, setFeedback] = useState('')
   const [holdSolvedItem, setHoldSolvedItem] = useState(null)
@@ -107,8 +178,11 @@ export function useWrongBookPageState() {
 
   const currentPracticeItem = practiceMode ? filteredWrongItems[practiceIndex] || null : null
   const displayPracticeItem = holdSolvedItem || currentPracticeItem
-  const isBlankPracticeItem = isBlankLikeWrongItem(displayPracticeItem)
-  const blankFeedback = isBlankPracticeItem ? buildBlankFeedback(displayPracticeItem, blankAnswers) : []
+  const isBlankPracticeItem = isFillBlankLikeWrongItem(displayPracticeItem)
+  const isClozePracticeItem = isClozeWrongItem(displayPracticeItem)
+  const isMultipleChoicePracticeItem = isMultipleChoiceWrongItem(displayPracticeItem)
+  const blankFeedback =
+    isBlankPracticeItem || isClozePracticeItem ? buildWrongBookBlankFeedback(displayPracticeItem, blankAnswers) : []
 
   useEffect(() => {
     if (!practiceMode) return
@@ -119,6 +193,7 @@ export function useWrongBookPageState() {
 
   useEffect(() => {
     setSelectedAnswer('')
+    setSelectedChoices([])
     setBlankAnswers({})
     setFeedback('')
   }, [practiceIndex, practiceMode])
@@ -172,7 +247,13 @@ export function useWrongBookPageState() {
   const handleRemoveSelected = async () => {
     const targets = filteredWrongItems.filter((item) => selectedKeys.includes(item.questionKey))
     if (!targets.length) return
-    const ok = window.confirm(`确定删除已选中的 ${targets.length} 道错题吗？`)
+    const ok = await requestConfirmDialog({
+      title: '删除已选错题',
+      message: `确定删除已选中的 ${targets.length} 道错题吗？`,
+      confirmLabel: '删除',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!ok) return
     await removeItemsBulk(targets)
     setSelectedKeys([])
@@ -180,50 +261,105 @@ export function useWrongBookPageState() {
 
   const handleRemoveAllFiltered = async () => {
     if (!filteredWrongItems.length) return
-    const ok = window.confirm(`确定删除当前筛选结果中的全部 ${filteredWrongItems.length} 道错题吗？`)
+    const ok = await requestConfirmDialog({
+      title: '清空当前筛选错题',
+      message: `确定删除当前筛选结果中的全部 ${filteredWrongItems.length} 道错题吗？`,
+      confirmLabel: '删除',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!ok) return
     await removeItemsBulk(filteredWrongItems)
     setSelectedKeys([])
   }
 
-  const handlePracticeAnswer = async (optionKey) => {
-    if (!displayPracticeItem || holdSolvedItem || isBlankPracticeItem) return
-    setSelectedAnswer(optionKey)
+  const markPracticeSolved = async () => {
+    setFeedback('回答正确，已从错题本中移除。')
+    setHoldSolvedItem(displayPracticeItem)
+    await handleRemove(displayPracticeItem)
+  }
 
-    if (optionKey === displayPracticeItem.correctAnswer) {
-      setFeedback('回答正确，已从错题本中移除。')
-      setHoldSolvedItem(displayPracticeItem)
-      await handleRemove(displayPracticeItem)
+  const markPracticeWrong = (message = '回答错误，请查看解析后继续复习。') => {
+    setFeedback(message)
+  }
+
+  const handlePracticeAnswer = async (optionKey) => {
+    if (!displayPracticeItem || holdSolvedItem || isBlankPracticeItem || isClozePracticeItem || isMultipleChoicePracticeItem) {
       return
     }
 
-    setFeedback('回答错误，请查看解析后继续复习。')
+    setSelectedAnswer(optionKey)
+    const practiceItem = buildWrongBookPracticeItem(displayPracticeItem)
+    if (isObjectiveResponseCorrect(practiceItem, optionKey)) {
+      await markPracticeSolved()
+      return
+    }
+
+    markPracticeWrong()
+  }
+
+  const handleTogglePracticeChoice = (optionKey) => {
+    if (!displayPracticeItem || holdSolvedItem || !isMultipleChoicePracticeItem) return
+    setSelectedChoices((current) =>
+      current.includes(optionKey) ? current.filter((item) => item !== optionKey) : [...current, optionKey]
+    )
   }
 
   const handlePracticeBlankChange = (blankId, value) => {
-    if (!displayPracticeItem || holdSolvedItem || !isBlankPracticeItem) return
+    if (!displayPracticeItem || holdSolvedItem || (!isBlankPracticeItem && !isClozePracticeItem)) return
     setBlankAnswers((current) => ({
       ...current,
       [blankId]: value,
     }))
   }
 
-  const handleCheckPracticeBlank = async () => {
-    if (!displayPracticeItem || holdSolvedItem || !isBlankPracticeItem) return
+  const handlePracticeClozeAnswer = (blankId, optionKey) => {
+    if (!displayPracticeItem || holdSolvedItem || !isClozePracticeItem) return
+    setBlankAnswers((current) => ({
+      ...current,
+      [blankId]: optionKey,
+    }))
+  }
 
-    if (isBlankAnswerCorrect(displayPracticeItem, blankAnswers)) {
-      setFeedback('回答正确，已从错题本中移除。')
-      setHoldSolvedItem(displayPracticeItem)
-      await handleRemove(displayPracticeItem)
+  const handleCheckPracticeBlank = async () => {
+    if (!displayPracticeItem || holdSolvedItem || (!isBlankPracticeItem && !isClozePracticeItem)) return
+
+    const practiceItem = buildWrongBookPracticeItem(displayPracticeItem)
+    if (!isObjectiveAnswered(practiceItem, blankAnswers)) {
+      setFeedback('请先完成作答，再进行检查。')
       return
     }
 
-    setFeedback('仍有空答案错误，请根据参考答案继续复习。')
+    if (isObjectiveResponseCorrect(practiceItem, blankAnswers)) {
+      await markPracticeSolved()
+      return
+    }
+
+    markPracticeWrong('仍有空答案错误，请根据参考答案继续复习。')
+  }
+
+  const handleCheckPracticeObjective = async () => {
+    if (!displayPracticeItem || holdSolvedItem || !isMultipleChoicePracticeItem) return
+
+    const practiceItem = buildWrongBookPracticeItem(displayPracticeItem)
+    const response = getWrongBookPracticeResponse(displayPracticeItem, { selectedChoices })
+    if (!isObjectiveAnswered(practiceItem, response)) {
+      setFeedback('请先完成作答，再进行检查。')
+      return
+    }
+
+    if (isObjectiveResponseCorrect(practiceItem, response)) {
+      await markPracticeSolved()
+      return
+    }
+
+    markPracticeWrong()
   }
 
   const handleAdvanceAfterSolved = () => {
     setHoldSolvedItem(null)
     setSelectedAnswer('')
+    setSelectedChoices([])
     setBlankAnswers({})
     setFeedback('')
     if (practiceIndex >= filteredWrongItems.length && filteredWrongItems.length > 0) {
@@ -233,6 +369,7 @@ export function useWrongBookPageState() {
 
   const resetPractice = () => {
     setSelectedAnswer('')
+    setSelectedChoices([])
     setBlankAnswers({})
     setFeedback('')
     setHoldSolvedItem(null)
@@ -260,12 +397,15 @@ export function useWrongBookPageState() {
     practiceIndex,
     setPracticeIndex,
     selectedAnswer,
+    selectedChoices,
     blankAnswers,
     blankFeedback,
     feedback,
     displayPracticeItem,
     holdSolvedItem,
     isBlankPracticeItem,
+    isClozePracticeItem,
+    isMultipleChoicePracticeItem,
     selectedKeys,
     wrongSummary,
     handleRemove,
@@ -275,8 +415,11 @@ export function useWrongBookPageState() {
     handleRemoveSelected,
     handleRemoveAllFiltered,
     handlePracticeAnswer,
+    handleTogglePracticeChoice,
     handlePracticeBlankChange,
+    handlePracticeClozeAnswer,
     handleCheckPracticeBlank,
+    handleCheckPracticeObjective,
     handleAdvanceAfterSolved,
     resetPractice,
   }

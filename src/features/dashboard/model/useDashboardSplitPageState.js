@@ -4,6 +4,7 @@ import { listAllFavoriteEntries } from '../../../entities/favorite/api/favoriteR
 import { listHistoryEntries } from '../../../entities/history/api/historyRepository'
 import { SUBJECT_REGISTRY, getSubjectDownloadGroups } from '../../../entities/subject/model/subjects'
 import { getDeepSeekConfig, updateDeepSeekConfig } from '../../../shared/api/deepseekClient'
+import { requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
 
 export const DASHBOARD_DOWNLOAD_GROUPS = getSubjectDownloadGroups()
 
@@ -96,17 +97,25 @@ export function useDashboardSplitPageState() {
 
   const handleRenameProfile = async () => {
     if (!activeProfile) return
-    const nextName = window.prompt('请输入新的本地档案名称：', activeProfile.name)
+    const nextName = await requestPromptDialog({
+      title: '重命名本地档案',
+      message: '请输入新的本地档案名称：',
+      defaultValue: activeProfile.name,
+      confirmLabel: '保存',
+    })
     if (!nextName) return
     await renameLocalProfile(activeProfile.id, nextName)
   }
 
-  const handleUpdateApiKey = () => {
+  const handleUpdateApiKey = async () => {
     const currentConfig = getDeepSeekConfig()
-    const nextKey = window.prompt(
-      '请输入新的 DeepSeek API Key。点击取消则不修改，留空则清空当前 Key。',
-      currentConfig.apiKey || ''
-    )
+    const nextKey = await requestPromptDialog({
+      title: '更新 DeepSeek API Key',
+      message: '请输入新的 DeepSeek API Key。点击取消则不修改，留空则清空当前 Key。',
+      defaultValue: currentConfig.apiKey || '',
+      confirmLabel: '保存',
+      placeholder: 'sk-...',
+    })
     if (nextKey === null) return
     updateDeepSeekConfig({ apiKey: nextKey.trim() })
   }

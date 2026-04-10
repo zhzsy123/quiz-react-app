@@ -718,7 +718,7 @@ describe('questionGenerationService', () => {
       },
     })
 
-    expect(result.status).toBe('completed')
+    expect(result.status).toBe('failed')
     expect(result.draftQuestions).toHaveLength(1)
     expect(result.draftQuestions[0].status).toBe('invalid')
     expect(result.draftQuestions[0].errors[0]).toContain('network error')
@@ -762,7 +762,7 @@ describe('questionGenerationService', () => {
       },
     })
 
-    expect(result.status).toBe('completed')
+    expect(result.status).toBe('failed')
     expect(result.draftQuestions).toHaveLength(1)
     expect(result.draftQuestions[0].status).toBe('invalid')
     expect(result.draftQuestions[0].errors[0]).toContain('带文内空位的 article 文本')

@@ -17,6 +17,7 @@ import {
   maskApiKey,
   updateDeepSeekConfig,
 } from '../../../shared/api/deepseekClient'
+import { requestConfirmDialog } from '../../../shared/ui/dialogs/dialogService'
 
 const FEATURE_LABELS = {
   question_generation: 'AI 出题',
@@ -145,7 +146,13 @@ export function useAiControlCenterState() {
 
   async function handleClearRecords() {
     if (!activeProfileId) return
-    const confirmed = window.confirm('确定清空当前档案下的 AI 调用记录吗？此操作不会删除题库或历史记录。')
+    const confirmed = await requestConfirmDialog({
+      title: '清空 AI 调用记录',
+      message: '确定清空当前档案下的 AI 调用记录吗？此操作不会删除题库或历史记录。',
+      confirmLabel: '清空',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!confirmed) return
     await clearAiUsageHistory(activeProfileId)
     await refreshRecords()

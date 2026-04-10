@@ -7,6 +7,7 @@ import {
   formatObjectiveCorrectAnswerLabel,
   isObjectiveResponseCorrect,
 } from '../../../entities/quiz/lib/objectiveAnswers'
+import { requestConfirmDialog, requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
 
 function attemptDisplayTitle(attempt) {
   return attempt.customTitle?.trim() || attempt.title || '未命名试卷'
@@ -109,16 +110,30 @@ export function useHistoryPageState() {
   }, [filteredAttempts])
 
   const handleEditAttempt = async (attempt) => {
-    const nextTitle = window.prompt('编辑标题', attempt.customTitle?.trim() || attempt.title || '')
+    const nextTitle = await requestPromptDialog({
+      title: '编辑标题',
+      defaultValue: attempt.customTitle?.trim() || attempt.title || '',
+      confirmLabel: '保存',
+    })
     if (nextTitle === null) return
-    const nextNotes = window.prompt('编辑备注', attempt.notes || '')
+    const nextNotes = await requestPromptDialog({
+      title: '编辑备注',
+      defaultValue: attempt.notes || '',
+      confirmLabel: '保存',
+    })
     if (nextNotes === null) return
     await updateHistoryEntry(attempt.id, { customTitle: nextTitle, notes: nextNotes })
     await refreshAttempts()
   }
 
   const handleDeleteAttempt = async (attempt) => {
-    const ok = window.confirm(`确定删除这条历史记录吗？\n\n${attemptDisplayTitle(attempt)}`)
+    const ok = await requestConfirmDialog({
+      title: '删除历史记录',
+      message: `确定删除这条历史记录吗？\n\n${attemptDisplayTitle(attempt)}`,
+      confirmLabel: '删除',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!ok) return
     await removeHistoryEntry(attempt.id)
     if (expandedAttemptId === attempt.id) setExpandedAttemptId(null)
