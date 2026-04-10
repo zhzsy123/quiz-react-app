@@ -10,6 +10,8 @@ import {
   XCircle,
 } from 'lucide-react'
 import {
+  formatObjectiveCorrectAnswerLabel,
+  isObjectiveAnswered,
   isObjectiveGradable,
   normalizeChoiceArray,
   renderOptionLabel,
@@ -321,6 +323,168 @@ function ReadingBlock({
   )
 }
 
+function CompositeFillBlankBlock({
+  question,
+  questionResponse,
+  objectiveReveal,
+  submitted,
+  disabled,
+  mode,
+  onFillBlankChange,
+}) {
+  return (
+    <div className="fill-blank-block">
+      <div className="fill-blank-grid">
+        {(question.blanks || []).map((blank, blankIndex) => {
+          const value = (questionResponse || {})[blank.blank_id] || ''
+          const acceptedAnswers = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
+          const normalized = String(value).trim().toLowerCase()
+          const isCorrect = acceptedAnswers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
+          const showFeedback = objectiveReveal
+
+          return (
+            <article
+              key={blank.blank_id}
+              className={`fill-blank-card ${showFeedback ? (isCorrect ? 'correct' : 'wrong') : ''}`}
+            >
+              <div className="fill-blank-card-head">
+                <div className="fill-blank-card-label">第 {blankIndex + 1} 空</div>
+                <div className={`fill-blank-card-state ${value ? 'filled' : ''}`}>{value ? '已填写' : '待填写'}</div>
+              </div>
+              <textarea
+                className="fill-blank-input"
+                value={value}
+                onChange={(event) => onFillBlankChange(question.id, blank.blank_id, event.target.value)}
+                disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
+                rows={2}
+                spellCheck={false}
+                placeholder="请输入本空答案"
+              />
+              {showFeedback && (
+                <div className="fill-blank-feedback">
+                  <div className="answer-review-line">
+                    <strong>参考答案</strong>
+                    {acceptedAnswers.join(' / ') || '暂无'}
+                  </div>
+                  <div className="answer-review-line">
+                    <strong>解析</strong>
+                    {blank.rationale || '暂无解析'}
+                  </div>
+                </div>
+              )}
+            </article>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function CompositeObjectiveBlock({
+  question,
+  questionResponse,
+  objectiveReveal,
+  submitted,
+  disabled,
+  mode,
+  canRevealMultiChoice,
+  canRevealFillBlank,
+  isGradable,
+  onSelectOption,
+  onRevealQuestion,
+  onFillBlankChange,
+}) {
+  if (question.type === 'fill_blank') {
+    return (
+      <>
+        <CompositeFillBlankBlock
+          question={question}
+          questionResponse={questionResponse}
+          objectiveReveal={objectiveReveal}
+          submitted={submitted}
+          disabled={disabled}
+          mode={mode}
+          onFillBlankChange={onFillBlankChange}
+        />
+        {(canRevealMultiChoice || canRevealFillBlank) && (
+          <div className="question-inline-actions">
+            <button type="button" className="secondary-btn small-btn" onClick={() => onRevealQuestion(question.id)}>
+              检查答案
+            </button>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="options">
+        {(question.options || []).map((opt, optIndex) => {
+          const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
+          const selected =
+            question.type === 'multiple_choice'
+              ? normalizeChoiceArray(questionResponse).includes(option.key)
+              : questionResponse === option.key
+          const isCorrect =
+            question.type === 'multiple_choice'
+              ? normalizeChoiceArray(question.answer?.correct).includes(option.key)
+              : option.key === question.answer?.correct
+
+          let className = 'option'
+          let icon = null
+
+          if (!objectiveReveal || !isGradable) {
+            if (selected) className += ' selected'
+          } else if (isCorrect) {
+            className += ' correct'
+            icon = <CheckCircle2 size={18} />
+          } else if (selected) {
+            className += ' wrong'
+            icon = <XCircle size={18} />
+          } else {
+            className += ' muted'
+          }
+
+          return (
+            <button
+              key={optIndex}
+              type="button"
+              className={className}
+              disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
+              onClick={() => onSelectOption(question.id, option.key)}
+            >
+              <span>{renderOptionLabel(option)}</span>
+              {icon}
+            </button>
+          )
+        })}
+      </div>
+      {(canRevealMultiChoice || canRevealFillBlank) && (
+        <div className="question-inline-actions">
+          <button type="button" className="secondary-btn small-btn" onClick={() => onRevealQuestion(question.id)}>
+            检查答案
+          </button>
+        </div>
+      )}
+      {objectiveReveal && (
+        <div className="analysis-box">
+          {isGradable ? (
+            <>
+              <div>
+                正确答案：<strong>{formatObjectiveCorrectAnswerLabel(question)}</strong>
+              </div>
+              <div>解析：{question.answer?.rationale || '暂无解析'}</div>
+            </>
+          ) : (
+            <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
 function CompositeBlock({
   item,
   userResponse,
@@ -350,7 +514,6 @@ function CompositeBlock({
           const revealKey = `${item.id}:${question.id}`
           const objectiveReveal = submitted || (mode === 'practice' && revealedMap[revealKey])
           const isSubjective = question.answer?.type === 'subjective'
-          const isFillBlank = question.type === 'fill_blank'
           const isTranslation = question.type === 'translation'
           const isEssay = question.type === 'essay'
           const isGenericSubjective = [
@@ -368,6 +531,12 @@ function CompositeBlock({
             !submitted &&
             !objectiveReveal &&
             normalizeChoiceArray(questionResponse).length > 0
+          const canRevealFillBlank =
+            mode === 'practice' &&
+            question.type === 'fill_blank' &&
+            !submitted &&
+            !objectiveReveal &&
+            isObjectiveAnswered(question, questionResponse)
           const isGradable = isObjectiveGradable(question)
 
           return (
@@ -382,117 +551,21 @@ function CompositeBlock({
               {question.context_title && <div className="question-context-title">{question.context_title}</div>}
               {renderFormattedMaterial(question.context, question.context_format)}
 
-              {isFillBlank ? (
-                <div className="subjective-block">
-                  <div className="answer-review-grid">
-                    {(question.blanks || []).map((blank, blankIndex) => {
-                      const value = (questionResponse || {})[blank.blank_id] || ''
-                      const normalized = String(value).trim().toLowerCase()
-                      const isCorrect = blank.accepted_answers.some(
-                        (candidate) => String(candidate).trim().toLowerCase() === normalized
-                      )
-                      const showFeedback = objectiveReveal
-
-                      return (
-                        <article
-                          key={blank.blank_id}
-                          className={`answer-review-card ${showFeedback ? (isCorrect ? 'correct' : 'wrong') : ''}`}
-                        >
-                          <div className="answer-review-prompt">空 {blankIndex + 1}</div>
-                          <input
-                            className="subjective-textarea"
-                            value={value}
-                            onChange={(event) => onFillBlankChange(question.id, blank.blank_id, event.target.value)}
-                            disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
-                            placeholder="请输入答案"
-                          />
-                          {showFeedback && (
-                            <>
-                              <div className="answer-review-line">
-                                <strong>参考答案</strong>
-                                {blank.accepted_answers.join(' / ')}
-                              </div>
-                              <div className="answer-review-line">
-                                <strong>解析</strong>
-                                {blank.rationale || '暂无解析'}
-                              </div>
-                            </>
-                          )}
-                        </article>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : !isSubjective ? (
-                <>
-                  <div className="options">
-                    {(question.options || []).map((opt, optIndex) => {
-                      const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
-                      const selected =
-                        question.type === 'multiple_choice'
-                          ? normalizeChoiceArray(questionResponse).includes(option.key)
-                          : questionResponse === option.key
-                      const isCorrect =
-                        question.type === 'multiple_choice'
-                          ? normalizeChoiceArray(question.answer?.correct).includes(option.key)
-                          : option.key === question.answer?.correct
-
-                      let className = 'option'
-                      let icon = null
-
-                      if (!objectiveReveal || !isGradable) {
-                        if (selected) className += ' selected'
-                      } else if (isCorrect) {
-                        className += ' correct'
-                        icon = <CheckCircle2 size={18} />
-                      } else if (selected) {
-                        className += ' wrong'
-                        icon = <XCircle size={18} />
-                      } else {
-                        className += ' muted'
-                      }
-
-                      return (
-                        <button
-                          key={optIndex}
-                          type="button"
-                          className={className}
-                          disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
-                          onClick={() => onSelectOption(question.id, option.key)}
-                        >
-                          <span>{renderOptionLabel(option)}</span>
-                          {icon}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {canRevealMultiChoice && (
-                    <div className="question-inline-actions">
-                      <button type="button" className="secondary-btn small-btn" onClick={() => onRevealQuestion(question.id)}>
-                        检查答案
-                      </button>
-                    </div>
-                  )}
-                  {objectiveReveal && (
-                    <div className="analysis-box">
-                      {isGradable ? (
-                        <>
-                          <div>
-                            正确答案：
-                            <strong>
-                              {Array.isArray(question.answer?.correct)
-                                ? question.answer.correct.join(' / ')
-                                : question.answer?.correct}
-                            </strong>
-                          </div>
-                          <div>解析：{question.answer?.rationale || '暂无解析'}</div>
-                        </>
-                      ) : (
-                        <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
-                      )}
-                    </div>
-                  )}
-                </>
+              {!isSubjective ? (
+                <CompositeObjectiveBlock
+                  question={question}
+                  questionResponse={questionResponse}
+                  objectiveReveal={objectiveReveal}
+                  submitted={submitted}
+                  disabled={disabled}
+                  mode={mode}
+                  canRevealMultiChoice={canRevealMultiChoice}
+                  canRevealFillBlank={canRevealFillBlank}
+                  isGradable={isGradable}
+                  onSelectOption={onSelectOption}
+                  onRevealQuestion={onRevealQuestion}
+                  onFillBlankChange={onFillBlankChange}
+                />
               ) : isTranslation ? (
                 <TranslationBlock
                   item={question}

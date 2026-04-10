@@ -411,16 +411,17 @@ function getSubmitButton(container) {
   return button
 }
 
-function getCompositeRevealButton(container) {
-  const button = container.querySelector('.question-inline-actions button')
-  if (!button) {
+function getCompositeRevealButtons(container) {
+  const buttons = [...container.querySelectorAll('.question-inline-actions button')]
+  if (!buttons.length) {
     throw new Error('Unable to find composite reveal button.')
   }
-  return button
+  return buttons
 }
 
 function setNativeInputValue(input, value) {
-  const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')
+  const prototype = input instanceof window.HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value')
   descriptor?.set?.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
@@ -516,14 +517,17 @@ describe('workspace rich smoke flow', () => {
     })
 
     await act(async () => {
-      getCompositeRevealButton(container).click()
+      getCompositeRevealButtons(container)[0].click()
     })
     await waitFor(() => container.textContent?.includes('composite-multi-rationale'))
 
-    const compositeInput = container.querySelector('.answer-review-card input')
+    const compositeInput = container.querySelector('.fill-blank-input')
     expect(compositeInput).not.toBeNull()
     await act(async () => {
       setNativeInputValue(compositeInput, 'heap')
+    })
+    await act(async () => {
+      getCompositeRevealButtons(container)[0].click()
     })
     await waitFor(() => container.textContent?.includes('composite-blank-rationale'))
 

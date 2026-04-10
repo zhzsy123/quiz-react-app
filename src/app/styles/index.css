@@ -388,6 +388,74 @@ button { border: none; }
   flex-direction: column;
   gap: 12px;
 }
+.fill-blank-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fill-blank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.fill-blank-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(15,23,42,0.92), rgba(15,23,42,0.76));
+  border: 1px solid rgba(148,163,184,0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fill-blank-card.correct {
+  border-color: rgba(16,185,129,0.48);
+  background: rgba(16,185,129,0.1);
+}
+.fill-blank-card.wrong {
+  border-color: rgba(239,68,68,0.44);
+  background: rgba(239,68,68,0.08);
+}
+.fill-blank-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+.fill-blank-card-label {
+  font-weight: 700;
+  color: #f8fafc;
+}
+.fill-blank-card-state {
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+.fill-blank-card-state.filled {
+  color: #93c5fd;
+}
+.fill-blank-input {
+  width: 100%;
+  min-height: 96px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid rgba(96,165,250,0.18);
+  outline: none;
+  resize: vertical;
+  line-height: 1.7;
+}
+.fill-blank-input::placeholder {
+  color: #64748b;
+}
+.fill-blank-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.14);
+}
+.fill-blank-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .rel-algebra-block {
   gap: 18px;
 }

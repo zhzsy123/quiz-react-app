@@ -767,21 +767,7 @@ export function useSubjectWorkspaceState() {
     answersRef.current = nextAnswers
 
     if (mode === 'practice') {
-      const allFilled = currentItem.blanks.every((blank) => isNonEmptyText(nextItemResponse[blank.blank_id]))
-      const nextRevealed = allFilled ? { ...revealedMap, [questionId]: true } : revealedMap
-      if (allFilled) setRevealedMap(nextRevealed)
-      const allCorrect =
-        allFilled &&
-        currentItem.blanks.every((blank) => {
-          const userValue = String(nextItemResponse[blank.blank_id] || '').trim().toLowerCase()
-          return blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-        })
-      let nextIndex = currentIndex
-      if (autoAdvance && allCorrect && currentIndex < quiz.items.length - 1) {
-        nextIndex = currentIndex + 1
-        setCurrentIndex(nextIndex)
-      }
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed, currentIndex: nextIndex })
+      void persistNow({ answers: nextAnswers })
       return
     }
 
@@ -806,11 +792,7 @@ export function useSubjectWorkspaceState() {
     answersRef.current = nextAnswers
 
     if (mode === 'practice') {
-      const allFilled = subQuestion.blanks.every((blank) => isNonEmptyText(nextSubResponse[blank.blank_id]))
-      const revealKey = `${parentQuestionId}:${subQuestionId}`
-      const nextRevealed = allFilled ? { ...revealedMap, [revealKey]: true } : revealedMap
-      if (allFilled) setRevealedMap(nextRevealed)
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed })
+      void persistNow({ answers: nextAnswers })
       return
     }
 
@@ -821,7 +803,7 @@ export function useSubjectWorkspaceState() {
     if (!quiz || submitted || mode !== 'practice') return
     const currentItem = quiz.items[currentIndex]
     if (!currentItem || currentItem.answer?.type !== 'objective') return
-    if (currentItem.type === 'cloze') {
+    if (currentItem.type === 'cloze' || currentItem.type === 'fill_blank') {
       const currentResponse = answers[currentItem.id]
       if (!isObjectiveAnswered(currentItem, currentResponse)) return
 
@@ -862,7 +844,13 @@ export function useSubjectWorkspaceState() {
     if (currentItem?.type !== 'composite' || currentItem.id !== parentQuestionId) return
 
     const subQuestion = currentItem.questions?.find((question) => question.id === subQuestionId)
-    if (!subQuestion || subQuestion.answer?.type !== 'objective' || subQuestion.type !== 'multiple_choice') return
+    if (
+      !subQuestion ||
+      subQuestion.answer?.type !== 'objective' ||
+      !['multiple_choice', 'fill_blank'].includes(subQuestion.type)
+    ) {
+      return
+    }
 
     const currentResponse = getCompositeSubQuestionResponse(currentItem, answers, subQuestionId)
     if (!isObjectiveAnswered(subQuestion, currentResponse)) return

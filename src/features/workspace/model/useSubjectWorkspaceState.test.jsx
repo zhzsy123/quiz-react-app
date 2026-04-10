@@ -174,6 +174,34 @@ function createMultipleChoiceQuizFixture() {
   }
 }
 
+function createFillBlankQuizFixture() {
+  return {
+    title: '英语填空练习卷',
+    subject: 'english',
+    duration_minutes: 90,
+    items: [
+      {
+        id: 'blank_1',
+        type: 'fill_blank',
+        prompt: '请填写正确的单词。',
+        blanks: [
+          {
+            blank_id: 'blank_a',
+            accepted_answers: ['algorithm'],
+            rationale: '本题考查 algorithm 拼写。',
+            score: 5,
+          },
+        ],
+        answer: {
+          type: 'objective',
+          rationale: '本题考查 algorithm 拼写。',
+        },
+        score: 5,
+      },
+    ],
+  }
+}
+
 function createRelationalAlgebraQuizFixture() {
   return {
     title: '数据库关系代数练习卷',
@@ -526,6 +554,18 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     expect(stateRef.current.revealedMap).toEqual(
       expect.objectContaining({
         'composite_1:sub_single': true,
+      })
+    )
+    expect(stateRef.current.revealedMap['composite_1:sub_blank']).toBeUndefined()
+
+    await act(async () => {
+      stateRef.current.handleRevealCompositeQuestion('composite_1', 'sub_blank')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.revealedMap).toEqual(
+      expect.objectContaining({
+        'composite_1:sub_single': true,
         'composite_1:sub_blank': true,
       })
     )
@@ -777,5 +817,34 @@ describe('useSubjectWorkspaceState practice persistence', () => {
       root.unmount()
     })
     container.remove()
+    })
   })
-})
+
+  it('does not reveal top-level fill-blank items until explicit reveal in practice mode', async () => {
+    setQuizFixture(createFillBlankQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleFillBlankChange('blank_1', 'blank_a', 'algorithm')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.answers.blank_1).toEqual(
+      expect.objectContaining({
+        blank_a: 'algorithm',
+      })
+    )
+    expect(stateRef.current.revealedMap.blank_1).toBeUndefined()
+
+    await act(async () => {
+      stateRef.current.handleRevealCurrentObjective()
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.revealedMap.blank_1).toBe(true)
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })

@@ -1,6 +1,8 @@
 import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import {
+  formatObjectiveCorrectAnswerLabel,
+  isObjectiveAnswered,
   isObjectiveGradable,
   normalizeChoiceArray,
   renderOptionLabel,
@@ -35,7 +37,8 @@ function ObjectiveOptionsBlock({
     <div className="options">
       {options.map((opt, optIndex) => {
         const option = typeof opt === 'string' ? { key: opt.charAt(0), text: opt } : opt
-        const selected = item.type === 'multiple_choice' ? selectedValues.includes(option.key) : userResponse === option.key
+        const selected =
+          item.type === 'multiple_choice' ? selectedValues.includes(option.key) : userResponse === option.key
         const isCorrect =
           item.type === 'multiple_choice'
             ? normalizeChoiceArray(item.answer?.correct).includes(option.key)
@@ -73,7 +76,15 @@ function ObjectiveOptionsBlock({
   )
 }
 
-function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabled, mode, onFillBlankChange }) {
+function FillBlankBlock({
+  item,
+  userResponse,
+  objectiveReveal,
+  submitted,
+  disabled,
+  mode,
+  onFillBlankChange,
+}) {
   const response = userResponse || {}
   const blanks = Array.isArray(item.blanks) ? item.blanks : []
 
@@ -82,8 +93,8 @@ function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabl
   }
 
   return (
-    <div className="subjective-block">
-      <div className="answer-review-grid">
+    <div className="fill-blank-block">
+      <div className="fill-blank-grid">
         {blanks.map((blank, index) => {
           const value = response[blank.blank_id] || ''
           const acceptedAnswers = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
@@ -94,27 +105,32 @@ function FillBlankBlock({ item, userResponse, objectiveReveal, submitted, disabl
           return (
             <article
               key={blank.blank_id}
-              className={`answer-review-card ${showFeedback ? (isCorrect ? 'correct' : 'wrong') : ''}`}
+              className={`fill-blank-card ${showFeedback ? (isCorrect ? 'correct' : 'wrong') : ''}`}
             >
-              <div className="answer-review-prompt">空 {index + 1}</div>
-              <input
-                className="subjective-textarea"
+              <div className="fill-blank-card-head">
+                <div className="fill-blank-card-label">第 {index + 1} 空</div>
+                <div className={`fill-blank-card-state ${value ? 'filled' : ''}`}>{value ? '已填写' : '待填写'}</div>
+              </div>
+              <textarea
+                className="fill-blank-input"
                 value={value}
                 onChange={(event) => onFillBlankChange(item.id, blank.blank_id, event.target.value)}
                 disabled={submitted || disabled || (mode === 'practice' && objectiveReveal)}
-                placeholder="请输入答案"
+                placeholder="请输入本空答案"
+                rows={2}
+                spellCheck={false}
               />
               {showFeedback && (
-                <>
+                <div className="fill-blank-feedback">
                   <div className="answer-review-line">
                     <strong>参考答案</strong>
-                    {acceptedAnswers.join(' / ')}
+                    {acceptedAnswers.join(' / ') || '暂无'}
                   </div>
                   <div className="answer-review-line">
                     <strong>解析</strong>
                     {blank.rationale || '暂无解析'}
                   </div>
-                </>
+                </div>
               )}
             </article>
           )
@@ -135,12 +151,12 @@ export default function QuizObjectiveBlock({
   onRevealCurrentObjective,
   onFillBlankChange,
 }) {
-  const canRevealMultiChoice =
+  const canRevealObjective =
     mode === 'practice' &&
-    item.type === 'multiple_choice' &&
     !submitted &&
     !objectiveReveal &&
-    normalizeChoiceArray(userResponse).length > 0
+    isObjectiveAnswered(item, userResponse) &&
+    ['multiple_choice', 'fill_blank'].includes(item.type)
 
   return (
     <>
@@ -166,7 +182,7 @@ export default function QuizObjectiveBlock({
         />
       )}
 
-      {canRevealMultiChoice && (
+      {canRevealObjective && (
         <div className="question-inline-actions">
           <button type="button" className="secondary-btn small-btn" onClick={onRevealCurrentObjective}>
             检查答案
@@ -179,10 +195,7 @@ export default function QuizObjectiveBlock({
           {isObjectiveGradable(item) ? (
             <>
               <div>
-                正确答案：
-                <strong>
-                  {Array.isArray(item.answer?.correct) ? item.answer.correct.join(' / ') : item.answer?.correct}
-                </strong>
+                正确答案：<strong>{formatObjectiveCorrectAnswerLabel(item)}</strong>
               </div>
               <div>解析：{item.answer?.rationale || '暂无解析'}</div>
             </>
