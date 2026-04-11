@@ -28,6 +28,7 @@ function ObjectiveOptionsBlock({
   const options = Array.isArray(item.options) ? item.options : []
   const selectedValues = item.type === 'multiple_choice' ? normalizeChoiceArray(userResponse) : []
   const isGradable = isObjectiveGradable(item)
+  const showFeedback = submitted || objectiveReveal
 
   if (!options.length) {
     return <InvalidObjectiveFallback message="当前客观题缺少可作答的选项，无法继续作答。" />
@@ -47,7 +48,7 @@ function ObjectiveOptionsBlock({
         let className = 'option'
         let icon = null
 
-        if (!objectiveReveal || !isGradable) {
+        if (!showFeedback || !isGradable) {
           if (selected) className += ' selected'
         } else if (isCorrect) {
           className += ' correct'
@@ -87,6 +88,7 @@ function FillBlankBlock({
 }) {
   const response = userResponse || {}
   const blanks = Array.isArray(item.blanks) ? item.blanks : []
+  const showFeedback = submitted || objectiveReveal
 
   if (!blanks.length) {
     return <InvalidObjectiveFallback message="当前填空题缺少可作答的空位配置，无法继续作答。" />
@@ -100,8 +102,6 @@ function FillBlankBlock({
           const acceptedAnswers = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
           const normalized = String(value).trim().toLowerCase()
           const isCorrect = acceptedAnswers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
-          const showFeedback = objectiveReveal
-
           return (
             <article
               key={blank.blank_id}
@@ -151,6 +151,7 @@ export default function QuizObjectiveBlock({
   onRevealCurrentObjective,
   onFillBlankChange,
 }) {
+  const showFeedback = submitted || objectiveReveal
   const canRevealObjective =
     mode === 'practice' &&
     !submitted &&
@@ -190,7 +191,7 @@ export default function QuizObjectiveBlock({
         </div>
       )}
 
-      {objectiveReveal && item.type !== 'fill_blank' && (
+      {showFeedback && item.type !== 'fill_blank' && (
         <div className="analysis-box">
           {isObjectiveGradable(item) ? (
             <>

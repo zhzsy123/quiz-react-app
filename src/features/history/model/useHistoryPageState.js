@@ -9,13 +9,27 @@ import {
 } from '../../../entities/quiz/lib/objectiveAnswers'
 import { requestConfirmDialog, requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
 
-function attemptDisplayTitle(attempt) {
+export function attemptDisplayTitle(attempt) {
   return attempt.customTitle?.trim() || attempt.title || '未命名试卷'
 }
 
-function buildAnswerRows(attempt) {
+function formatSubjectiveUserText(item, response) {
+  if (item?.type === 'relational_algebra') {
+    const responses = response?.responses && typeof response.responses === 'object' ? response.responses : {}
+    return Object.entries(responses)
+      .sort(([left], [right]) => String(left).localeCompare(String(right), 'zh-Hans-CN'))
+      .map(([subquestionId, value]) => `(${subquestionId}) ${value || '未作答'}`)
+      .join('\n')
+  }
+
+  if (typeof response?.text === 'string') return response.text
+  return ''
+}
+
+export function buildAnswerRows(attempt) {
   const items = Array.isArray(attempt.itemsSnapshot) ? attempt.itemsSnapshot : []
   const answers = attempt.answersSnapshot || {}
+  const aiReviewMap = attempt.aiReview?.questionReviews || {}
   const rows = []
 
   items.forEach((item) => {
@@ -53,17 +67,43 @@ function buildAnswerRows(attempt) {
       return
     }
 
-    const userText = answers[item.id]?.text || ''
+    const userText = formatSubjectiveUserText(item, answers[item.id])
+    const review = aiReviewMap[item.id] || null
     rows.push({
       key: item.id,
       prompt: item.prompt,
       type: 'subjective',
       userText,
       referenceText: item.answer?.reference_answer || '',
+      reviewStatus: attempt.aiReview?.status || '',
+      reviewScore: Number(review?.score || 0),
+      reviewMaxScore: Number(review?.maxScore || item.score || 0),
+      reviewFeedback: review?.feedback || '',
+      reviewStrengths: Array.isArray(review?.strengths) ? review.strengths : [],
+      reviewWeaknesses: Array.isArray(review?.weaknesses) ? review.weaknesses : [],
+      reviewSuggestions: Array.isArray(review?.suggestions) ? review.suggestions : [],
     })
   })
 
   return rows
+}
+
+export function getAttemptScoreSummary(attempt) {
+  const objectiveScore = Number(attempt.objectiveScore || 0)
+  const objectiveTotal = Number(attempt.objectiveTotal || 0)
+  const subjectivePendingTotal = Number(attempt.subjectivePendingTotal || 0)
+  const subjectiveScore = Number(attempt.aiReview?.totalSubjectiveScore || 0)
+  const totalScore = objectiveScore + subjectiveScore
+  const totalMax = Number(attempt.paperTotal || objectiveTotal + subjectivePendingTotal)
+
+  return {
+    objectiveScore,
+    objectiveTotal,
+    subjectiveScore,
+    subjectivePendingTotal,
+    totalScore,
+    totalMax,
+  }
 }
 
 export function useHistoryPageState() {
@@ -152,5 +192,6 @@ export function useHistoryPageState() {
     handleDeleteAttempt,
     attemptDisplayTitle,
     buildAnswerRows,
+    getAttemptScoreSummary,
   }
 }
