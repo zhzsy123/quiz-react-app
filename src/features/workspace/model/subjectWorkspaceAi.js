@@ -75,7 +75,6 @@ export async function runSubjectiveAiReview({
 }
 
 export async function runExplainQuestionAi({
-  mode,
   aiExplainMode,
   quiz,
   answers,
@@ -85,15 +84,6 @@ export async function runExplainQuestionAi({
 }) {
   if (!quiz || !item) return null
 
-  if (mode === 'exam') {
-    return auditQuizQuestionCompliance({
-      paperTitle: quiz.title,
-      item,
-      response: answers[item.id],
-      subQuestion,
-    })
-  }
-
   return explainQuizQuestionWithMode({
     paperTitle: quiz.title,
     item,
@@ -101,6 +91,22 @@ export async function runExplainQuestionAi({
     subQuestion,
     mode: aiExplainMode,
     focus,
+  })
+}
+
+export async function runAuditQuestionAi({
+  quiz,
+  answers,
+  item,
+  subQuestion = null,
+}) {
+  if (!quiz || !item) return null
+
+  return auditQuizQuestionCompliance({
+    paperTitle: quiz.title,
+    item,
+    response: answers[item.id],
+    subQuestion,
   })
 }
 

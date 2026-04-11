@@ -1,6 +1,7 @@
 import React from 'react'
 import { getQuestionTypeMeta } from '../../entities/subject/model/subjects'
 import { normalizeChoiceArray } from '../../entities/quiz/lib/objectiveAnswers'
+import { getItemScoreBreakdown } from '../../entities/quiz/lib/scoring/compoundScoring'
 
 export function difficultyClass(difficulty = '') {
   switch ((difficulty || '').toLowerCase()) {
@@ -138,6 +139,14 @@ export function buildPreviewText(text, maxLength = 120) {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim()
   if (!normalized) return ''
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized
+}
+
+export function getItemDisplayScore(item) {
+  return Number(getItemScoreBreakdown(item).paperTotal || 0)
+}
+
+export function getGroupDisplayScore(items = []) {
+  return items.reduce((sum, item) => sum + getItemDisplayScore(item), 0)
 }
 
 export function renderFormattedMaterial(content, format, className = 'question-context-body') {

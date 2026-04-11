@@ -3,10 +3,21 @@ import { ChevronDown, ChevronUp, Clock3, LoaderCircle, Pause, Play, XCircle } fr
 import { isObjectiveWrong } from '../../entities/quiz/lib/objectiveAnswers'
 import {
   formatRemainingSeconds,
+  getGroupDisplayScore,
   getNavGroupMeta,
   getReadingQuestionDisplayLabel,
   isAnswered,
 } from './quizViewUtils.jsx'
+
+function isCompositeWrong(item, response, revealedMap = {}, submitted = false) {
+  if (item?.type !== 'composite') return false
+  return (item.questions || []).some((question) => {
+    if (question.answer?.type === 'subjective') return false
+    const revealKey = `${item.id}:${question.id}`
+    const isVisible = submitted || Boolean(revealedMap[revealKey])
+    return isVisible && isObjectiveWrong(question, response?.[question.id])
+  })
+}
 
 export default function QuizNavigationSidebar({
   quizItems,
@@ -14,6 +25,7 @@ export default function QuizNavigationSidebar({
   currentIndex,
   answers,
   subQuestionFocusMap = {},
+  revealedMap = {},
   mode = 'exam',
   submitted = false,
   isPaused = false,
@@ -175,6 +187,7 @@ export default function QuizNavigationSidebar({
                 return sum + (item.questions?.length || 0)
               }, 0)
             : section.items.length
+          const groupTotalScore = getGroupDisplayScore(section.items.map(({ item }) => item))
 
           return (
             <div key={section.key} className="nav-group">
@@ -186,6 +199,7 @@ export default function QuizNavigationSidebar({
                 <div className="nav-group-title-wrap">
                   <span className="nav-group-title">{section.label}</span>
                   <span className="nav-group-count">{safeDisplayCount}</span>
+                  <span className="nav-group-score">{groupTotalScore} 分</span>
                 </div>
                 {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
@@ -217,7 +231,9 @@ export default function QuizNavigationSidebar({
 
                       return readingQuestions.map((question, subIndex) => {
                         const answered = typeof readingResponse[question.id] === 'string' && readingResponse[question.id].length > 0
-                        const wrong = submitted && answered && readingResponse[question.id] !== question.answer?.correct
+                        const revealKey = `${item.id}:${question.id}`
+                        const showWrongState = submitted || Boolean(revealedMap[revealKey])
+                        const wrong = showWrongState && answered && readingResponse[question.id] !== question.answer?.correct
                         const active =
                           index === currentIndex &&
                           String(subQuestionFocusMap?.[item.id] || '') === String(question.id)
@@ -241,7 +257,11 @@ export default function QuizNavigationSidebar({
 
                     const answered = isAnswered(item, answers[item.id])
                     const active = index === currentIndex
-                    const wrong = submitted && isObjectiveWrong(item, answers[item.id])
+                    const showWrongState = submitted || Boolean(revealedMap[item.id])
+                    const wrong =
+                      item.type === 'composite'
+                        ? isCompositeWrong(item, answers[item.id], revealedMap, submitted)
+                        : showWrongState && isObjectiveWrong(item, answers[item.id])
                     const generationStatus = item.generation_placeholder?.status || ''
 
                     if (item.type === 'generation_placeholder') {

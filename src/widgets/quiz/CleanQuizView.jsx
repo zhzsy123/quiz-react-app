@@ -1,25 +1,56 @@
 import React from 'react'
 import { LoaderCircle, Sparkles, XCircle } from 'lucide-react'
+import { isObjectiveAnswered } from '../../entities/quiz/lib/objectiveAnswers'
 import QuizNavigationSidebar from './QuizNavigationSidebar.jsx'
 import QuizObjectiveBlock from './QuizObjectiveBlock.jsx'
 import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
 import QuizAiToolbar from './QuizAiToolbar.jsx'
 import { AiExplainPanel, AiQuestionReviewPanel } from './QuizAiPanels.jsx'
 import QuizAiPracticeModal from './QuizAiPracticeModal.jsx'
-import { difficultyClass } from './quizViewUtils.jsx'
+import { difficultyClass, getItemDisplayScore } from './quizViewUtils.jsx'
 
 function getCurrentItem(quiz, currentIndex) {
   if (!quiz?.items?.length) return null
   return quiz.items[Math.max(0, Math.min(currentIndex || 0, quiz.items.length - 1))]
 }
 
-function getCurrentExplainEntry(currentItem, aiExplainMap) {
-  if (!currentItem) return null
-  return aiExplainMap?.[currentItem.id] || null
+function getFocusedSubQuestion(item, focusId = '') {
+  if (!item) return null
+  const normalizedFocusId = String(focusId || '')
+
+  if (item.type === 'reading' || item.type === 'composite') {
+    const questions = Array.isArray(item.questions) ? item.questions : []
+    return questions.find((question) => String(question.id) === normalizedFocusId) || questions[0] || null
+  }
+
+  if (item.type === 'relational_algebra') {
+    const subquestions = Array.isArray(item.subquestions) ? item.subquestions : []
+    return subquestions.find((question) => String(question.id) === normalizedFocusId) || subquestions[0] || null
+  }
+
+  return null
 }
 
-function getCurrentQuestionReview(currentItem, aiQuestionReviewMap) {
+function getCurrentExplainEntry(currentItem, currentNestedTarget, aiExplainMap) {
   if (!currentItem) return null
+  const key = currentNestedTarget ? `${currentItem.id}:${currentNestedTarget.id}` : currentItem.id
+  return aiExplainMap?.[key] || null
+}
+
+function getCurrentAuditEntry(currentItem, currentNestedTarget, aiAuditMap) {
+  if (!currentItem) return null
+  const key = currentNestedTarget ? `${currentItem.id}:${currentNestedTarget.id}` : currentItem.id
+  return aiAuditMap?.[key] || null
+}
+
+function getCurrentQuestionReview(currentItem, currentNestedTarget, aiQuestionReviewMap) {
+  if (!currentItem) return null
+  if (currentNestedTarget && aiQuestionReviewMap?.[`${currentItem.id}:${currentNestedTarget.id}`]) {
+    return aiQuestionReviewMap[`${currentItem.id}:${currentNestedTarget.id}`]
+  }
+  if (currentNestedTarget && aiQuestionReviewMap?.[currentNestedTarget.id]) {
+    return aiQuestionReviewMap[currentNestedTarget.id]
+  }
   return aiQuestionReviewMap?.[currentItem.id] || null
 }
 
@@ -105,10 +136,12 @@ export default function CleanQuizView({
   aiReview,
   aiQuestionReviewMap,
   aiExplainMap,
+  aiAuditMap,
   aiExplainMode,
   aiPracticeModal,
   onChangeAiExplainMode,
   onExplainQuestion,
+  onAuditQuestion,
   onExplainWhyWrong,
   onGenerateSimilarQuestions,
   onCloseAiPracticeModal,
@@ -123,14 +156,21 @@ export default function CleanQuizView({
   onFocusSubQuestion,
 }) {
   const currentItem = getCurrentItem(quiz, currentIndex)
-  const currentExplainEntry = getCurrentExplainEntry(currentItem, aiExplainMap)
-  const currentQuestionReview = getCurrentQuestionReview(currentItem, aiQuestionReviewMap)
-  const showPracticeAiToolbar = mode === 'practice'
-  const showExamAuditToolbar = mode === 'exam'
 
   if (!quiz?.items?.length || !currentItem) {
     return <InvalidQuizFallback />
   }
+
+  const currentNestedTarget = getFocusedSubQuestion(currentItem, subQuestionFocusMap?.[currentItem.id] || '')
+  const currentExplainEntry = getCurrentExplainEntry(currentItem, currentNestedTarget, aiExplainMap)
+  const currentAuditEntry = getCurrentAuditEntry(currentItem, currentNestedTarget, aiAuditMap)
+  const currentQuestionReview = getCurrentQuestionReview(currentItem, currentNestedTarget, aiQuestionReviewMap)
+  const currentItemScore = getItemDisplayScore(currentItem)
+  const hasPendingGeneration = quiz.items.some((item) => item.type === 'generation_placeholder')
+  const prompt =
+    currentItem.type === 'generation_placeholder'
+      ? currentItem.prompt || 'AI 正在生成题目'
+      : currentItem.prompt || currentItem.passage?.title || currentItem.title || '未命名题目'
 
   const renderObjectiveBlock =
     currentItem.type !== 'generation_placeholder' &&
@@ -139,11 +179,14 @@ export default function CleanQuizView({
     currentItem.type !== 'composite' &&
     (currentItem.answer?.type === 'objective' || currentItem.type === 'fill_blank')
 
-  const hasPendingGeneration = quiz.items.some((item) => item.type === 'generation_placeholder')
-  const prompt =
-    currentItem.type === 'generation_placeholder'
-      ? currentItem.prompt || 'AI 正在生成题目'
-      : currentItem.prompt || currentItem.passage?.title || currentItem.title || '未命名题目'
+  const showBottomRevealAction =
+    currentItem.type === 'fill_blank' &&
+    mode === 'practice' &&
+    !submitted &&
+    !Boolean(revealedMap[currentItem.id]) &&
+    isObjectiveAnswered(currentItem, answers[currentItem.id])
+
+  const toolbarDisabled = isPaused || currentItem.type === 'generation_placeholder'
 
   return (
     <div className="quiz-layout">
@@ -153,6 +196,7 @@ export default function CleanQuizView({
         currentIndex={currentIndex}
         answers={answers}
         subQuestionFocusMap={subQuestionFocusMap}
+        revealedMap={revealedMap}
         mode={mode}
         submitted={submitted}
         isPaused={isPaused}
@@ -174,6 +218,7 @@ export default function CleanQuizView({
             <div>
               <div className="question-meta">
                 <span className="tag blue">第 {currentIndex + 1} 题</span>
+                <span className="tag score">{currentItemScore} 分</span>
                 {currentItem.difficulty ? (
                   <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>
                 ) : null}
@@ -198,19 +243,16 @@ export default function CleanQuizView({
 
           <h3>{prompt}</h3>
 
-          <QuizAiToolbar
-            currentItem={currentItem}
-            currentExplainEntry={currentExplainEntry}
-            mode={mode}
-            showPracticeAiToolbar={showPracticeAiToolbar}
-            showExamAuditToolbar={showExamAuditToolbar}
-            aiExplainMode={aiExplainMode}
-            onChangeAiExplainMode={onChangeAiExplainMode}
-            onExplainQuestion={onExplainQuestion}
-            onExplainWhyWrong={onExplainWhyWrong}
-            onGenerateSimilarQuestions={onGenerateSimilarQuestions}
-            disabled={isPaused || submitted || currentItem.type === 'generation_placeholder'}
-          />
+          {currentItem.type !== 'generation_placeholder' && (
+            <QuizAiToolbar
+              currentItem={currentItem}
+              currentExplainEntry={currentExplainEntry}
+              currentAuditEntry={currentAuditEntry}
+              onExplainQuestion={() => onExplainQuestion({ item: currentItem, subQuestion: currentNestedTarget })}
+              onAuditQuestion={() => onAuditQuestion?.({ item: currentItem, subQuestion: currentNestedTarget })}
+              disabled={toolbarDisabled}
+            />
+          )}
 
           {currentItem.type === 'generation_placeholder' ? (
             <GenerationPlaceholderBlock item={currentItem} />
@@ -225,6 +267,7 @@ export default function CleanQuizView({
               onSelectOption={onSelectOption}
               onRevealCurrentObjective={onRevealCurrentObjective}
               onFillBlankChange={onFillBlankChange}
+              suppressInlineRevealAction={showBottomRevealAction}
             />
           ) : (
             <QuizSubjectiveBlock
@@ -236,13 +279,15 @@ export default function CleanQuizView({
               revealedMap={revealedMap}
               relationalAlgebraExpandedMap={relationalAlgebraExpandedMap?.[currentItem.id] || {}}
               aiQuestionReviewMap={aiQuestionReviewMap}
+              aiExplainMap={aiExplainMap}
+              aiAuditMap={aiAuditMap}
               focusSubQuestionId={subQuestionFocusMap?.[currentItem.id] || ''}
               onFocusSubQuestion={(subQuestionId) => onFocusSubQuestion?.(currentItem.id, subQuestionId)}
               onSelectReadingOption={onSelectReadingOption}
               onSelectClozeOption={onSelectClozeOption}
               onRevealCurrentObjective={onRevealCurrentObjective}
-              aiExplainMap={aiExplainMap}
               onExplainQuestion={onExplainQuestion}
+              onAuditQuestion={onAuditQuestion}
               onSelectCompositeOption={onSelectCompositeOption}
               onCompositeFillBlankChange={onCompositeFillBlankChange}
               onCompositeTextChange={onCompositeTextChange}
@@ -255,13 +300,19 @@ export default function CleanQuizView({
             />
           )}
 
-          {currentExplainEntry && <AiExplainPanel entry={currentExplainEntry} />}
-          {currentQuestionReview && <AiQuestionReviewPanel review={currentQuestionReview} />}
+          {currentExplainEntry ? <AiExplainPanel entry={currentExplainEntry} /> : null}
+          {currentAuditEntry ? <AiExplainPanel entry={currentAuditEntry} /> : null}
+          {currentQuestionReview ? <AiQuestionReviewPanel review={currentQuestionReview} /> : null}
 
-          <div className="question-actions">
+          <div className={`question-actions ${showBottomRevealAction ? 'with-center-action' : ''}`}>
             <button type="button" className="secondary-btn" onClick={onPrev} disabled={currentIndex <= 0}>
               上一题
             </button>
+            {showBottomRevealAction ? (
+              <button type="button" className="secondary-btn question-action-center" onClick={onRevealCurrentObjective}>
+                检查答案
+              </button>
+            ) : null}
             <button
               type="button"
               className="secondary-btn"
@@ -272,17 +323,6 @@ export default function CleanQuizView({
             </button>
           </div>
         </section>
-
-        <div className="quiz-submit-row">
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={onSubmit}
-            disabled={hasPendingGeneration}
-          >
-            {hasPendingGeneration ? 'AI 正在生成题目' : mode === 'practice' ? '提交练习' : '提交考试'}
-          </button>
-        </div>
       </main>
 
       <QuizAiPracticeModal modal={aiPracticeModal} onClose={onCloseAiPracticeModal} />

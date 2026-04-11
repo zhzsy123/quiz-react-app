@@ -56,10 +56,12 @@ describe('CleanQuizView', () => {
         aiReview={null}
         aiQuestionReviewMap={{}}
         aiExplainMap={{}}
+        aiAuditMap={{}}
         aiExplainMode="standard"
         aiPracticeModal={null}
         onChangeAiExplainMode={noop}
         onExplainQuestion={noop}
+        onAuditQuestion={noop}
         onExplainWhyWrong={noop}
         onGenerateSimilarQuestions={noop}
         onCloseAiPracticeModal={noop}
@@ -139,10 +141,12 @@ describe('CleanQuizView', () => {
         aiReview={null}
         aiQuestionReviewMap={{}}
         aiExplainMap={{}}
+        aiAuditMap={{}}
         aiExplainMode="standard"
         aiPracticeModal={null}
         onChangeAiExplainMode={noop}
         onExplainQuestion={noop}
+        onAuditQuestion={noop}
         onExplainWhyWrong={noop}
         onGenerateSimilarQuestions={noop}
         onCloseAiPracticeModal={noop}
@@ -157,6 +161,78 @@ describe('CleanQuizView', () => {
     expect(container.textContent).toContain('Tom likes reading books after school.')
     expect(container.textContent).toContain('What does Tom like to do?')
     expect(container.textContent).not.toContain('当前客观题缺少可作答的选项')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('renders both AI解释 and AI核题 buttons for the current question', async () => {
+    const item = {
+      id: 'q1',
+      type: 'single_choice',
+      prompt: 'Which option is correct?',
+      score: 2,
+      options: [
+        { key: 'A', text: 'Option A' },
+        { key: 'B', text: 'Option B' },
+      ],
+      answer: {
+        type: 'objective',
+        correct: 'A',
+        rationale: 'A is correct.',
+      },
+    }
+
+    const { container, root } = await renderComponent(
+      <CleanQuizView
+        quiz={{ items: [item] }}
+        answers={{ q1: 'B' }}
+        submitted={false}
+        currentIndex={0}
+        mode="practice"
+        autoAdvance={false}
+        remainingSeconds={0}
+        isPaused={false}
+        revealedMap={{}}
+        isFavorite={false}
+        onToggleFavorite={noop}
+        onToggleAutoAdvance={noop}
+        onTogglePracticeWrongBook={noop}
+        onToggleExamWrongBook={noop}
+        onTogglePause={noop}
+        practiceWritesWrongBook
+        examWritesWrongBook
+        onJump={noop}
+        onPrev={noop}
+        onNext={noop}
+        onSelectOption={noop}
+        onRevealCurrentObjective={noop}
+        onSelectReadingOption={noop}
+        onFillBlankChange={noop}
+        onTextChange={noop}
+        aiReview={null}
+        aiQuestionReviewMap={{}}
+        aiExplainMap={{}}
+        aiAuditMap={{}}
+        aiExplainMode="standard"
+        aiPracticeModal={null}
+        onChangeAiExplainMode={noop}
+        onExplainQuestion={noop}
+        onAuditQuestion={noop}
+        onExplainWhyWrong={noop}
+        onGenerateSimilarQuestions={noop}
+        onCloseAiPracticeModal={noop}
+        onSubmit={noop}
+        onSelectCompositeOption={noop}
+        onCompositeFillBlankChange={noop}
+        onCompositeTextChange={noop}
+        onRevealCompositeQuestion={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('AI解释')
+    expect(container.textContent).toContain('AI核题')
 
     await act(async () => {
       root.unmount()

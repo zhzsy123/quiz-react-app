@@ -45,11 +45,20 @@ function buildQuestionTarget(item, response, subQuestion = null) {
       type: subQuestion.type || 'single_choice',
       prompt: subQuestion.prompt,
       options: subQuestion.options || [],
-      correct_answer: subQuestion.answer?.correct || '',
-      rationale: subQuestion.answer?.rationale || '',
+      correct_answer: subQuestion.answer?.correct || subQuestion.answer?.reference_answer || subQuestion.reference_answer || '',
+      rationale: subQuestion.answer?.rationale || subQuestion.answer?.reference_answer || subQuestion.reference_answer || '',
       user_answer: typeof response === 'object' ? response?.[subQuestion.id] || '' : '',
+      score: Number(subQuestion.score) || 0,
       passage_title: item?.passage?.title || item?.title || '',
       passage_content: item?.passage?.content || '',
+      parent_question: {
+        id: item?.id || '',
+        type: item?.type || '',
+        prompt: item?.prompt || item?.title || '',
+        title: item?.title || '',
+        material_title: item?.material_title || item?.context_title || item?.passage?.title || '',
+        material: item?.material || item?.context || item?.passage?.content || '',
+      },
     }
   }
 
@@ -69,6 +78,7 @@ function buildQuestionTarget(item, response, subQuestion = null) {
           : typeof response === 'object'
             ? JSON.stringify(response)
             : response || '',
+    score: Number(item?.score) || 0,
     source_text: item.source_text || '',
     context_title: item.context_title || '',
     context: item.context || '',
@@ -175,10 +185,11 @@ export async function explainQuizQuestionWithMode({
   const target = buildQuestionTarget(item, response, subQuestion)
 
   const { content, model } = await requestAiJson({
-    feature: focus === 'audit' ? 'question_audit' : 'question_explanation',
+    feature: 'question_explanation',
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
-    systemPrompt: '你是一名讲解清晰的考试辅导老师。只返回 JSON。请解释答案为什么对或错，指出考查点，并给出改进建议，且使用中文。',
+    systemPrompt:
+      '你是一名讲解清晰、排版克制的考试辅导老师。只返回 JSON。请使用中文，先给出简洁总评，再分别解释正确选项为什么对、其余选项为什么错；如果学生已作答且作错，要明确指出错因。不要输出 Markdown 表格。',
     userPrompt: JSON.stringify(
       {
         task: 'explain_quiz_question',
@@ -188,7 +199,17 @@ export async function explainQuizQuestionWithMode({
         question: target,
         output_schema: {
           title: 'string',
-          explanation: 'string',
+          summary: 'string',
+          correct_reason: 'string',
+          user_mistake: 'string',
+          option_reviews: [
+            {
+              key: 'string',
+              text: 'string',
+              verdict: 'correct | distractor',
+              reason: 'string',
+            },
+          ],
           key_points: ['string'],
           common_mistakes: ['string'],
           answer_strategy: ['string'],
@@ -200,12 +221,23 @@ export async function explainQuizQuestionWithMode({
   })
 
   return {
+    kind: 'explain',
     status: 'completed',
     provider: 'deepseek',
     model,
     generatedAt: Date.now(),
     title: content?.title || 'AI 解释',
-    explanation: content?.explanation || '',
+    explanation: content?.summary || '',
+    correctReason: content?.correct_reason || '',
+    userMistake: content?.user_mistake || '',
+    optionReviews: Array.isArray(content?.option_reviews)
+      ? content.option_reviews.map((review) => ({
+          key: review?.key || '',
+          text: review?.text || '',
+          verdict: review?.verdict === 'correct' ? 'correct' : 'distractor',
+          reason: review?.reason || '',
+        }))
+      : [],
     keyPoints: Array.isArray(content?.key_points) ? content.key_points : [],
     commonMistakes: Array.isArray(content?.common_mistakes) ? content.common_mistakes : [],
     answerStrategy: Array.isArray(content?.answer_strategy) ? content.answer_strategy : [],
@@ -219,19 +251,19 @@ export async function auditQuizQuestionCompliance({ paperTitle, item, response, 
     feature: 'question_audit',
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
-    systemPrompt: '你是一名考试质量审核员。只返回 JSON。请检查题目、答案、解析和选项是否规范、明确且内部一致，并使用中文。',
+    systemPrompt:
+      '你是一名考试质量审核员。只返回 JSON。请站在出卷质量角度，检查题目、答案、解析、选项与学生作答是否彼此一致、表述是否规范清楚。只给出规范性结论、问题点和修改建议，不要重复答案内容，不要展开教学式解析。',
     userPrompt: JSON.stringify(
       {
         task: 'audit_quiz_question_compliance',
         paper_title: paperTitle || 'Untitled paper',
         question: target,
-        allowed_verdicts: ['规范', '有瑕疵', '不规范', '错题'],
+        allowed_verdicts: ['规范合理', '基本合理', '存在问题', '明显错误'],
         output_schema: {
-          verdict: '规范 | 有瑕疵 | 不规范 | 错题',
-          confidence: 'number(0-100)',
+          verdict: '规范合理 | 基本合理 | 存在问题 | 明显错误',
           summary: 'string',
           issues: ['string'],
-          evidence: ['string'],
+          consistency_checks: ['string'],
           suggestions: ['string'],
         },
       },
@@ -241,17 +273,17 @@ export async function auditQuizQuestionCompliance({ paperTitle, item, response, 
   })
 
   return {
+    kind: 'audit',
     status: 'completed',
     provider: 'deepseek',
     model,
     generatedAt: Date.now(),
     title: 'AI 核题',
     explanation: content?.summary || '',
-    keyPoints: Array.isArray(content?.evidence) ? content.evidence : [],
+    keyPoints: Array.isArray(content?.consistency_checks) ? content.consistency_checks : [],
     commonMistakes: Array.isArray(content?.issues) ? content.issues : [],
     answerStrategy: Array.isArray(content?.suggestions) ? content.suggestions : [],
-    auditVerdict: content?.verdict || '规范',
-    confidenceScore: Number(content?.confidence) || 0,
+    auditVerdict: content?.verdict || '规范合理',
   }
 }
 

@@ -150,6 +150,7 @@ export default function QuizObjectiveBlock({
   onSelectOption,
   onRevealCurrentObjective,
   onFillBlankChange,
+  suppressInlineRevealAction = false,
 }) {
   const showFeedback = submitted || objectiveReveal
   const canRevealObjective =
@@ -183,7 +184,7 @@ export default function QuizObjectiveBlock({
         />
       )}
 
-      {canRevealObjective && (
+      {canRevealObjective && !suppressInlineRevealAction && (
         <div className="question-inline-actions">
           <button type="button" className="secondary-btn small-btn" onClick={onRevealCurrentObjective}>
             检查答案

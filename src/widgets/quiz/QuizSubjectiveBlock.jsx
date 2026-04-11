@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  Bot,
   CheckCircle2,
   FileText,
   Languages,
-  LoaderCircle,
   Maximize2,
   Minimize2,
   XCircle,
@@ -16,7 +14,6 @@ import {
   normalizeChoiceArray,
   renderOptionLabel,
 } from '../../entities/quiz/lib/objectiveAnswers'
-import { AiExplainPanel } from './QuizAiPanels.jsx'
 import {
   countWords,
   getNavGroupMeta,
@@ -169,8 +166,6 @@ function ReadingBlock({
   focusSubQuestionId,
   onFocusSubQuestion,
   onSelectReadingOption,
-  aiExplainMap,
-  onExplainQuestion,
 }) {
   const [immersiveReading, setImmersiveReading] = useState(false)
   const readingResponse = response || {}
@@ -216,8 +211,6 @@ function ReadingBlock({
             const revealKey = `${item.id}:${subQuestion.id}`
             const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
             const isFocused = focusSubQuestionId === subQuestion.id
-            const explainEntry = aiExplainMap?.[`${item.id}:${subQuestion.id}`]
-            const canUseAiTool = mode === 'practice' || submitted
             const subOptions = Array.isArray(subQuestion.options) ? subQuestion.options : []
             const isGradable = isObjectiveGradable(subQuestion)
             const aiLabel =
@@ -238,7 +231,10 @@ function ReadingBlock({
                 className={`reading-question-item ${isFocused ? 'focused' : ''}`}
               >
                 <div className="reading-question-title">
-                  <span className="tag">{getReadingQuestionDisplayLabel(item, subIndex)}</span>
+                  <div className="reading-question-meta">
+                    <span className="tag">{getReadingQuestionDisplayLabel(item, subIndex)}</span>
+                    <span className="tag score">{Number(subQuestion?.score) || 0} 分</span>
+                  </div>
                   <span>{subQuestion.prompt}</span>
                 </div>
 
@@ -299,21 +295,156 @@ function ReadingBlock({
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  className="secondary-btn small-btn ai-inline-btn ai-dynamic-label"
-                  data-ai-label={aiLabel}
-                  style={{ display: canUseAiTool ? undefined : 'none' }}
-                  onClick={() => onExplainQuestion({ item, subQuestion })}
-                  disabled={isPaused || explainEntry?.status === 'pending'}
-                >
-                  {explainEntry?.status === 'pending' ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
-                  {aiLabel}
-                </button>
-                <AiExplainPanel entry={explainEntry} />
+                      {explainEntry?.status === 'pending' ? 'AI解释中' : 'AI解释'}
+                      {auditEntry?.status === 'pending' ? 'AI核题中' : 'AI核题'}
               </div>
             )
           })}
+          {!readingQuestions.length && (
+            <div className="analysis-box compact-analysis-box">
+              <div>当前阅读题缺少可作答的小题，无法继续作答。</div>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ReadingBlockV2({
+  item,
+  response,
+  submitted,
+  isPaused,
+  mode,
+  revealedMap,
+  focusSubQuestionId,
+  onFocusSubQuestion,
+  onSelectReadingOption,
+}) {
+  const [immersiveReading, setImmersiveReading] = useState(false)
+  const readingResponse = response || {}
+  const readingQuestions = Array.isArray(item.questions) ? item.questions : []
+  const questionRefs = useRef({})
+  const passageTitle = item.passage?.title || item.title || '阅读材料'
+  const passageContent = item.passage?.content || item.passage?.body || item.passage?.text || ''
+
+  useEffect(() => {
+    if (!focusSubQuestionId) return
+    const target = questionRefs.current[focusSubQuestionId]
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [focusSubQuestionId])
+
+  return (
+    <div className={`reading-layout ${immersiveReading ? 'immersive' : ''}`}>
+      <section className={`reading-passage-card ${immersiveReading ? 'immersive' : ''}`}>
+        <div className="reading-passage-head">
+          <div className="reading-passage-title">
+            <FileText size={16} />
+            <span>{passageTitle}</span>
+          </div>
+          <button
+            type="button"
+            className="reading-mode-btn"
+            onClick={() => setImmersiveReading((value) => !value)}
+            disabled={isPaused}
+          >
+            {immersiveReading ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
+        <div className={`reading-passage-body ${immersiveReading ? 'immersive' : ''}`}>
+          {passageContent || '当前阅读题缺少材料正文。'}
+        </div>
+      </section>
+
+      <section className={`reading-questions-card ${immersiveReading ? 'immersive' : ''}`}>
+        <div className="reading-question-list">
+          {readingQuestions.map((subQuestion, subIndex) => {
+            const userAnswer = readingResponse[subQuestion.id]
+            const revealKey = `${item.id}:${subQuestion.id}`
+            const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
+            const isFocused = focusSubQuestionId === subQuestion.id
+            const subOptions = Array.isArray(subQuestion.options) ? subQuestion.options : []
+            const isGradable = isObjectiveGradable(subQuestion)
+
+            return (
+              <div
+                key={subQuestion.id}
+                ref={(node) => {
+                  questionRefs.current[subQuestion.id] = node
+                }}
+                className={`reading-question-item ${isFocused ? 'focused' : ''}`}
+              >
+                <div className="reading-question-title">
+                  <div className="reading-question-meta">
+                    <span className="tag">{getReadingQuestionDisplayLabel(item, subIndex)}</span>
+                    <span className="tag score">{Number(subQuestion?.score) || 0} 分</span>
+                  </div>
+                  <span>{subQuestion.prompt}</span>
+                </div>
+
+                <div className="options compact-options">
+                  {subOptions.map((option, optionIndex) => {
+                    const selected = userAnswer === option.key
+                    let className = 'option compact-option'
+                    let icon = null
+
+                    if (!showFeedback || !isGradable) {
+                      if (selected) className += ' selected'
+                    } else if (option.key === subQuestion.answer?.correct) {
+                      className += ' correct'
+                      icon = <CheckCircle2 size={18} />
+                    } else if (selected) {
+                      className += ' wrong'
+                      icon = <XCircle size={18} />
+                    } else {
+                      className += ' muted'
+                    }
+
+                    return (
+                      <button
+                        key={optionIndex}
+                        type="button"
+                        className={className}
+                        disabled={submitted || isPaused || (mode === 'practice' && showFeedback)}
+                        onClick={() => {
+                          onFocusSubQuestion(subQuestion.id)
+                          onSelectReadingOption(item.id, subQuestion.id, option.key)
+                        }}
+                      >
+                        <span>{renderOptionLabel(option)}</span>
+                        {icon}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {!subOptions.length && (
+                  <div className="analysis-box compact-analysis-box">
+                    <div>当前小题缺少可作答的选项，无法继续作答。</div>
+                  </div>
+                )}
+
+                {showFeedback && (
+                  <div className="analysis-box compact-analysis-box">
+                    {isGradable ? (
+                      <>
+                        <div>
+                          正确答案：<strong>{subQuestion.answer?.correct}</strong>
+                        </div>
+                        <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
+                      </>
+                    ) : (
+                      <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
           {!readingQuestions.length && (
             <div className="analysis-box compact-analysis-box">
               <div>当前阅读题缺少可作答的小题，无法继续作答。</div>
@@ -553,6 +684,9 @@ function CompositeBlock({
                 <span className="tag purple" style={{ marginLeft: 8 }}>
                   {getNavGroupMeta(question).label}
                 </span>
+                <span className="tag score" style={{ marginLeft: 8 }}>
+                  {Number(question?.score) || 0} 分
+                </span>
               </div>
               <div className="wrongbook-card-title">{question.prompt}</div>
               {question.context_title && <div className="question-context-title">{question.context_title}</div>}
@@ -647,7 +781,9 @@ export default function QuizSubjectiveBlock({
   onSelectClozeOption,
   onRevealCurrentObjective,
   aiExplainMap,
+  aiAuditMap,
   onExplainQuestion,
+  onAuditQuestion,
   onSelectCompositeOption,
   onCompositeFillBlankChange,
   onCompositeTextChange,
@@ -677,7 +813,7 @@ export default function QuizSubjectiveBlock({
 
   if (item.type === 'reading') {
     return (
-      <ReadingBlock
+      <ReadingBlockV2
         item={item}
         response={response}
         submitted={submitted}
@@ -687,8 +823,6 @@ export default function QuizSubjectiveBlock({
         focusSubQuestionId={focusSubQuestionId}
         onFocusSubQuestion={onFocusSubQuestion}
         onSelectReadingOption={onSelectReadingOption}
-        aiExplainMap={aiExplainMap}
-        onExplainQuestion={onExplainQuestion}
       />
     )
   }

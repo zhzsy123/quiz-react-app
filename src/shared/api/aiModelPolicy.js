@@ -4,6 +4,8 @@ const CHAT_FEATURES = new Set([
   'similar_question_generation',
   'document_import',
   'document_import_section',
+  'question_audit',
+  'question_explanation',
 ])
 
 const REASONER_FEATURES = new Set([
@@ -11,8 +13,6 @@ const REASONER_FEATURES = new Set([
   'document_import_section_repair',
   'subjective_grading',
   'relational_algebra_grading',
-  'question_audit',
-  'question_explanation',
 ])
 
 export function resolveAiModel({ feature = 'general', preferredModel = '', explicitModel = '' } = {}) {

@@ -47,6 +47,7 @@ import {
   isResponseAnswered,
 } from './subjectWorkspaceObjective.js'
 import {
+  runAuditQuestionAi as runWorkspaceAuditQuestionAi,
   runExplainQuestionAi as runWorkspaceExplainQuestionAi,
   runRelationalAlgebraSubquestionAi as runWorkspaceRelationalAlgebraSubquestionAi,
   runSimilarQuestionsAi as runWorkspaceSimilarQuestionsAi,
@@ -101,6 +102,7 @@ export function useSubjectWorkspaceState() {
   const [aiReview, setAiReview] = useState(null)
   const aiReviewRef = useRef(null)
   const [aiExplainMap, setAiExplainMap] = useState({})
+  const [aiAuditMap, setAiAuditMap] = useState({})
   const [aiExplainMode, setAiExplainMode] = useState('standard')
   const [aiPracticeModal, setAiPracticeModal] = useState(null)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -211,6 +213,7 @@ export function useSubjectWorkspaceState() {
         setAttemptId(progress?.attemptId || '')
         setAiReview(progress?.aiReview || null)
         setAiExplainMap(progress?.aiExplainMap || {})
+        setAiAuditMap(progress?.aiAuditMap || {})
         setCurrentIndex(Math.max(0, Math.min(progress?.currentIndex || 0, (resolvedQuiz.items?.length || 1) - 1)))
         setRemainingSeconds(
           typeof progress?.timerSecondsRemaining === 'number'
@@ -276,6 +279,7 @@ export function useSubjectWorkspaceState() {
       attemptId,
       aiReview,
       aiExplainMap,
+      aiAuditMap,
       currentIndex,
       remainingSeconds,
       isPaused,
@@ -336,6 +340,16 @@ export function useSubjectWorkspaceState() {
     setAiExplainMap(nextMap)
     await persistNow({ aiExplainMap: nextMap, attemptId: nextAttemptId })
     await persistAttemptPatch(nextAttemptId, { aiExplainMap: nextMap })
+  }
+
+  const syncAiAuditEntry = async (entryKey, nextEntry, nextAttemptId = attemptId) => {
+    const nextMap = {
+      ...aiAuditMap,
+      [entryKey]: nextEntry,
+    }
+    setAiAuditMap(nextMap)
+    await persistNow({ aiAuditMap: nextMap, attemptId: nextAttemptId })
+    await persistAttemptPatch(nextAttemptId, { aiAuditMap: nextMap })
   }
 
   const scoreSummary = useMemo(() => {
@@ -466,7 +480,6 @@ export function useSubjectWorkspaceState() {
 
     try {
       const completedExplain = await runWorkspaceExplainQuestionAi({
-        mode,
         aiExplainMode,
         quiz,
         answers,
@@ -484,6 +497,45 @@ export function useSubjectWorkspaceState() {
         commonMistakes: [],
         answerStrategy: [],
         error: error?.message || 'AI 解释失败',
+      })
+    }
+  }
+
+  const handleAuditQuestion = async ({ item, subQuestion = null }) => {
+    if (!quiz || !item) return
+
+    const entryKey = getWorkspaceExplainEntryKey(item.id, subQuestion?.id)
+    await syncAiAuditEntry(entryKey, {
+      kind: 'audit',
+      status: 'pending',
+      title: 'AI 核题',
+      explanation: '',
+      keyPoints: [],
+      commonMistakes: [],
+      answerStrategy: [],
+      auditVerdict: '',
+      error: '',
+    })
+
+    try {
+      const completedAudit = await runWorkspaceAuditQuestionAi({
+        quiz,
+        answers,
+        item,
+        subQuestion,
+      })
+      await syncAiAuditEntry(entryKey, completedAudit)
+    } catch (error) {
+      await syncAiAuditEntry(entryKey, {
+        kind: 'audit',
+        status: 'failed',
+        title: 'AI 核题失败',
+        explanation: '',
+        keyPoints: [],
+        commonMistakes: [],
+        answerStrategy: [],
+        auditVerdict: '',
+        error: error?.message || 'AI 核题失败',
       })
     }
   }
@@ -586,6 +638,7 @@ export function useSubjectWorkspaceState() {
         timerSecondsRemaining: remainingSeconds,
         aiReview: initialAiReview,
         aiExplainMap,
+        aiAuditMap,
       })
     }
 
@@ -1255,6 +1308,7 @@ export function useSubjectWorkspaceState() {
     setAttemptId('')
     setAiReview(null)
     setAiExplainMap({})
+    setAiAuditMap({})
     setCurrentIndex(0)
     setSubQuestionFocusMap(normalizeNestedFocusMap(quiz, {}))
     setRemainingSeconds(examDurationSeconds)
@@ -1268,6 +1322,7 @@ export function useSubjectWorkspaceState() {
       attemptId: '',
       aiReview: null,
       aiExplainMap: {},
+      aiAuditMap: {},
       relationalAlgebraExpandedMap: {},
       subQuestionFocusMap: normalizeNestedFocusMap(quiz, {}),
       currentIndex: 0,
@@ -1343,6 +1398,7 @@ export function useSubjectWorkspaceState() {
     aiReview,
     aiQuestionReviewMap,
     aiExplainMap,
+    aiAuditMap,
     aiExplainMode,
     aiPracticeModal,
     currentIndex,
@@ -1387,6 +1443,7 @@ export function useSubjectWorkspaceState() {
     handleReset,
     handleChangeAiExplainMode,
     handleExplainQuestionWithMode,
+    handleAuditQuestion,
     handleExplainWhyWrong,
     handleGenerateSimilarQuestions,
     handleCloseAiPracticeModal,

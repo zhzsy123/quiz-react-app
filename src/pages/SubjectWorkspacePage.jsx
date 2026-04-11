@@ -23,6 +23,7 @@ export default function SubjectWorkspacePage() {
     aiReview,
     aiQuestionReviewMap,
     aiExplainMap,
+    aiAuditMap,
     aiExplainMode,
     aiPracticeModal,
     currentIndex,
@@ -65,6 +66,7 @@ export default function SubjectWorkspacePage() {
     handleReset,
     handleChangeAiExplainMode,
     handleExplainQuestionWithMode,
+    handleAuditQuestion,
     handleExplainWhyWrong,
     handleGenerateSimilarQuestions,
     handleCloseAiPracticeModal,
@@ -172,6 +174,11 @@ export default function SubjectWorkspacePage() {
           </div>
 
           <div className="workspace-header-actions">
+            {!submitted && (
+              <button className="primary-btn small-btn workspace-submit-btn" onClick={() => handleFinish()}>
+                {mode === 'practice' ? '提交练习' : '提交考试'}
+              </button>
+            )}
             {submitted && (
               <button className="secondary-btn small-btn" onClick={handleExportQuiz}>
                 <Download size={14} />
@@ -307,10 +314,12 @@ export default function SubjectWorkspacePage() {
           aiReview={aiReview}
           aiQuestionReviewMap={aiQuestionReviewMap}
           aiExplainMap={aiExplainMap}
+          aiAuditMap={aiAuditMap}
           aiExplainMode={aiExplainMode}
           aiPracticeModal={aiPracticeModal}
           onChangeAiExplainMode={handleChangeAiExplainMode}
           onExplainQuestion={handleExplainQuestionWithMode}
+          onAuditQuestion={handleAuditQuestion}
           onExplainWhyWrong={handleExplainWhyWrong}
           onGenerateSimilarQuestions={handleGenerateSimilarQuestions}
           onCloseAiPracticeModal={handleCloseAiPracticeModal}

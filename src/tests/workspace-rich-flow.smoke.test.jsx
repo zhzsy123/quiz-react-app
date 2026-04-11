@@ -580,7 +580,9 @@ function getNextButton(container) {
 }
 
 function getSubmitButton(container) {
-  const button = container.querySelector('.quiz-submit-row button')
+  const button =
+    container.querySelector('.workspace-submit-btn') ||
+    Array.from(container.querySelectorAll('button')).find((entry) => entry.textContent?.includes('提交'))
   if (!button) throw new Error('Unable to find submit button.')
   return button
 }
