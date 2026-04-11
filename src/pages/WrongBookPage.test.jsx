@@ -16,6 +16,18 @@ vi.mock('../features/wrong-book/model/useWrongBookPageState', async () => {
   }
 })
 
+const listAllWrongbookEntriesMock = vi.fn(async () => [])
+
+vi.mock('../app/providers/AppContext', () => ({
+  useAppContext: () => ({
+    activeProfileId: 'profile-1',
+  }),
+}))
+
+vi.mock('../entities/wrongbook/api/wrongbookRepository', () => ({
+  listAllWrongbookEntries: (...args) => listAllWrongbookEntriesMock(...args),
+}))
+
 vi.mock('../entities/subject/model/subjects', async () => {
   const actual = await vi.importActual('../entities/subject/model/subjects')
   return {
@@ -58,6 +70,7 @@ describe('WrongBookPage', () => {
   afterEach(() => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
+    listAllWrongbookEntriesMock.mockResolvedValue([])
   })
 
   it('renders subject-aware type options and tolerates object-like wrongbook display fields', async () => {
@@ -135,15 +148,98 @@ describe('WrongBookPage', () => {
     })
   })
 
+  it('re-sanitizes malformed rows from hook output before render', async () => {
+    useWrongBookPageStateMock.mockReturnValue({
+      filteredWrongItems: [
+        {
+          questionKey: 'q1',
+          subject: { broken: true },
+          prompt: { text: '对象题干' },
+          category: { strange: true },
+          wrongTimes: '2',
+          paperTitle: { text: '对象试卷' },
+          correctAnswer: { label: 'A. 正确' },
+          rationale: { text: '对象解析' },
+          options: [{ key: 'A', text: '选项 A' }],
+        },
+      ],
+      subjectFilter: 'all',
+      setSubjectFilter: vi.fn(),
+      typeFilter: 'all',
+      setTypeFilter: vi.fn(),
+      typeOptions: [],
+      query: '',
+      setQuery: vi.fn(),
+      practiceMode: false,
+      setPracticeMode: vi.fn(),
+      practiceIndex: 0,
+      setPracticeIndex: vi.fn(),
+      selectedAnswer: '',
+      selectedChoices: [],
+      blankAnswers: {},
+      blankFeedback: [],
+      feedback: '',
+      displayPracticeItem: null,
+      holdSolvedItem: null,
+      isBlankPracticeItem: false,
+      isClozePracticeItem: false,
+      isMultipleChoicePracticeItem: false,
+      selectedKeys: [],
+      wrongSummary: {
+        totalWrongRecords: 2,
+        uniqueWrongQuestions: 1,
+        filteredCount: 1,
+        latestWrongAt: Date.now(),
+      },
+      handleRemove: vi.fn(),
+      handleToggleSelected: vi.fn(),
+      handleSelectAllFiltered: vi.fn(),
+      handleClearSelected: vi.fn(),
+      handleRemoveSelected: vi.fn(),
+      handleRemoveAllFiltered: vi.fn(),
+      handlePracticeAnswer: vi.fn(),
+      handleTogglePracticeChoice: vi.fn(),
+      handlePracticeBlankChange: vi.fn(),
+      handlePracticeClozeAnswer: vi.fn(),
+      handleCheckPracticeBlank: vi.fn(),
+      handleCheckPracticeObjective: vi.fn(),
+      handleAdvanceAfterSolved: vi.fn(),
+      resetPractice: vi.fn(),
+    })
+
+    const { container, root } = await renderComponent()
+
+    expect(container.textContent).toContain('对象题干')
+    expect(container.textContent).toContain('对象试卷')
+    expect(container.textContent).toContain('对象解析')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
   it('shows a fallback card instead of white screen when page render throws', async () => {
     useWrongBookPageStateMock.mockImplementation(() => {
       throw new Error('bad wrongbook payload')
     })
+    listAllWrongbookEntriesMock.mockResolvedValue([
+      {
+        questionKey: 'q-safe',
+        subject: 'international_trade',
+        prompt: '安全模式题干',
+        category: 'case_analysis',
+        paperTitle: '安全模式试卷',
+        correctAnswerLabel: '有权拒收',
+        rationale: '安全模式解析',
+      },
+    ])
 
     const { container, root } = await renderComponent()
 
     expect(container.textContent).toContain('错题本暂时无法渲染')
     expect(container.textContent).toContain('页面已阻止白屏')
+    expect(container.textContent).toContain('安全模式题干')
+    expect(container.textContent).toContain('安全模式解析')
 
     await act(async () => {
       root.unmount()

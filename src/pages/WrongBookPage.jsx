@@ -12,13 +12,99 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useAppContext } from '../app/providers/AppContext'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
+import { listAllWrongbookEntries } from '../entities/wrongbook/api/wrongbookRepository'
 import {
   formatWrongBookDisplayValue,
   getWrongItemCategoryLabel,
   renderWrongBookOptionLabel,
+  isRenderableWrongBookEntry,
+  sanitizeWrongBookEntry,
   useWrongBookPageState,
 } from '../features/wrong-book/model/useWrongBookPageState'
+
+function WrongBookRecoveryPanel() {
+  const { activeProfileId } = useAppContext()
+  const [loading, setLoading] = React.useState(true)
+  const [entries, setEntries] = React.useState([])
+
+  React.useEffect(() => {
+    let disposed = false
+
+    async function load() {
+      if (!activeProfileId) {
+        if (!disposed) {
+          setEntries([])
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        const rows = await listAllWrongbookEntries(activeProfileId)
+        const nextEntries = (Array.isArray(rows) ? rows : [])
+          .filter(isRenderableWrongBookEntry)
+          .map((item) => sanitizeWrongBookEntry(item))
+
+        if (!disposed) {
+          setEntries(nextEntries)
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('错题本安全模式加载失败', error)
+        if (!disposed) {
+          setEntries([])
+          setLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      disposed = true
+    }
+  }, [activeProfileId])
+
+  if (loading) {
+    return <div className="local-library-empty">正在以安全模式加载错题本…</div>
+  }
+
+  if (entries.length === 0) {
+    return <div className="local-library-empty">安全模式下未加载到可显示的错题记录。</div>
+  }
+
+  return (
+    <div className="wrongbook-list">
+      {entries.slice(0, 20).map((item) => (
+        <article key={item.questionKey} className="wrongbook-item-card">
+          <div className="wrongbook-card-head">
+            <span className="wrongbook-card-title">{item.prompt}</span>
+          </div>
+          <div className="wrongbook-meta">
+            <span>{getSubjectMeta(item.subject).shortLabel}</span>
+            <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
+            {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}
+          </div>
+          {item.contextTitle && (
+            <div className="wrongbook-context">
+              <strong>{item.contextTitle}</strong>
+              {item.contextSnippet ? `：${item.contextSnippet}` : ''}
+            </div>
+          )}
+          <div className="analysis-box compact-analysis-box">
+            <div>
+              正确答案：
+              <strong>{formatWrongBookDisplayValue(item.correctAnswerLabel || item.correctAnswer, '见题目配置')}</strong>
+            </div>
+            <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
 
 class WrongBookPageErrorBoundary extends React.Component {
   constructor(props) {
@@ -59,6 +145,9 @@ class WrongBookPageErrorBoundary extends React.Component {
                 <Link className="secondary-btn small-btn" to="/">
                   返回首页
                 </Link>
+              </div>
+              <div style={{ marginTop: 20 }}>
+                <WrongBookRecoveryPanel />
               </div>
             </section>
           </div>
@@ -274,8 +363,24 @@ function WrongBookPageContent() {
     resetPractice,
   } = useWrongBookPageState()
 
+  const safeFilteredWrongItems = React.useMemo(
+    () => (Array.isArray(filteredWrongItems) ? filteredWrongItems.map((item) => sanitizeWrongBookEntry(item)) : []),
+    [filteredWrongItems]
+  )
+  const safeDisplayPracticeItem = React.useMemo(
+    () => (displayPracticeItem ? sanitizeWrongBookEntry(displayPracticeItem) : null),
+    [displayPracticeItem]
+  )
+  const safeSelectedKeys = Array.isArray(selectedKeys) ? selectedKeys : []
+  const safeWrongSummary = {
+    totalWrongRecords: Number(wrongSummary?.totalWrongRecords) || 0,
+    uniqueWrongQuestions: Number(wrongSummary?.uniqueWrongQuestions) || 0,
+    filteredCount: Number(wrongSummary?.filteredCount) || safeFilteredWrongItems.length,
+    latestWrongAt: wrongSummary?.latestWrongAt || null,
+  }
+
   const libraryRoute =
-    getSubjectMeta(subjectFilter !== 'all' ? subjectFilter : filteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key)
+    getSubjectMeta(subjectFilter !== 'all' ? subjectFilter : safeFilteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key)
       ?.route || '/'
 
   return (
@@ -322,7 +427,7 @@ function WrongBookPageContent() {
                     setPracticeMode(true)
                     setPracticeIndex(0)
                   }}
-                  disabled={filteredWrongItems.length === 0}
+                  disabled={safeFilteredWrongItems.length === 0}
                 >
                   <Play size={14} />
                   开始刷错题
@@ -330,7 +435,7 @@ function WrongBookPageContent() {
               )}
               {!practiceMode && (
                 <>
-                  <button className="secondary-btn small-btn" onClick={handleSelectAllFiltered} disabled={filteredWrongItems.length === 0}>
+                  <button className="secondary-btn small-btn" onClick={handleSelectAllFiltered} disabled={safeFilteredWrongItems.length === 0}>
                     全选当前筛选
                   </button>
                   <button className="secondary-btn small-btn" onClick={handleClearSelected} disabled={selectedKeys.length === 0}>
@@ -340,7 +445,7 @@ function WrongBookPageContent() {
                     <Trash2 size={14} />
                     批量删除
                   </button>
-                  <button className="danger-btn small-btn" onClick={handleRemoveAllFiltered} disabled={filteredWrongItems.length === 0}>
+                  <button className="danger-btn small-btn" onClick={handleRemoveAllFiltered} disabled={safeFilteredWrongItems.length === 0}>
                     <Trash2 size={14} />
                     全部删除
                   </button>
@@ -390,26 +495,26 @@ function WrongBookPageContent() {
             <div className="metric-head">
               <BookX size={18} /> 错题记录总数
             </div>
-            <div className="metric-value">{wrongSummary.totalWrongRecords}</div>
+            <div className="metric-value">{safeWrongSummary.totalWrongRecords}</div>
           </article>
           <article className="metric-card">
             <div className="metric-head">
               <Search size={18} /> 唯一错题数
             </div>
-            <div className="metric-value">{wrongSummary.uniqueWrongQuestions}</div>
+            <div className="metric-value">{safeWrongSummary.uniqueWrongQuestions}</div>
           </article>
           <article className="metric-card">
             <div className="metric-head">
               <Filter size={18} /> 当前筛选结果
             </div>
-            <div className="metric-value">{wrongSummary.filteredCount}</div>
+            <div className="metric-value">{safeWrongSummary.filteredCount}</div>
           </article>
           <article className="metric-card">
             <div className="metric-head">
               <BookOpen size={18} /> 最近错题时间
             </div>
             <div className="metric-value small-metric-value">
-              {wrongSummary.latestWrongAt ? new Date(wrongSummary.latestWrongAt).toLocaleDateString() : '--'}
+              {safeWrongSummary.latestWrongAt ? new Date(safeWrongSummary.latestWrongAt).toLocaleDateString() : '--'}
             </div>
           </article>
         </section>
@@ -421,41 +526,41 @@ function WrongBookPageContent() {
                 <Play size={18} /> 错题练习区
               </h2>
               <span className="section-header-tip">
-                {filteredWrongItems.length > 0
-                  ? `第 ${Math.min(practiceIndex + 1, Math.max(filteredWrongItems.length, 1))} / ${filteredWrongItems.length}`
+                {safeFilteredWrongItems.length > 0
+                  ? `第 ${Math.min(practiceIndex + 1, Math.max(safeFilteredWrongItems.length, 1))} / ${safeFilteredWrongItems.length}`
                   : '已无待练习错题'}
               </span>
             </div>
 
-            {!displayPracticeItem ? (
+            {!safeDisplayPracticeItem ? (
               <div className="local-library-empty">当前筛选条件下已经没有待练习错题了。</div>
             ) : (
               <div className="wrongbook-practice-card">
                 <div className="wrongbook-card-head">
                   <div>
-                    <div className="wrongbook-card-title">{displayPracticeItem.prompt}</div>
+                    <div className="wrongbook-card-title">{safeDisplayPracticeItem.prompt}</div>
                     <div className="wrongbook-meta">
-                      <span>{getSubjectMeta(displayPracticeItem.subject).shortLabel}</span>
-                      <span>题型：{getWrongItemCategoryLabel(displayPracticeItem.category)}</span>
-                      <span>来源：{displayPracticeItem.paperTitle}</span>
+                      <span>{getSubjectMeta(safeDisplayPracticeItem.subject).shortLabel}</span>
+                      <span>题型：{getWrongItemCategoryLabel(safeDisplayPracticeItem.category)}</span>
+                      <span>来源：{safeDisplayPracticeItem.paperTitle}</span>
                     </div>
                   </div>
-                  <button className="danger-btn small-btn" onClick={() => handleRemove(displayPracticeItem)}>
+                  <button className="danger-btn small-btn" onClick={() => handleRemove(safeDisplayPracticeItem)}>
                     <Trash2 size={14} />
                     删除
                   </button>
                 </div>
 
-                {displayPracticeItem.contextTitle && (
+                {safeDisplayPracticeItem.contextTitle && (
                   <div className="wrongbook-context">
-                    <strong>{displayPracticeItem.contextTitle}</strong>
-                    {displayPracticeItem.contextSnippet ? `：${displayPracticeItem.contextSnippet}` : ''}
+                    <strong>{safeDisplayPracticeItem.contextTitle}</strong>
+                    {safeDisplayPracticeItem.contextSnippet ? `：${safeDisplayPracticeItem.contextSnippet}` : ''}
                   </div>
                 )}
 
                 {isBlankPracticeItem || isClozePracticeItem ? (
                   <BlankPracticePanel
-                    item={displayPracticeItem}
+                    item={safeDisplayPracticeItem}
                     blankAnswers={blankAnswers}
                     blankFeedback={blankFeedback}
                     isCloze={isClozePracticeItem}
@@ -468,7 +573,7 @@ function WrongBookPageContent() {
                   />
                 ) : isMultipleChoicePracticeItem ? (
                   <MultipleChoicePracticePanel
-                    item={displayPracticeItem}
+                    item={safeDisplayPracticeItem}
                     selectedChoices={selectedChoices}
                     feedback={feedback}
                     holdSolvedItem={holdSolvedItem}
@@ -478,7 +583,7 @@ function WrongBookPageContent() {
                 ) : (
                   <>
                     <div className="options">
-                      {(displayPracticeItem.options || []).map((option, index) => {
+                      {(safeDisplayPracticeItem.options || []).map((option, index) => {
                         const selected = selectedAnswer === option.key
                         let className = 'option'
                         let icon = null
@@ -487,7 +592,7 @@ function WrongBookPageContent() {
                         if (selected) className += ' selected'
 
                         if (selectedAnswer) {
-                          if (option.key === displayPracticeItem.correctAnswer) {
+                          if (option.key === safeDisplayPracticeItem.correctAnswer) {
                             className += ' correct'
                             icon = <CheckCircle2 size={18} />
                           } else if (selected) {
@@ -519,9 +624,9 @@ function WrongBookPageContent() {
                       <div className="analysis-box">
                         <div>
                           正确答案：
-                          <strong>{formatWrongBookDisplayValue(displayPracticeItem.correctAnswer, '见题目配置')}</strong>
+                          <strong>{formatWrongBookDisplayValue(safeDisplayPracticeItem.correctAnswer, '见题目配置')}</strong>
                         </div>
-                        <div>解析：{formatWrongBookDisplayValue(displayPracticeItem.rationale, '暂无解析')}</div>
+                        <div>解析：{formatWrongBookDisplayValue(safeDisplayPracticeItem.rationale, '暂无解析')}</div>
                       </div>
                     )}
                   </>
@@ -548,9 +653,9 @@ function WrongBookPageContent() {
                     <button
                       type="button"
                       className="secondary-btn"
-                      disabled={practiceIndex >= filteredWrongItems.length - 1}
+                      disabled={practiceIndex >= safeFilteredWrongItems.length - 1}
                       onClick={() => {
-                        setPracticeIndex((prev) => Math.min(prev + 1, filteredWrongItems.length - 1))
+                        setPracticeIndex((prev) => Math.min(prev + 1, safeFilteredWrongItems.length - 1))
                         resetPractice()
                       }}
                     >
@@ -571,12 +676,12 @@ function WrongBookPageContent() {
               </h2>
             </div>
 
-            {filteredWrongItems.length === 0 ? (
+            {safeFilteredWrongItems.length === 0 ? (
               <div className="local-library-empty">当前筛选条件下没有错题。</div>
             ) : (
               <div className="wrongbook-list">
-                {filteredWrongItems.map((item) => {
-                  const checked = selectedKeys.includes(item.questionKey)
+                {safeFilteredWrongItems.map((item) => {
+                  const checked = safeSelectedKeys.includes(item.questionKey)
                   return (
                     <article key={item.questionKey} className="wrongbook-item-card">
                       <div className="wrongbook-card-head">
