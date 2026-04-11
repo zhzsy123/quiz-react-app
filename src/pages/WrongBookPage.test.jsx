@@ -286,4 +286,31 @@ describe('WrongBookPage', () => {
       root.unmount()
     })
   })
+
+  it('renders the full safe-mode list instead of truncating after 20 entries', async () => {
+    useWrongBookPageStateMock.mockImplementation(() => {
+      throw new Error('broken wrongbook view')
+    })
+    listAllWrongbookEntriesMock.mockResolvedValue(
+      Array.from({ length: 25 }, (_, index) => ({
+        questionKey: `safe-${index + 1}`,
+        subject: 'international_trade',
+        prompt: `safe prompt ${index + 1}`,
+        category: 'case_analysis',
+        paperTitle: 'safe paper',
+        correctAnswerLabel: 'correct',
+        rationale: `safe rationale ${index + 1}`,
+      }))
+    )
+
+    const { container, root } = await renderComponent()
+
+    expect(container.textContent).toContain('安全模式记录数：25')
+    expect(container.textContent).toContain('safe prompt 25')
+    expect(container.textContent).toContain('safe rationale 25')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
 })

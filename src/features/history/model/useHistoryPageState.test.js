@@ -69,4 +69,45 @@ describe('useHistoryPageState helpers', () => {
       })
     )
   })
+
+  it('uses unified effective score and rate after AI review completes', () => {
+    const completedAttempt = {
+      objectiveScore: 6,
+      objectiveTotal: 10,
+      subjectivePendingTotal: 15,
+      paperTotal: 25,
+      aiReview: {
+        status: 'completed',
+        totalSubjectiveScore: 12,
+      },
+    }
+
+    const pendingAttempt = {
+      objectiveScore: 6,
+      objectiveTotal: 10,
+      subjectivePendingTotal: 15,
+      paperTotal: 25,
+      aiReview: {
+        status: 'pending',
+        totalSubjectiveScore: 0,
+      },
+    }
+
+    expect(getAttemptScoreSummary(completedAttempt)).toEqual(
+      expect.objectContaining({
+        effectiveScore: 18,
+        effectiveMax: 25,
+        rate: 72,
+        aiCompleted: true,
+      })
+    )
+    expect(getAttemptScoreSummary(pendingAttempt)).toEqual(
+      expect.objectContaining({
+        effectiveScore: 6,
+        effectiveMax: 10,
+        rate: 60,
+        aiCompleted: false,
+      })
+    )
+  })
 })

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Sparkles, X } from 'lucide-react'
+import { getQuestionGenerationStatusLabel } from '../../shared/lib/ui/productStatusLabels.js'
 import GeneratedQuestionList from './GeneratedQuestionList.jsx'
 
 const DIFFICULTY_OPTIONS = [
@@ -243,7 +244,7 @@ export default function AiQuestionGeneratorDialog({
             <div className="generator-stats-card">
               <div className="generator-stats-row">
                 <span>状态</span>
-                <strong>{status}</strong>
+                <strong>{getQuestionGenerationStatusLabel(status)}</strong>
               </div>
               <div className="generator-stats-row">
                 <span>通过</span>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { FileText, X } from 'lucide-react'
+import { getDocumentImportStatusLabel } from '../../shared/lib/ui/productStatusLabels.js'
 import DocumentDropzone from './DocumentDropzone.jsx'
 import DocumentImportPreview from './DocumentImportPreview.jsx'
 
@@ -84,7 +85,7 @@ export default function DocumentImportDialog({
             <div className="generator-stats-card">
               <div className="generator-stats-row">
                 <span>状态</span>
-                <strong>{state.status}</strong>
+                <strong>{getDocumentImportStatusLabel(state.status)}</strong>
               </div>
               {state.fileMeta ? (
                 <div className="generator-stats-row">

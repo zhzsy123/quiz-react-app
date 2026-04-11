@@ -24,7 +24,7 @@ describe('DocumentImportDialog', () => {
     vi.clearAllMocks()
   })
 
-  it('renders preview information, diagnostics, and allows selecting a file', async () => {
+  it('renders preview information and maps status into product language', async () => {
     const onFileSelect = vi.fn()
     const props = {
       open: true,
@@ -119,6 +119,8 @@ describe('DocumentImportDialog', () => {
     expect(container.textContent).toContain('阅读理解')
     expect(container.textContent).toContain('阅读理解 A')
     expect(container.textContent).toContain('导入诊断')
+    expect(container.textContent).toContain('可预览')
+    expect(container.textContent).not.toContain('preview_ready')
     expect(container.querySelector('[data-testid="document-import-save"]').disabled).toBe(false)
     expect(container.querySelector('[data-testid="document-import-launch"]').disabled).toBe(false)
 
@@ -139,4 +141,3 @@ describe('DocumentImportDialog', () => {
     })
   })
 })
-

@@ -167,8 +167,13 @@ function WrongBookRecoveryPanel({ errorMessage = '', componentStack = '' }) {
       {entries.length === 0 ? (
         <div className="local-library-empty">安全模式下未加载到可显示的错题记录。</div>
       ) : (
-        <div className="wrongbook-list">
-          {entries.slice(0, 20).map((item) => (
+        <>
+          <div className="wrongbook-meta" style={{ marginBottom: 12 }}>
+            <span>安全模式记录数：{entries.length}</span>
+            <span>当前为只读降级视图</span>
+          </div>
+          <div className="wrongbook-list">
+            {entries.map((item) => (
             <article key={item.questionKey} className="wrongbook-item-card">
               <div className="wrongbook-card-head">
                 <span className="wrongbook-card-title">{item.prompt}</span>
@@ -192,8 +197,9 @@ function WrongBookRecoveryPanel({ errorMessage = '', componentStack = '' }) {
                 <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
               </div>
             </article>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </>
   )

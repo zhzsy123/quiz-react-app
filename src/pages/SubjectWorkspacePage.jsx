@@ -1,8 +1,10 @@
 import React from 'react'
-import { ArrowLeft, Clock3, Home, Pause, Play, RefreshCw, Star } from 'lucide-react'
+import { ArrowLeft, Clock3, Download, Home, Pause, Play, RefreshCw, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CleanQuizView from '../widgets/quiz/CleanQuizView'
 import { useSubjectWorkspaceState } from '../features/workspace/model/useSubjectWorkspaceState'
+import { buildQuizExportMarkdown } from '../entities/quiz/lib/export/buildQuizExportMarkdown'
+import { downloadTextFile } from '../shared/lib/export/downloadFile'
 
 export default function SubjectWorkspacePage() {
   const {
@@ -68,6 +70,25 @@ export default function SubjectWorkspacePage() {
     handleCloseAiPracticeModal,
     handleFinish,
   } = useSubjectWorkspaceState()
+
+  const handleExportQuiz = React.useCallback(() => {
+    if (!quiz) return
+
+    const content = buildQuizExportMarkdown({
+      entry,
+      quiz,
+      answers,
+      submitted,
+      score,
+      paperTotalScore,
+      aiReview,
+    })
+    const baseName = String(entry?.title || quiz?.title || '试卷')
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .trim() || '试卷'
+
+    downloadTextFile(`${baseName}-导出.md`, content)
+  }, [aiReview, answers, entry, paperTotalScore, quiz, score, submitted])
 
   if (loading) {
     return (
@@ -151,6 +172,12 @@ export default function SubjectWorkspacePage() {
           </div>
 
           <div className="workspace-header-actions">
+            {submitted && (
+              <button className="secondary-btn small-btn" onClick={handleExportQuiz}>
+                <Download size={14} />
+                导出本卷
+              </button>
+            )}
             {mode === 'exam' && (
               <button className="secondary-btn small-btn" onClick={handleTogglePause} disabled={submitted}>
                 {isPaused ? <Play size={14} /> : <Pause size={14} />}

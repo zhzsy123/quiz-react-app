@@ -95,6 +95,11 @@ export function getAttemptScoreSummary(attempt) {
   const subjectiveScore = Number(attempt.aiReview?.totalSubjectiveScore || 0)
   const totalScore = objectiveScore + subjectiveScore
   const totalMax = Number(attempt.paperTotal || objectiveTotal + subjectivePendingTotal)
+  const aiCompleted = attempt.aiReview?.status === 'completed'
+  const effectiveScore = aiCompleted ? totalScore : objectiveScore
+  const effectiveMax =
+    aiCompleted ? totalMax : subjectivePendingTotal > 0 ? objectiveTotal : totalMax
+  const rate = effectiveMax > 0 ? Math.round((effectiveScore / effectiveMax) * 100) : 0
 
   return {
     objectiveScore,
@@ -103,6 +108,10 @@ export function getAttemptScoreSummary(attempt) {
     subjectivePendingTotal,
     totalScore,
     totalMax,
+    effectiveScore,
+    effectiveMax,
+    rate,
+    aiCompleted,
   }
 }
 
@@ -131,20 +140,18 @@ export function useHistoryPageState() {
     return filteredAttempts
       .slice()
       .reverse()
-      .map((item) => (item.objectiveTotal ? Math.round((item.objectiveScore / item.objectiveTotal) * 100) : 0))
+      .map((item) => getAttemptScoreSummary(item).rate)
   }, [filteredAttempts])
 
   const summary = useMemo(() => {
     const totalAttempts = filteredAttempts.length
     const totalQuestions = filteredAttempts.reduce((sum, item) => sum + (item.questionCount || 0), 0)
     const totalWrong = filteredAttempts.reduce((sum, item) => sum + (item.wrongCount || 0), 0)
-    const averageRate = totalAttempts
-      ? Math.round(
-          filteredAttempts.reduce((sum, item) => {
-            if (!item.objectiveTotal) return sum
-            return sum + (item.objectiveScore / item.objectiveTotal) * 100
-          }, 0) / totalAttempts
-        )
+    const ratedAttempts = filteredAttempts
+      .map((item) => getAttemptScoreSummary(item))
+      .filter((item) => item.effectiveMax > 0)
+    const averageRate = ratedAttempts.length
+      ? Math.round(ratedAttempts.reduce((sum, item) => sum + item.rate, 0) / ratedAttempts.length)
       : 0
     return { totalAttempts, totalQuestions, totalWrong, averageRate }
   }, [filteredAttempts])

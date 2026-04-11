@@ -162,7 +162,6 @@ export default function HistoryPage() {
             <div className="record-list">
               {filteredAttempts.map((attempt) => {
                 const subjectMeta = getSubjectMeta(attempt.subject)
-                const rate = attempt.objectiveTotal ? Math.round((attempt.objectiveScore / attempt.objectiveTotal) * 100) : 0
                 const answerRows = buildAnswerRows(attempt)
                 const scoreSummary = getAttemptScoreSummary(attempt)
                 const expanded = expandedAttemptId === attempt.id
@@ -180,7 +179,7 @@ export default function HistoryPage() {
                         <span>客观题得分：{scoreSummary.objectiveScore}/{scoreSummary.objectiveTotal}</span>
                         <span>主观题 AI 得分：{scoreSummary.subjectiveScore}/{scoreSummary.subjectivePendingTotal}</span>
                         <span>总得分：{scoreSummary.totalScore}/{scoreSummary.totalMax}</span>
-                        <span>正确率：{rate}%</span>
+                        <span>正确率：{scoreSummary.rate}%</span>
                         <span>错题数：{attempt.wrongCount || 0}</span>
                         <span>总题量：{attempt.questionCount || 0}</span>
                       </div>
