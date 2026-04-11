@@ -3,10 +3,12 @@ import {
   createProfile,
   ensureDefaultProfile,
   getActiveProfileId,
+  loadActiveProfileId,
   listProfiles,
   renameProfile,
   setActiveProfileId,
 } from '../../entities/profile/api/profileRepository'
+import { runStorageMigrations } from '../../shared/storage/migrations/runStorageMigrations'
 import AppDialogHost from '../../shared/ui/dialogs/AppDialogHost.jsx'
 
 const AppContext = createContext(null)
@@ -27,9 +29,10 @@ export function AppProvider({ children }) {
 
     async function initialize() {
       try {
+        await runStorageMigrations()
         const fallbackProfile = await ensureDefaultProfile()
         const allProfiles = await listProfiles()
-        const storedActiveProfileId = getActiveProfileId()
+        const storedActiveProfileId = (await loadActiveProfileId()) || getActiveProfileId()
         const activeId = allProfiles.some((profile) => profile.id === storedActiveProfileId)
           ? storedActiveProfileId
           : fallbackProfile.id

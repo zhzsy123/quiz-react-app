@@ -1,10 +1,9 @@
-import { loadMetaValue, saveMetaValue } from '../../../shared/storage/indexedDb/metaStore.js'
+import {
+  loadGenerationSignatureIndexStore,
+  saveGenerationSignatureIndexStore,
+} from '../../../shared/storage/indexedDb/generationSignaturesStore.js'
 
 const SIGNATURE_STORE_LIMIT = 200
-
-function generationSignatureKey(subjectKey = '', typeKey = '') {
-  return `generation-signatures:${subjectKey}:${typeKey}`
-}
 
 function normalizeSignatureList(value) {
   if (!Array.isArray(value)) return []
@@ -39,8 +38,8 @@ function normalizeSignatureIndex(value) {
 
 export async function loadGenerationSignatureIndex(subjectKey = '', typeKey = '') {
   try {
-    const raw = await loadMetaValue(generationSignatureKey(subjectKey, typeKey), { exact: [], near: [] })
-    return normalizeSignatureIndex(raw)
+    const storeIndex = await loadGenerationSignatureIndexStore(subjectKey, typeKey)
+    return normalizeSignatureIndex(storeIndex)
   } catch {
     return { exact: [], near: [] }
   }
@@ -54,7 +53,7 @@ export async function loadGenerationSignatures(subjectKey = '', typeKey = '') {
 export async function saveGenerationSignatureIndex(subjectKey = '', typeKey = '', indexValue = {}) {
   const normalized = normalizeSignatureIndex(indexValue)
   try {
-    await saveMetaValue(generationSignatureKey(subjectKey, typeKey), normalized)
+    await saveGenerationSignatureIndexStore(subjectKey, typeKey, normalized)
     return normalized
   } catch {
     return normalized

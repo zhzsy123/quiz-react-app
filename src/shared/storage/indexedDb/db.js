@@ -1,6 +1,19 @@
 export const DB_NAME = 'vorin-local-exam-db'
-export const DB_VERSION = 2
+export const DB_VERSION = 4
 export const ACTIVE_PROFILE_KEY = 'vorin:activeProfileId'
+
+function ensureStore(request, db, name, options) {
+  if (db.objectStoreNames.contains(name)) {
+    return request.transaction.objectStore(name)
+  }
+  return db.createObjectStore(name, options)
+}
+
+function ensureIndex(store, name, keyPath, options) {
+  if (!store.indexNames.contains(name)) {
+    store.createIndex(name, keyPath, options)
+  }
+}
 
 export function openDb() {
   return new Promise((resolve, reject) => {
@@ -9,29 +22,43 @@ export function openDb() {
     request.onupgradeneeded = () => {
       const db = request.result
 
-      if (!db.objectStoreNames.contains('profiles')) {
-        db.createObjectStore('profiles', { keyPath: 'id' })
-      }
+      const profilesStore = ensureStore(request, db, 'profiles', { keyPath: 'id' })
+      const librariesStore = ensureStore(request, db, 'libraries', { keyPath: 'id' })
+      const attemptsStore = ensureStore(request, db, 'attempts', { keyPath: 'id' })
+      const progressStore = ensureStore(request, db, 'progress', { keyPath: 'id' })
+      ensureStore(request, db, 'meta', { keyPath: 'key' })
+      const aiUsageStore = ensureStore(request, db, 'ai_usage', { keyPath: 'id' })
+      ensureStore(request, db, 'settings', { keyPath: 'key' })
+      const documentCacheStore = ensureStore(request, db, 'document_cache', { keyPath: 'id' })
+      const wrongbookEntriesStore = ensureStore(request, db, 'wrongbook_entries', { keyPath: 'id' })
+      const wrongbookMasteredStore = ensureStore(request, db, 'wrongbook_mastered', { keyPath: 'id' })
+      const favoritesStore = ensureStore(request, db, 'favorites', { keyPath: 'id' })
+      const generationSignaturesStore = ensureStore(request, db, 'generation_signatures', { keyPath: 'id' })
+      ensureStore(request, db, 'migrations', { keyPath: 'id' })
 
-      if (!db.objectStoreNames.contains('libraries')) {
-        db.createObjectStore('libraries', { keyPath: 'id' })
-      }
+      ensureIndex(librariesStore, 'by_profile_subject', ['profileId', 'subject'])
+      ensureIndex(librariesStore, 'by_profile_updatedAt', ['profileId', 'updatedAt'])
 
-      if (!db.objectStoreNames.contains('attempts')) {
-        db.createObjectStore('attempts', { keyPath: 'id' })
-      }
+      ensureIndex(attemptsStore, 'by_profile_subject', ['profileId', 'subject'])
+      ensureIndex(attemptsStore, 'by_profile_submittedAt', ['profileId', 'submittedAt'])
 
-      if (!db.objectStoreNames.contains('progress')) {
-        db.createObjectStore('progress', { keyPath: 'id' })
-      }
+      ensureIndex(progressStore, 'by_profile_subject', ['profileId', 'subject'])
 
-      if (!db.objectStoreNames.contains('meta')) {
-        db.createObjectStore('meta', { keyPath: 'key' })
-      }
+      ensureIndex(aiUsageStore, 'by_profile_startedAt', ['profileId', 'startedAt'])
 
-      if (!db.objectStoreNames.contains('ai_usage')) {
-        db.createObjectStore('ai_usage', { keyPath: 'id' })
-      }
+      ensureIndex(documentCacheStore, 'by_profile_subject', ['profileId', 'subject'])
+
+      ensureIndex(wrongbookEntriesStore, 'by_profile_subject', ['profileId', 'subject'])
+      ensureIndex(wrongbookEntriesStore, 'by_profile_lastWrongAt', ['profileId', 'lastWrongAt'])
+
+      ensureIndex(wrongbookMasteredStore, 'by_profile_subject', ['profileId', 'subject'])
+
+      ensureIndex(favoritesStore, 'by_profile_subject', ['profileId', 'subject'])
+      ensureIndex(favoritesStore, 'by_profile_favoritedAt', ['profileId', 'favoritedAt'])
+
+      ensureIndex(generationSignaturesStore, 'by_subject_type', ['subject', 'typeKey'])
+
+      ensureIndex(profilesStore, 'by_createdAt', 'createdAt')
     }
 
     request.onsuccess = () => resolve(request.result)

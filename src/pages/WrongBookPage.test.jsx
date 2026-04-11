@@ -170,18 +170,18 @@ describe('WrongBookPage', () => {
     })
   })
 
-  it('re-sanitizes malformed rows from hook output before render', async () => {
+  it('renders wrongbook rows directly from the state layer', async () => {
     useWrongBookPageStateMock.mockReturnValue({
       filteredWrongItems: [
         {
           questionKey: 'q1',
-          subject: { broken: true },
-          prompt: { text: '对象题干' },
-          category: { strange: true },
-          wrongTimes: '2',
-          paperTitle: { text: '对象试卷' },
-          correctAnswer: { label: 'A. 正确' },
-          rationale: { text: '对象解析' },
+          subject: 'english',
+          prompt: '标准题干',
+          category: 'single_choice',
+          wrongTimes: 2,
+          paperTitle: '标准试卷',
+          correctAnswer: 'A. 正确',
+          rationale: '标准解析',
           options: [{ key: 'A', text: '选项 A' }],
         },
       ],
@@ -231,9 +231,9 @@ describe('WrongBookPage', () => {
 
     const { container, root } = await renderComponent()
 
-    expect(container.textContent).toContain('对象题干')
-    expect(container.textContent).toContain('对象试卷')
-    expect(container.textContent).toContain('对象解析')
+    expect(container.textContent).toContain('标准题干')
+    expect(container.textContent).toContain('标准试卷')
+    expect(container.textContent).toContain('标准解析')
 
     await act(async () => {
       root.unmount()

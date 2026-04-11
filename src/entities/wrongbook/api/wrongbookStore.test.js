@@ -1,20 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const metaMap = new Map()
-
-vi.mock('../../../shared/storage/indexedDb/metaStore', () => ({
-  loadMetaValue: vi.fn(async (key, fallbackValue = null) => (metaMap.has(key) ? metaMap.get(key) : fallbackValue)),
-  saveMetaValue: vi.fn(async (key, value) => {
-    metaMap.set(key, value)
-    return value
-  }),
-}))
-
+import FDBFactory from 'fake-indexeddb/lib/FDBFactory'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { loadWrongBookEntries, upsertWrongBookEntries } from './wrongbookStore'
 
 describe('wrongbookStore composite compatibility', () => {
   beforeEach(() => {
-    metaMap.clear()
+    globalThis.indexedDB = new FDBFactory()
   })
 
   it('stores composite wrong items at child-question granularity with canonical composite_context', async () => {

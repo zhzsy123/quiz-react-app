@@ -1,5 +1,6 @@
 export {
   getActiveProfileId,
+  loadActiveProfileId,
   setActiveProfileId,
   listProfiles,
   createProfile,
@@ -30,10 +31,54 @@ export {
 export {
   saveLastOpenedPaper,
   loadLastOpenedPaper,
-} from './metaStore'
+} from './documentCacheStore'
+
+export {
+  loadSettingValue,
+  saveSettingValue,
+  removeSettingValue,
+  listSettings,
+} from './settingsStore'
+
+export {
+  getMigrationRecord,
+  listMigrationRecords,
+  saveMigrationRecord,
+  markMigrationStarted,
+  markMigrationCompleted,
+  markMigrationFailed,
+} from './migrationsStore'
 
 export {
   saveAiUsageRecord,
   listAiUsageRecords,
   clearAiUsageRecords,
 } from './aiUsageStore'
+
+export {
+  loadWrongbookEntriesStore,
+  listWrongbookEntryRecordsForProfileStore,
+  replaceWrongbookEntriesStore,
+  mergeWrongbookEntriesStore,
+  removeWrongbookEntryStore,
+  removeWrongbookEntriesStore,
+} from './wrongbookEntriesStore'
+
+export {
+  loadWrongbookMasteredMap,
+  listWrongbookMasteredRecordsForProfileStore,
+  replaceWrongbookMasteredMap,
+  markWrongbookQuestionMastered,
+} from './wrongbookMasteredStore'
+
+export {
+  loadFavoriteEntriesStore,
+  replaceFavoriteEntriesStore,
+  toggleFavoriteEntryStore,
+  removeFavoriteEntryStore,
+} from './favoritesStore'
+
+export {
+  loadGenerationSignatureIndexStore,
+  saveGenerationSignatureIndexStore,
+} from './generationSignaturesStore'

@@ -1,8 +1,11 @@
 import {
   createProfile,
   ensureDefaultProfile,
+  loadActiveProfileId,
   listProfiles,
   renameProfile,
+  loadSettingValue,
+  saveSettingValue,
   upsertLibraryEntry,
   listLibraryEntries,
   updateLibraryEntry,
@@ -22,10 +25,13 @@ import {
 } from '../indexedDb'
 
 export const indexedDbAdapter = {
+  loadActiveProfileId,
   listProfiles,
   createProfile,
   renameProfile,
   ensureDefaultProfile,
+  loadSettingValue,
+  saveSettingValue,
   upsertLibraryEntry,
   listLibraryEntries,
   updateLibraryEntry,

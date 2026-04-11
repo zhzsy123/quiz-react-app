@@ -1,4 +1,7 @@
 import { ACTIVE_PROFILE_KEY, generateId, openDb, requestToPromise, waitForTransaction } from './db'
+import { loadSettingValue, saveSettingValue } from './settingsStore'
+
+const ACTIVE_PROFILE_SETTING_KEY = 'active_profile'
 
 export function getActiveProfileId() {
   try {
@@ -14,6 +17,20 @@ export function setActiveProfileId(profileId) {
   } catch {
     // ignore storage errors
   }
+
+  void saveSettingValue(ACTIVE_PROFILE_SETTING_KEY, profileId)
+}
+
+export async function loadActiveProfileId() {
+  const storedValue = await loadSettingValue(ACTIVE_PROFILE_SETTING_KEY, null)
+  const fallbackValue = getActiveProfileId()
+  const nextValue = storedValue || fallbackValue || null
+
+  if (nextValue && nextValue !== fallbackValue) {
+    setActiveProfileId(nextValue)
+  }
+
+  return nextValue
 }
 
 export async function listProfiles() {

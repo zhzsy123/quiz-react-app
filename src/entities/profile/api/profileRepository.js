@@ -7,7 +7,18 @@ export function getActiveProfileId() {
 }
 
 export function setActiveProfileId(profileId) {
-  return browserStorageAdapter.setItem(ACTIVE_PROFILE_KEY, profileId)
+  browserStorageAdapter.setItem(ACTIVE_PROFILE_KEY, profileId)
+  void indexedDbAdapter.saveSettingValue('active_profile', profileId)
+  return true
+}
+
+export async function loadActiveProfileId() {
+  const storedActiveProfileId = await indexedDbAdapter.loadActiveProfileId()
+  if (storedActiveProfileId) {
+    browserStorageAdapter.setItem(ACTIVE_PROFILE_KEY, storedActiveProfileId)
+    return storedActiveProfileId
+  }
+  return browserStorageAdapter.getItem(ACTIVE_PROFILE_KEY, null)
 }
 
 export function listProfiles() {

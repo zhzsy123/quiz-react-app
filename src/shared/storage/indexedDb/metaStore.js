@@ -1,9 +1,5 @@
 import { openDb, requestToPromise, waitForTransaction } from './db'
 
-function lastPaperKey(profileId, subject) {
-  return `last-paper:${profileId}:${subject}`
-}
-
 async function getMetaRecord(key) {
   const db = await openDb()
   const tx = db.transaction('meta', 'readonly')
@@ -57,13 +53,4 @@ export async function listMetaRecordsByPrefix(prefix) {
 
     request.onerror = () => reject(request.error || new Error('IndexedDB list meta failed'))
   })
-}
-
-export async function saveLastOpenedPaper(profileId, subject, rawText) {
-  await putMetaRecord(lastPaperKey(profileId, subject), { rawText })
-}
-
-export async function loadLastOpenedPaper(profileId, subject) {
-  const result = await getMetaRecord(lastPaperKey(profileId, subject))
-  return result?.rawText || null
 }

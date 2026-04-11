@@ -1,22 +1,16 @@
-import { listMetaRecordsByPrefix } from '../../../shared/storage/indexedDb/metaStore'
-
-function buildWrongbookEntriesPrefix(profileId) {
-  return `wrongbook-entries:${profileId}:`
-}
-
-function buildWrongbookMasteredPrefix(profileId) {
-  return `wrongbook-mastered:${profileId}:`
-}
-
-function parseSubjectFromKey(key, prefix) {
-  return String(key || '').slice(prefix.length) || 'unknown'
-}
+import {
+  listWrongbookEntryRecordsForProfileStore,
+  listWrongbookMasteredRecordsForProfileStore,
+} from '../../../shared/storage/indexedDb'
 
 function normalizeDiagnosticValue(value) {
   if (value == null) return null
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'boolean') return value
-  if (Array.isArray(value)) return value
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value
+  }
+  if (Array.isArray(value)) {
+    return value
+  }
   if (typeof value === 'object') {
     try {
       return JSON.parse(JSON.stringify(value))
@@ -33,17 +27,18 @@ function isPrimitiveLike(value) {
 
 export function inspectWrongbookEntry(row, { subject = 'unknown', mapKey = '' } = {}) {
   const reasons = []
-  const questionKey = typeof row?.questionKey === 'string' && row.questionKey.trim()
-    ? row.questionKey.trim()
-    : typeof row?.questionId === 'string' && row.questionId.trim()
-      ? row.questionId.trim()
-      : ''
+  const questionKey =
+    typeof row?.questionKey === 'string' && row.questionKey.trim()
+      ? row.questionKey.trim()
+      : typeof row?.questionId === 'string' && row.questionId.trim()
+        ? row.questionId.trim()
+        : ''
 
   if (!row || typeof row !== 'object' || Array.isArray(row)) {
-    reasons.push('记录不是对象')
+    reasons.push('记录不是可渲染对象')
   } else {
-    if (!questionKey) reasons.push('缺少 questionKey/questionId')
-    if (!isPrimitiveLike(row.prompt)) reasons.push('prompt 不是可直接渲染的文本')
+    if (!questionKey) reasons.push('缺少 questionKey 或 questionId')
+    if (!isPrimitiveLike(row.prompt)) reasons.push('prompt 不是文本')
     if (!isPrimitiveLike(row.paperTitle ?? row.paper_title)) reasons.push('paperTitle 不是文本')
     if (!isPrimitiveLike(row.contextTitle ?? row.context_title)) reasons.push('contextTitle 不是文本')
     if (!isPrimitiveLike(row.contextSnippet ?? row.context_snippet)) reasons.push('contextSnippet 不是文本')
@@ -91,12 +86,30 @@ export function inspectWrongbookEntry(row, { subject = 'unknown', mapKey = '' } 
           ? row.questionPrompt.slice(0, 120)
           : '[非文本题干]',
     reasons,
-    riskLevel:
-      reasons.length >= 4 ? 'high'
-      : reasons.length >= 2 ? 'medium'
-      : reasons.length >= 1 ? 'low'
-      : 'none',
+    riskLevel: reasons.length >= 4 ? 'high' : reasons.length >= 2 ? 'medium' : reasons.length >= 1 ? 'low' : 'none',
     raw: normalizeDiagnosticValue(row),
+  }
+}
+
+function normalizeEntryRecord(record) {
+  return {
+    id: record?.id || 'unknown',
+    profileId: record?.profileId || '',
+    subject: record?.subject || 'unknown',
+    questionKey: record?.questionKey || '',
+    updatedAt: record?.updatedAt || record?.lastWrongAt || null,
+    value: normalizeDiagnosticValue(record),
+  }
+}
+
+function normalizeMasteredRecord(record) {
+  return {
+    id: record?.id || 'unknown',
+    profileId: record?.profileId || '',
+    subject: record?.subject || 'unknown',
+    questionKey: record?.questionKey || '',
+    updatedAt: record?.updatedAt || record?.masteredAt || null,
+    value: normalizeDiagnosticValue(record),
   }
 }
 
@@ -116,39 +129,21 @@ export async function exportWrongbookDiagnostics(profileId) {
     }
   }
 
-  const entriesPrefix = buildWrongbookEntriesPrefix(profileId)
-  const masteredPrefix = buildWrongbookMasteredPrefix(profileId)
   const [entryRecords, masteredRecords] = await Promise.all([
-    listMetaRecordsByPrefix(entriesPrefix),
-    listMetaRecordsByPrefix(masteredPrefix),
+    listWrongbookEntryRecordsForProfileStore(profileId),
+    listWrongbookMasteredRecordsForProfileStore(profileId),
   ])
 
   const suspectEntries = []
-  let entryCount = 0
 
   entryRecords.forEach((record) => {
-    const subject = parseSubjectFromKey(record.key, entriesPrefix)
-    const value = record?.value
-
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      suspectEntries.push({
-        subject,
-        questionKey: record.key,
-        promptPreview: '[记录映射异常]',
-        reasons: ['wrongbook-entries 记录本身不是对象映射'],
-        riskLevel: 'high',
-        raw: normalizeDiagnosticValue(record),
-      })
-      return
-    }
-
-    Object.entries(value).forEach(([mapKey, row]) => {
-      entryCount += 1
-      const inspection = inspectWrongbookEntry(row, { subject, mapKey })
-      if (inspection.reasons.length > 0) {
-        suspectEntries.push(inspection)
-      }
+    const inspection = inspectWrongbookEntry(record, {
+      subject: record?.subject || 'unknown',
+      mapKey: record?.questionKey || record?.id || 'unknown',
     })
+    if (inspection.reasons.length > 0) {
+      suspectEntries.push(inspection)
+    }
   })
 
   suspectEntries.sort((left, right) => {
@@ -160,19 +155,11 @@ export async function exportWrongbookDiagnostics(profileId) {
     summary: {
       entryRecordCount: entryRecords.length,
       masteredRecordCount: masteredRecords.length,
-      entryCount,
+      entryCount: entryRecords.length,
       suspectCount: suspectEntries.length,
     },
-    entryRecords: entryRecords.map((record) => ({
-      key: record.key,
-      updatedAt: record.updatedAt || null,
-      value: normalizeDiagnosticValue(record.value),
-    })),
-    masteredRecords: masteredRecords.map((record) => ({
-      key: record.key,
-      updatedAt: record.updatedAt || null,
-      value: normalizeDiagnosticValue(record.value),
-    })),
+    entryRecords: entryRecords.map(normalizeEntryRecord),
+    masteredRecords: masteredRecords.map(normalizeMasteredRecord),
     suspectEntries,
     exportedAt: new Date().toISOString(),
   }
