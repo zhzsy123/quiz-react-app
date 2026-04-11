@@ -17,6 +17,15 @@ vi.mock('../features/wrong-book/model/useWrongBookPageState', async () => {
 })
 
 const listAllWrongbookEntriesMock = vi.fn(async () => [])
+const exportWrongbookDiagnosticsMock = vi.fn(async () => ({
+  summary: {
+    entryRecordCount: 0,
+    masteredRecordCount: 0,
+    entryCount: 0,
+    suspectCount: 0,
+  },
+  suspectEntries: [],
+}))
 
 vi.mock('../app/providers/AppContext', () => ({
   useAppContext: () => ({
@@ -26,6 +35,10 @@ vi.mock('../app/providers/AppContext', () => ({
 
 vi.mock('../entities/wrongbook/api/wrongbookRepository', () => ({
   listAllWrongbookEntries: (...args) => listAllWrongbookEntriesMock(...args),
+}))
+
+vi.mock('../entities/wrongbook/api/wrongbookDiagnostics', () => ({
+  exportWrongbookDiagnostics: (...args) => exportWrongbookDiagnosticsMock(...args),
 }))
 
 vi.mock('../entities/subject/model/subjects', async () => {
@@ -71,6 +84,15 @@ describe('WrongBookPage', () => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
     listAllWrongbookEntriesMock.mockResolvedValue([])
+    exportWrongbookDiagnosticsMock.mockResolvedValue({
+      summary: {
+        entryRecordCount: 0,
+        masteredRecordCount: 0,
+        entryCount: 0,
+        suspectCount: 0,
+      },
+      suspectEntries: [],
+    })
   })
 
   it('renders subject-aware type options and tolerates object-like wrongbook display fields', async () => {
@@ -233,11 +255,30 @@ describe('WrongBookPage', () => {
         rationale: '安全模式解析',
       },
     ])
+    exportWrongbookDiagnosticsMock.mockResolvedValue({
+      summary: {
+        entryRecordCount: 1,
+        masteredRecordCount: 0,
+        entryCount: 1,
+        suspectCount: 1,
+      },
+      suspectEntries: [
+        {
+          subject: 'international_trade',
+          questionKey: 'q-safe',
+          promptPreview: '安全模式题干',
+          reasons: ['prompt 不是可直接渲染的文本'],
+          riskLevel: 'high',
+        },
+      ],
+    })
 
     const { container, root } = await renderComponent()
 
     expect(container.textContent).toContain('错题本暂时无法渲染')
     expect(container.textContent).toContain('页面已阻止白屏')
+    expect(container.textContent).toContain('错题本真实存量诊断')
+    expect(container.textContent).toContain('可疑记录：1')
     expect(container.textContent).toContain('安全模式题干')
     expect(container.textContent).toContain('安全模式解析')
 

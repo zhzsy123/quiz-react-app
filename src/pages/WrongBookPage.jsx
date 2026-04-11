@@ -1,9 +1,11 @@
 import React from 'react'
 import {
+  AlertTriangle,
   ArrowLeft,
   BookOpen,
   BookX,
   CheckCircle2,
+  Download,
   Filter,
   Play,
   RotateCcw,
@@ -14,6 +16,7 @@ import {
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../app/providers/AppContext'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
+import { exportWrongbookDiagnostics } from '../entities/wrongbook/api/wrongbookDiagnostics'
 import { listAllWrongbookEntries } from '../entities/wrongbook/api/wrongbookRepository'
 import {
   formatWrongBookDisplayValue,
@@ -24,10 +27,22 @@ import {
   useWrongBookPageState,
 } from '../features/wrong-book/model/useWrongBookPageState'
 
-function WrongBookRecoveryPanel() {
+function downloadJsonFile(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+function WrongBookRecoveryPanel({ errorMessage = '', componentStack = '' }) {
   const { activeProfileId } = useAppContext()
   const [loading, setLoading] = React.useState(true)
   const [entries, setEntries] = React.useState([])
+  const [diagnostics, setDiagnostics] = React.useState(null)
+  const [diagnosticError, setDiagnosticError] = React.useState('')
 
   React.useEffect(() => {
     let disposed = false
@@ -42,19 +57,26 @@ function WrongBookRecoveryPanel() {
       }
 
       try {
-        const rows = await listAllWrongbookEntries(activeProfileId)
+        const [rows, nextDiagnostics] = await Promise.all([
+          listAllWrongbookEntries(activeProfileId),
+          exportWrongbookDiagnostics(activeProfileId),
+        ])
         const nextEntries = (Array.isArray(rows) ? rows : [])
           .filter(isRenderableWrongBookEntry)
           .map((item) => sanitizeWrongBookEntry(item))
 
         if (!disposed) {
           setEntries(nextEntries)
+          setDiagnostics(nextDiagnostics)
+          setDiagnosticError('')
           setLoading(false)
         }
       } catch (error) {
         console.error('错题本安全模式加载失败', error)
         if (!disposed) {
           setEntries([])
+          setDiagnostics(null)
+          setDiagnosticError(error?.message || '错题本诊断导出失败')
           setLoading(false)
         }
       }
@@ -67,61 +89,139 @@ function WrongBookRecoveryPanel() {
     }
   }, [activeProfileId])
 
+  const handleExportDiagnostics = React.useCallback(() => {
+    if (!diagnostics) return
+    downloadJsonFile(
+      `wrongbook-diagnostics-${activeProfileId || 'unknown'}-${Date.now()}.json`,
+      diagnostics
+    )
+  }, [activeProfileId, diagnostics])
+
   if (loading) {
     return <div className="local-library-empty">正在以安全模式加载错题本…</div>
   }
 
-  if (entries.length === 0) {
-    return <div className="local-library-empty">安全模式下未加载到可显示的错题记录。</div>
-  }
+  const suspectEntries = Array.isArray(diagnostics?.suspectEntries) ? diagnostics.suspectEntries : []
+  const topSuspects = suspectEntries.slice(0, 10)
 
   return (
-    <div className="wrongbook-list">
-      {entries.slice(0, 20).map((item) => (
-        <article key={item.questionKey} className="wrongbook-item-card">
-          <div className="wrongbook-card-head">
-            <span className="wrongbook-card-title">{item.prompt}</span>
+    <>
+      <div className="analysis-box compact-analysis-box" style={{ marginBottom: 16 }}>
+        <div className="section-header-row" style={{ marginBottom: 10 }}>
+          <strong>
+            <AlertTriangle size={16} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+            错题本真实存量诊断
+          </strong>
+          <button type="button" className="secondary-btn small-btn" onClick={handleExportDiagnostics} disabled={!diagnostics}>
+            <Download size={14} />
+            导出异常错题数据
+          </button>
+        </div>
+        {errorMessage ? (
+          <div className="wrongbook-context" style={{ marginBottom: 10 }}>
+            <strong>主渲染错误</strong>：{errorMessage}
           </div>
+        ) : null}
+        {componentStack ? (
+          <div className="analysis-box compact-analysis-box" style={{ whiteSpace: 'pre-wrap', marginBottom: 10 }}>
+            {componentStack.trim()}
+          </div>
+        ) : null}
+        {diagnosticError ? <div className="local-library-empty">{diagnosticError}</div> : null}
+        {diagnostics ? (
           <div className="wrongbook-meta">
-            <span>{getSubjectMeta(item.subject).shortLabel}</span>
-            <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
-            {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}
+            <span>错题分组：{diagnostics.summary.entryRecordCount}</span>
+            <span>错题总条数：{diagnostics.summary.entryCount}</span>
+            <span>可疑记录：{diagnostics.summary.suspectCount}</span>
+            <span>掌握标记分组：{diagnostics.summary.masteredRecordCount}</span>
           </div>
-          {item.contextTitle && (
-            <div className="wrongbook-context">
-              <strong>{item.contextTitle}</strong>
-              {item.contextSnippet ? `：${item.contextSnippet}` : ''}
-            </div>
-          )}
-          <div className="analysis-box compact-analysis-box">
-            <div>
-              正确答案：
-              <strong>{formatWrongBookDisplayValue(item.correctAnswerLabel || item.correctAnswer, '见题目配置')}</strong>
-            </div>
-            <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
+        ) : null}
+        {topSuspects.length > 0 ? (
+          <div className="wrongbook-list" style={{ marginTop: 16 }}>
+            {topSuspects.map((item) => (
+              <article key={`${item.subject}:${item.questionKey}`} className="wrongbook-item-card">
+                <div className="wrongbook-card-head">
+                  <span className="wrongbook-card-title">
+                    [{item.riskLevel.toUpperCase()}] {item.promptPreview}
+                  </span>
+                </div>
+                <div className="wrongbook-meta">
+                  <span>科目：{item.subject}</span>
+                  <span>questionKey：{item.questionKey}</span>
+                </div>
+                <ul style={{ margin: '8px 0 0 18px', padding: 0 }}>
+                  {item.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </div>
-        </article>
-      ))}
-    </div>
+        ) : diagnostics ? (
+          <div className="local-library-empty" style={{ marginTop: 12 }}>
+            真实存量扫描未发现明显的字段形状异常。
+          </div>
+        ) : null}
+      </div>
+
+      {entries.length === 0 ? (
+        <div className="local-library-empty">安全模式下未加载到可显示的错题记录。</div>
+      ) : (
+        <div className="wrongbook-list">
+          {entries.slice(0, 20).map((item) => (
+            <article key={item.questionKey} className="wrongbook-item-card">
+              <div className="wrongbook-card-head">
+                <span className="wrongbook-card-title">{item.prompt}</span>
+              </div>
+              <div className="wrongbook-meta">
+                <span>{getSubjectMeta(item.subject).shortLabel}</span>
+                <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
+                {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}
+              </div>
+              {item.contextTitle && (
+                <div className="wrongbook-context">
+                  <strong>{item.contextTitle}</strong>
+                  {item.contextSnippet ? `：${item.contextSnippet}` : ''}
+                </div>
+              )}
+              <div className="analysis-box compact-analysis-box">
+                <div>
+                  正确答案：
+                  <strong>{formatWrongBookDisplayValue(item.correctAnswerLabel || item.correctAnswer, '见题目配置')}</strong>
+                </div>
+                <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
 class WrongBookPageErrorBoundary extends React.Component {
   constructor(props) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, errorMessage: '', componentStack: '' }
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true }
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || '未知渲染错误',
+    }
   }
 
-  componentDidCatch(error) {
+  componentDidCatch(error, errorInfo) {
     console.error('错题本页面渲染失败', error)
+    this.setState({
+      errorMessage: error?.message || '未知渲染错误',
+      componentStack: errorInfo?.componentStack || '',
+    })
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false })
+    this.setState({ hasError: false, errorMessage: '', componentStack: '' })
   }
 
   render() {
@@ -147,7 +247,10 @@ class WrongBookPageErrorBoundary extends React.Component {
                 </Link>
               </div>
               <div style={{ marginTop: 20 }}>
-                <WrongBookRecoveryPanel />
+                <WrongBookRecoveryPanel
+                  errorMessage={this.state.errorMessage}
+                  componentStack={this.state.componentStack}
+                />
               </div>
             </section>
           </div>
@@ -372,6 +475,7 @@ function WrongBookPageContent() {
     [displayPracticeItem]
   )
   const safeSelectedKeys = Array.isArray(selectedKeys) ? selectedKeys : []
+  const safeTypeOptions = Array.isArray(typeOptions) ? typeOptions : []
   const safeWrongSummary = {
     totalWrongRecords: Number(wrongSummary?.totalWrongRecords) || 0,
     uniqueWrongQuestions: Number(wrongSummary?.uniqueWrongQuestions) || 0,
@@ -379,9 +483,10 @@ function WrongBookPageContent() {
     latestWrongAt: wrongSummary?.latestWrongAt || null,
   }
 
-  const libraryRoute =
-    getSubjectMeta(subjectFilter !== 'all' ? subjectFilter : safeFilteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key)
-      ?.route || '/'
+  const activeSubjectKey =
+    subjectFilter !== 'all' ? subjectFilter : safeFilteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key
+  const activeSubjectMeta = getSubjectMeta(activeSubjectKey) || getSubjectMeta('english') || { route: '/', shortLabel: '英语' }
+  const libraryRoute = activeSubjectMeta.route || '/'
 
   return (
     <div className="app-shell">
@@ -438,10 +543,10 @@ function WrongBookPageContent() {
                   <button className="secondary-btn small-btn" onClick={handleSelectAllFiltered} disabled={safeFilteredWrongItems.length === 0}>
                     全选当前筛选
                   </button>
-                  <button className="secondary-btn small-btn" onClick={handleClearSelected} disabled={selectedKeys.length === 0}>
+                  <button className="secondary-btn small-btn" onClick={handleClearSelected} disabled={safeSelectedKeys.length === 0}>
                     清空选择
                   </button>
-                  <button className="danger-btn small-btn" onClick={handleRemoveSelected} disabled={selectedKeys.length === 0}>
+                  <button className="danger-btn small-btn" onClick={handleRemoveSelected} disabled={safeSelectedKeys.length === 0}>
                     <Trash2 size={14} />
                     批量删除
                   </button>
@@ -471,7 +576,7 @@ function WrongBookPageContent() {
               <span>题型</span>
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">全部题型</option>
-                {typeOptions.map((typeMeta) => (
+                {safeTypeOptions.map((typeMeta) => (
                   <option key={typeMeta.key} value={typeMeta.key}>
                     {typeMeta.label}
                   </option>
@@ -540,7 +645,7 @@ function WrongBookPageContent() {
                   <div>
                     <div className="wrongbook-card-title">{safeDisplayPracticeItem.prompt}</div>
                     <div className="wrongbook-meta">
-                      <span>{getSubjectMeta(safeDisplayPracticeItem.subject).shortLabel}</span>
+                      <span>{(getSubjectMeta(safeDisplayPracticeItem.subject) || activeSubjectMeta).shortLabel}</span>
                       <span>题型：{getWrongItemCategoryLabel(safeDisplayPracticeItem.category)}</span>
                       <span>来源：{safeDisplayPracticeItem.paperTitle}</span>
                     </div>
@@ -700,7 +805,7 @@ function WrongBookPageContent() {
                       </div>
 
                       <div className="wrongbook-meta">
-                        <span>{getSubjectMeta(item.subject).shortLabel}</span>
+                        <span>{(getSubjectMeta(item.subject) || activeSubjectMeta).shortLabel}</span>
                         <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
                         <span>错题次数：{item.wrongTimes || 1}</span>
                         {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}

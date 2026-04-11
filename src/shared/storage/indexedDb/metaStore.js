@@ -32,6 +32,33 @@ export async function saveMetaValue(key, value) {
   return value
 }
 
+export async function listMetaRecordsByPrefix(prefix) {
+  const db = await openDb()
+  const tx = db.transaction('meta', 'readonly')
+  const store = tx.objectStore('meta')
+
+  return new Promise((resolve, reject) => {
+    const records = []
+    const request = store.openCursor()
+
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (!cursor) {
+        resolve(records)
+        return
+      }
+
+      const record = cursor.value
+      if (String(record?.key || '').startsWith(prefix)) {
+        records.push(record)
+      }
+      cursor.continue()
+    }
+
+    request.onerror = () => reject(request.error || new Error('IndexedDB list meta failed'))
+  })
+}
+
 export async function saveLastOpenedPaper(profileId, subject, rawText) {
   await putMetaRecord(lastPaperKey(profileId, subject), { rawText })
 }
