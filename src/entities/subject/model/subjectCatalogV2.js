@@ -110,9 +110,9 @@ export const SUBJECT_REGISTRY = [
       createDownloadDoc({
         key: 'data-structure-json-spec',
         title: '数据结构试题 JSON 解析规范文档',
-        href: './json-schema.md',
+        href: './data-structure-json-spec.md',
         filename: '数据结构试题 JSON 解析规范文档.md',
-        description: '支持单选、判断、填空、函数填空、简答、程序设计和综合题。',
+        description: '支持单选、判断、填空、函数填空、简答、程序设计和综合题，已按当前系统能力同步。',
       }),
     ],
   }),
@@ -137,9 +137,9 @@ export const SUBJECT_REGISTRY = [
       createDownloadDoc({
         key: 'database-principles-json-spec',
         title: '数据库原理试题 JSON 解析规范文档',
-        href: './json-schema.md',
+        href: './database-principles-json-spec.md',
         filename: '数据库原理试题 JSON 解析规范文档.md',
-        description: '支持单选、判断、填空、简答、综合题、SQL 题和 E-R 图题。',
+        description: '支持单选、判断、填空、简答、关系代数、综合题、SQL 题和 E-R 图题，已按当前系统能力同步。',
       }),
     ],
   }),
