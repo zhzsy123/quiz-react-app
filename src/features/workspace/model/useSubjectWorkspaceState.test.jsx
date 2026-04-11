@@ -505,6 +505,52 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     container.remove()
   })
 
+  it('lets practice mode manually mark an answered question as correct', async () => {
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleSelectOption('q1', 'B')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.practiceAccuracy).toEqual({
+      correct: 0,
+      answered: 1,
+      rate: 0,
+    })
+
+    await act(async () => {
+      stateRef.current.handleSetManualJudge('q1', 'correct')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.manualJudgeMap).toEqual({ q1: 'correct' })
+    expect(stateRef.current.practiceAccuracy).toEqual({
+      correct: 1,
+      answered: 1,
+      rate: 100,
+    })
+
+    await act(async () => {
+      await stateRef.current.handleFinish()
+    })
+
+    expect(createHistoryEntryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        objectiveScore: 5,
+        wrongCount: 0,
+        wrongItems: [],
+        manualJudgeMap: { q1: 'correct' },
+      })
+    )
+    expect(upsertWrongbookEntriesMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
   it('stores composite child answers and reveal state using canonical keys', async () => {
     setQuizFixture(createCompositeQuizFixture())
     const { root, container, stateRef } = await mountWorkspace()

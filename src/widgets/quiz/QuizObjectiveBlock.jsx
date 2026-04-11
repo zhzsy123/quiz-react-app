@@ -1,7 +1,9 @@
 import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import {
+  evaluateFillBlankResponse,
   formatObjectiveCorrectAnswerLabel,
+  isFillBlankOrderSensitive,
   isObjectiveAnswered,
   isObjectiveGradable,
   normalizeChoiceArray,
@@ -89,6 +91,8 @@ function FillBlankBlock({
   const response = userResponse || {}
   const blanks = Array.isArray(item.blanks) ? item.blanks : []
   const showFeedback = submitted || objectiveReveal
+  const evaluation = evaluateFillBlankResponse(item, response)
+  const orderSensitive = isFillBlankOrderSensitive(item)
 
   if (!blanks.length) {
     return <InvalidObjectiveFallback message="当前填空题缺少可作答的空位配置，无法继续作答。" />
@@ -99,9 +103,10 @@ function FillBlankBlock({
       <div className="fill-blank-grid">
         {blanks.map((blank, index) => {
           const value = response[blank.blank_id] || ''
-          const acceptedAnswers = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
-          const normalized = String(value).trim().toLowerCase()
-          const isCorrect = acceptedAnswers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
+          const blankResult = evaluation.blankResults[index]
+          const acceptedAnswers = blankResult?.matchedAcceptedAnswers || blankResult?.acceptedAnswers || []
+          const isCorrect = Boolean(blankResult?.isCorrect)
+
           return (
             <article
               key={blank.blank_id}
@@ -120,18 +125,24 @@ function FillBlankBlock({
                 rows={2}
                 spellCheck={false}
               />
-              {showFeedback && (
+              {showFeedback ? (
                 <div className="fill-blank-feedback">
+                  {!orderSensitive ? (
+                    <div className="answer-review-line">
+                      <strong>判定规则</strong>
+                      本题答案不区分填写顺序，命中任一有效答案即可。
+                    </div>
+                  ) : null}
                   <div className="answer-review-line">
                     <strong>参考答案</strong>
                     {acceptedAnswers.join(' / ') || '暂无'}
                   </div>
                   <div className="answer-review-line">
                     <strong>解析</strong>
-                    {blank.rationale || '暂无解析'}
+                    {blankResult?.matchedRationale || blank.rationale || '暂无解析'}
                   </div>
                 </div>
-              )}
+              ) : null}
             </article>
           )
         })}
@@ -184,15 +195,15 @@ export default function QuizObjectiveBlock({
         />
       )}
 
-      {canRevealObjective && !suppressInlineRevealAction && (
+      {canRevealObjective && !suppressInlineRevealAction ? (
         <div className="question-inline-actions">
           <button type="button" className="secondary-btn small-btn" onClick={onRevealCurrentObjective}>
             检查答案
           </button>
         </div>
-      )}
+      ) : null}
 
-      {showFeedback && item.type !== 'fill_blank' && (
+      {showFeedback && item.type !== 'fill_blank' ? (
         <div className="analysis-box">
           {isObjectiveGradable(item) ? (
             <>
@@ -205,7 +216,7 @@ export default function QuizObjectiveBlock({
             <div>当前题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
           )}
         </div>
-      )}
+      ) : null}
     </>
   )
 }

@@ -8,7 +8,9 @@ import {
   XCircle,
 } from 'lucide-react'
 import {
+  evaluateFillBlankResponse,
   formatObjectiveCorrectAnswerLabel,
+  isFillBlankOrderSensitive,
   isObjectiveAnswered,
   isObjectiveGradable,
   normalizeChoiceArray,
@@ -466,14 +468,17 @@ function CompositeFillBlankBlock({
   mode,
   onFillBlankChange,
 }) {
+  const evaluation = evaluateFillBlankResponse(question, questionResponse || {})
+  const orderSensitive = isFillBlankOrderSensitive(question)
+
   return (
     <div className="fill-blank-block">
       <div className="fill-blank-grid">
         {(question.blanks || []).map((blank, blankIndex) => {
           const value = (questionResponse || {})[blank.blank_id] || ''
-          const acceptedAnswers = Array.isArray(blank.accepted_answers) ? blank.accepted_answers : []
-          const normalized = String(value).trim().toLowerCase()
-          const isCorrect = acceptedAnswers.some((candidate) => String(candidate).trim().toLowerCase() === normalized)
+          const blankResult = evaluation.blankResults[blankIndex]
+          const acceptedAnswers = blankResult?.matchedAcceptedAnswers || blankResult?.acceptedAnswers || []
+          const isCorrect = Boolean(blankResult?.isCorrect)
           const showFeedback = objectiveReveal
 
           return (
@@ -496,6 +501,12 @@ function CompositeFillBlankBlock({
               />
               {showFeedback && (
                 <div className="fill-blank-feedback">
+                  {!orderSensitive && (
+                    <div className="answer-review-line">
+                      <strong>判定规则</strong>
+                      本题答案不区分填写顺序，命中任一有效答案即可。
+                    </div>
+                  )}
                   <div className="answer-review-line">
                     <strong>参考答案</strong>
                     {acceptedAnswers.join(' / ') || '暂无'}

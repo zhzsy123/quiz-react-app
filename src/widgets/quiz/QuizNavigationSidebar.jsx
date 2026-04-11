@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Clock3, LoaderCircle, Pause, Play, XCircle } from 'lucide-react'
-import { isObjectiveWrong } from '../../entities/quiz/lib/objectiveAnswers'
+import { resolvePracticeJudge } from '../../entities/quiz/lib/practiceJudging.js'
 import {
   formatDisplayScore,
   formatRemainingSeconds,
@@ -10,14 +10,57 @@ import {
   isAnswered,
 } from './quizViewUtils.jsx'
 
-function isCompositeWrong(item, response, revealedMap = {}, submitted = false) {
-  if (item?.type !== 'composite') return false
-  return (item.questions || []).some((question) => {
-    if (question.answer?.type === 'subjective') return false
-    const revealKey = `${item.id}:${question.id}`
-    const isVisible = submitted || Boolean(revealedMap[revealKey])
-    return isVisible && isObjectiveWrong(question, response?.[question.id])
+function getQuestionReview(aiQuestionReviewMap = {}, item, subQuestion = null) {
+  if (!item) return null
+  if (subQuestion && aiQuestionReviewMap?.[`${item.id}:${subQuestion.id}`]) {
+    return aiQuestionReviewMap[`${item.id}:${subQuestion.id}`]
+  }
+  if (subQuestion && aiQuestionReviewMap?.[subQuestion.id]) {
+    return aiQuestionReviewMap[subQuestion.id]
+  }
+  return aiQuestionReviewMap?.[item.id] || null
+}
+
+function isJudgementVisible(item, judgement, revealedMap = {}, submitted = false, subQuestion = null) {
+  if (!judgement?.answered) return false
+  if (submitted || judgement.overridden) return true
+
+  if (item?.type === 'reading' && subQuestion) {
+    return Boolean(revealedMap[`${item.id}:${subQuestion.id}`])
+  }
+
+  if (item?.type === 'composite' && subQuestion) {
+    return Boolean(revealedMap[`${item.id}:${subQuestion.id}`])
+  }
+
+  if (item?.type === 'relational_algebra' && subQuestion) {
+    return judgement.systemVerdict !== null
+  }
+
+  if (item?.answer?.type === 'subjective') {
+    return judgement.systemVerdict !== null
+  }
+
+  return Boolean(revealedMap[item?.id])
+}
+
+function isNavTargetWrong({
+  item,
+  response,
+  revealedMap = {},
+  submitted = false,
+  manualJudgeMap = {},
+  subQuestion = null,
+  questionReview = null,
+}) {
+  const judgement = resolvePracticeJudge({
+    manualJudgeMap,
+    item,
+    response,
+    subQuestion,
+    questionReview,
   })
+  return judgement.isWrong && isJudgementVisible(item, judgement, revealedMap, submitted, subQuestion)
 }
 
 export default function QuizNavigationSidebar({
@@ -27,6 +70,7 @@ export default function QuizNavigationSidebar({
   answers,
   subQuestionFocusMap = {},
   revealedMap = {},
+  manualJudgeMap = {},
   mode = 'exam',
   submitted = false,
   isPaused = false,
@@ -34,6 +78,7 @@ export default function QuizNavigationSidebar({
   autoAdvance = false,
   practiceWritesWrongBook = true,
   examWritesWrongBook = true,
+  aiQuestionReviewMap = {},
   onTogglePause,
   onToggleAutoAdvance,
   onTogglePracticeWrongBook,
@@ -232,9 +277,14 @@ export default function QuizNavigationSidebar({
 
                       return readingQuestions.map((question, subIndex) => {
                         const answered = typeof readingResponse[question.id] === 'string' && readingResponse[question.id].length > 0
-                        const revealKey = `${item.id}:${question.id}`
-                        const showWrongState = submitted || Boolean(revealedMap[revealKey])
-                        const wrong = showWrongState && answered && readingResponse[question.id] !== question.answer?.correct
+                        const wrong = isNavTargetWrong({
+                          item,
+                          response: readingResponse[question.id],
+                          revealedMap,
+                          submitted,
+                          manualJudgeMap,
+                          subQuestion: question,
+                        })
                         const active =
                           index === currentIndex &&
                           String(subQuestionFocusMap?.[item.id] || '') === String(question.id)
@@ -258,11 +308,39 @@ export default function QuizNavigationSidebar({
 
                     const answered = isAnswered(item, answers[item.id])
                     const active = index === currentIndex
-                    const showWrongState = submitted || Boolean(revealedMap[item.id])
                     const wrong =
                       item.type === 'composite'
-                        ? isCompositeWrong(item, answers[item.id], revealedMap, submitted)
-                        : showWrongState && isObjectiveWrong(item, answers[item.id])
+                        ? (item.questions || []).some((question) =>
+                            isNavTargetWrong({
+                              item,
+                              response: answers[item.id]?.[question.id],
+                              revealedMap,
+                              submitted,
+                              manualJudgeMap,
+                              subQuestion: question,
+                              questionReview: getQuestionReview(aiQuestionReviewMap, item, question),
+                            })
+                          )
+                        : item.type === 'relational_algebra'
+                          ? (item.subquestions || []).some((question) =>
+                              isNavTargetWrong({
+                                item,
+                                response: answers[item.id]?.responses?.[question.id],
+                                revealedMap,
+                                submitted,
+                                manualJudgeMap,
+                                subQuestion: question,
+                                questionReview: getQuestionReview(aiQuestionReviewMap, item, question),
+                              })
+                            )
+                          : isNavTargetWrong({
+                              item,
+                              response: answers[item.id],
+                              revealedMap,
+                              submitted,
+                              manualJudgeMap,
+                              questionReview: getQuestionReview(aiQuestionReviewMap, item),
+                            })
                     const generationStatus = item.generation_placeholder?.status || ''
 
                     if (item.type === 'generation_placeholder') {

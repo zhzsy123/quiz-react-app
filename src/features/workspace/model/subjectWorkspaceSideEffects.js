@@ -5,7 +5,8 @@ import {
   getObjectiveAnswerLabel,
   isObjectiveGradable,
 } from '../../../entities/quiz/lib/objectiveAnswers'
-import { buildCompositeContext, clipText, isObjectiveResponseCorrect } from './subjectWorkspaceObjective.js'
+import { resolvePracticeJudge } from '../../../entities/quiz/lib/practiceJudging.js'
+import { buildCompositeContext, clipText } from './subjectWorkspaceObjective.js'
 
 export function cloneFavoriteItem(entry, index) {
   const cloned = JSON.parse(JSON.stringify(entry.itemSnapshot || {}))
@@ -36,7 +37,7 @@ export function buildFavoriteEntryFromItem(item, meta) {
   }
 }
 
-export function buildWrongItems(items, answers, meta) {
+export function buildWrongItems(items, answers, meta, manualJudgeMap = {}) {
   const wrongItems = []
   const lastWrongAt = Date.now()
   const buildScopedQuestionKey = (itemId, subQuestionId) => `${meta.subject}:${meta.paperId}:${itemId}:${subQuestionId}`
@@ -48,7 +49,14 @@ export function buildWrongItems(items, answers, meta) {
         if (question.answer?.type !== 'objective') return
         if (!isObjectiveGradable(question)) return
         const userAnswer = compositeAnswers[question.id]
-        if (isObjectiveResponseCorrect(question, userAnswer)) return
+        const judgement = resolvePracticeJudge({
+          manualJudgeMap,
+          item,
+          response: userAnswer,
+          subQuestion: question,
+        })
+        if (judgement.isCorrect) return
+        if (!judgement.answered) return
         const compositeContext = buildCompositeContext(item)
         wrongItems.push({
           questionKey: buildScopedQuestionKey(item.id, question.id),
@@ -90,7 +98,14 @@ export function buildWrongItems(items, answers, meta) {
       item.questions.forEach((question) => {
         if (!isObjectiveGradable(question)) return
         const userAnswer = readingAnswers[question.id] || ''
-        if (userAnswer === question.answer?.correct) return
+        const judgement = resolvePracticeJudge({
+          manualJudgeMap,
+          item,
+          response: userAnswer,
+          subQuestion: question,
+        })
+        if (judgement.isCorrect) return
+        if (!judgement.answered) return
         wrongItems.push({
           questionKey: buildScopedQuestionKey(item.id, question.id),
           subject: meta.subject,
@@ -122,7 +137,13 @@ export function buildWrongItems(items, answers, meta) {
     if (item.answer?.type !== 'objective') return
     if (!isObjectiveGradable(item)) return
     const userAnswer = answers[item.id]
-    if (isObjectiveResponseCorrect(item, userAnswer)) return
+    const judgement = resolvePracticeJudge({
+      manualJudgeMap,
+      item,
+      response: userAnswer,
+    })
+    if (judgement.isCorrect) return
+    if (!judgement.answered) return
 
     wrongItems.push({
       questionKey: `${meta.subject}:${meta.paperId}:${item.id}`,

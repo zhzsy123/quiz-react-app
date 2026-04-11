@@ -1,4 +1,5 @@
 import {
+  evaluateFillBlankResponse,
   formatObjectiveAnswerLabel,
   formatOptionLabel,
   getObjectiveAnswerLabel,
@@ -70,7 +71,7 @@ export function getObjectiveItemTotal(item) {
   if (item.type === 'cloze') {
     return (item.blanks || []).reduce((sum, blank) => sum + (blank.score || 0), 0)
   }
-  if (item.type === 'fill_blank') {
+  if (item.type === 'fill_blank' || item.type === 'function_fill_blank') {
     return item.blanks.reduce((sum, blank) => sum + (blank.score || 0), 0)
   }
   return item.answer?.type === 'objective' ? item.score || 0 : 0
@@ -98,13 +99,13 @@ export function getObjectiveItemScore(item, response) {
       return sum + (String(response[blank.blank_id] || '').trim() === String(blank.correct || '').trim() ? blank.score || 0 : 0)
     }, 0)
   }
-  if (item.type === 'fill_blank') {
+  if (item.type === 'fill_blank' || item.type === 'function_fill_blank') {
     if (!response || typeof response !== 'object') return 0
-    return item.blanks.reduce((sum, blank) => {
-      const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
-      const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-      return sum + (isCorrect ? blank.score || 0 : 0)
-    }, 0)
+    const evaluation = evaluateFillBlankResponse(item, response)
+    return evaluation.blankResults.reduce(
+      (sum, result) => sum + (result.isCorrect ? item.blanks[result.blankIndex]?.score || 0 : 0),
+      0
+    )
   }
   if (item.answer?.type === 'objective' && isObjectiveResponseCorrect(item, response)) {
     return item.score || 0
@@ -140,13 +141,9 @@ export function getObjectiveWrongCount(item, response) {
       return sum + (String(response[blank.blank_id] || '').trim() === String(blank.correct || '').trim() ? 0 : 1)
     }, 0)
   }
-  if (item.type === 'fill_blank') {
+  if (item.type === 'fill_blank' || item.type === 'function_fill_blank') {
     if (!response || typeof response !== 'object') return item.blanks.length
-    return item.blanks.reduce((sum, blank) => {
-      const userValue = String(response[blank.blank_id] || '').trim().toLowerCase()
-      const isCorrect = blank.accepted_answers.some((candidate) => String(candidate).trim().toLowerCase() === userValue)
-      return sum + (isCorrect ? 0 : 1)
-    }, 0)
+    return evaluateFillBlankResponse(item, response).wrongCount
   }
   if (item.answer?.type === 'objective' && isObjectiveGradable(item)) {
     return isObjectiveResponseCorrect(item, response) ? 0 : 1

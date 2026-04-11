@@ -7,6 +7,13 @@ import {
   isObjectiveResponseCorrect,
   normalizeChoiceArray,
 } from '../../../entities/quiz/lib/objectiveAnswers'
+import {
+  MANUAL_JUDGE_CORRECT,
+  MANUAL_JUDGE_WRONG,
+  getManualJudgeKey,
+  normalizeManualJudgeMap,
+  resolvePracticeJudge,
+} from '../../../entities/quiz/lib/practiceJudging.js'
 import { getQuizScoreBreakdown } from '../../../entities/quiz/lib/scoring/getQuizScoreBreakdown.js'
 import {
   auditQuizQuestionCompliance,
@@ -96,6 +103,7 @@ export function useSubjectWorkspaceState() {
   const [relationalAlgebraExpandedMap, setRelationalAlgebraExpandedMap] = useState({})
   const [subQuestionFocusMap, setSubQuestionFocusMap] = useState({})
   const [revealedMap, setRevealedMap] = useState({})
+  const [manualJudgeMap, setManualJudgeMap] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(0)
   const [attemptId, setAttemptId] = useState('')
@@ -208,6 +216,7 @@ export function useSubjectWorkspaceState() {
         setRevealedMap(progress?.revealedMap || {})
         setRelationalAlgebraExpandedMap(progress?.relationalAlgebraExpandedMap || {})
         setSubQuestionFocusMap(normalizeNestedFocusMap(resolvedQuiz, progress?.subQuestionFocusMap || {}))
+        setManualJudgeMap(normalizeManualJudgeMap(progress?.manualJudgeMap || {}))
         setSubmitted(Boolean(progress?.submitted))
         setScore(progress?.score || 0)
         setAttemptId(progress?.attemptId || '')
@@ -274,6 +283,7 @@ export function useSubjectWorkspaceState() {
       revealedMap,
       relationalAlgebraExpandedMap,
       subQuestionFocusMap,
+      manualJudgeMap,
       submitted,
       score,
       attemptId,
@@ -360,6 +370,7 @@ export function useSubjectWorkspaceState() {
   const objectiveTotalScore = scoreSummary.objectiveTotal
   const paperTotalScore = scoreSummary.paperTotal
   const subjectivePendingScore = scoreSummary.subjectiveTotal
+  const aiQuestionReviewMap = aiReview?.questionReviews || {}
 
   const buildNextSubQuestionFocusMap = (item, subQuestionId, baseMap = subQuestionFocusMap) => {
     if (!item?.id) return baseMap
@@ -386,6 +397,49 @@ export function useSubjectWorkspaceState() {
     }
   }
 
+  const clearManualJudgeForTarget = (item, subQuestion = null, baseMap = manualJudgeMap) => {
+    const judgeKey = getManualJudgeKey(item, subQuestion)
+    if (!judgeKey || !baseMap[judgeKey]) return baseMap
+
+    const nextMap = { ...baseMap }
+    delete nextMap[judgeKey]
+    setManualJudgeMap(nextMap)
+    return nextMap
+  }
+
+  const handleSetManualJudge = (itemId, verdict, subQuestionId = '') => {
+    if (!quiz || mode !== 'practice' || submitted) return
+
+    const item = quiz.items.find((entry) => String(entry.id) === String(itemId))
+    if (!item) return
+
+    const nestedSource =
+      item.type === 'reading' || item.type === 'composite'
+        ? item.questions
+        : item.type === 'relational_algebra'
+          ? item.subquestions
+          : []
+    const subQuestion = subQuestionId
+      ? (Array.isArray(nestedSource)
+          ? nestedSource.find((entry) => String(entry.id) === String(subQuestionId))
+          : null)
+      : null
+    const judgeKey = getManualJudgeKey(item, subQuestion)
+    if (!judgeKey) return
+
+    const normalizedVerdict =
+      verdict === MANUAL_JUDGE_CORRECT || verdict === MANUAL_JUDGE_WRONG ? verdict : null
+    const nextMap = { ...manualJudgeMap }
+    if (normalizedVerdict) {
+      nextMap[judgeKey] = normalizedVerdict
+    } else {
+      delete nextMap[judgeKey]
+    }
+
+    setManualJudgeMap(nextMap)
+    void persistNow({ manualJudgeMap: nextMap })
+  }
+
   const practiceAccuracy = useMemo(() => {
     if (!quiz || mode !== 'practice') return { correct: 0, answered: 0, rate: 0 }
 
@@ -396,11 +450,17 @@ export function useSubjectWorkspaceState() {
       if (item.type === 'composite') {
         const compositeResponses = answers[item.id] || {}
         item.questions.forEach((question) => {
-          if (question.answer?.type !== 'objective') return
-          if (isObjectiveAnswered(question, compositeResponses[question.id])) {
-            answered += 1
-            if (isObjectiveResponseCorrect(question, compositeResponses[question.id])) correct += 1
-          }
+          const reviewKey = `${item.id}:${question.id}`
+          const judgement = resolvePracticeJudge({
+            manualJudgeMap,
+            item,
+            response: compositeResponses[question.id],
+            subQuestion: question,
+            questionReview: aiQuestionReviewMap[reviewKey],
+          })
+          if (!judgement.answered) return
+          answered += 1
+          if (judgement.isCorrect) correct += 1
         })
         return
       }
@@ -409,23 +469,145 @@ export function useSubjectWorkspaceState() {
         const response = answers[item.id] || {}
         const readingQuestions = Array.isArray(item.questions) ? item.questions : []
         readingQuestions.forEach((question) => {
-          if (!isObjectiveGradable(question)) return
-          if (isNonEmptyText(response[question.id])) {
-            answered += 1
-            if (response[question.id] === question.answer?.correct) correct += 1
-          }
+          const judgement = resolvePracticeJudge({
+            manualJudgeMap,
+            item,
+            response: response[question.id],
+            subQuestion: question,
+          })
+          if (!judgement.answered) return
+          answered += 1
+          if (judgement.isCorrect) correct += 1
         })
         return
       }
 
-      if (item.answer?.type === 'objective' && isObjectiveGradable(item) && isObjectiveAnswered(item, answers[item.id])) {
+      if (item.type === 'relational_algebra') {
+        const responses = answers[item.id]?.responses || {}
+        const subquestions = Array.isArray(item.subquestions) ? item.subquestions : []
+        subquestions.forEach((question) => {
+          const reviewKey = `${item.id}:${question.id}`
+          const judgement = resolvePracticeJudge({
+            manualJudgeMap,
+            item,
+            response: responses[question.id],
+            subQuestion: question,
+            questionReview: aiQuestionReviewMap[reviewKey],
+          })
+          if (!judgement.answered) return
+          answered += 1
+          if (judgement.isCorrect) correct += 1
+        })
+        return
+      }
+
+      const questionReview = aiQuestionReviewMap[item.id]
+      const judgement = resolvePracticeJudge({
+        manualJudgeMap,
+        item,
+        response: answers[item.id],
+        questionReview,
+      })
+      if (judgement.answered) {
         answered += 1
-        if (isObjectiveResponseCorrect(item, answers[item.id])) correct += 1
+        if (judgement.isCorrect) correct += 1
       }
     })
 
     return { correct, answered, rate: answered ? Math.round((correct / answered) * 100) : 0 }
-  }, [quiz, mode, answers])
+  }, [quiz, mode, answers, manualJudgeMap, aiQuestionReviewMap])
+
+  const getManualAwareObjectiveScore = () => {
+    if (!quiz) return 0
+
+    return quiz.items.reduce((sum, item) => {
+      if (item.type === 'reading') {
+        const response = answers[item.id] || {}
+        return sum + (Array.isArray(item.questions) ? item.questions : []).reduce((innerSum, question) => {
+          const judgement = resolvePracticeJudge({
+            manualJudgeMap,
+            item,
+            response: response[question.id],
+            subQuestion: question,
+          })
+          if (!judgement.answered) return innerSum
+          if (judgement.overridden) return innerSum + (judgement.isCorrect ? judgement.maxScore : 0)
+          return innerSum + (response[question.id] === question.answer?.correct ? Number(question.score || 0) : 0)
+        }, 0)
+      }
+
+      if (item.type === 'composite') {
+        const response = answers[item.id] || {}
+        return sum + (Array.isArray(item.questions) ? item.questions : []).reduce((innerSum, question) => {
+          if (question.answer?.type !== 'objective') return innerSum
+          const judgement = resolvePracticeJudge({
+            manualJudgeMap,
+            item,
+            response: response[question.id],
+            subQuestion: question,
+            questionReview: aiQuestionReviewMap[`${item.id}:${question.id}`],
+          })
+          if (!judgement.answered) return innerSum
+          if (judgement.overridden) return innerSum + (judgement.isCorrect ? judgement.maxScore : 0)
+          return innerSum + getObjectiveItemScore(question, response[question.id])
+        }, 0)
+      }
+
+      if (item.answer?.type !== 'objective') return sum
+
+      const judgement = resolvePracticeJudge({
+        manualJudgeMap,
+        item,
+        response: answers[item.id],
+      })
+      if (!judgement.answered) return sum
+      if (judgement.overridden) return sum + (judgement.isCorrect ? judgement.maxScore : 0)
+      return sum + getObjectiveItemScore(item, answers[item.id])
+    }, 0)
+  }
+
+  const getManualAwareWrongCount = () => {
+    if (!quiz) return 0
+
+    return quiz.items.reduce((sum, item) => {
+      if (item.type === 'reading') {
+        const response = answers[item.id] || {}
+        return sum + (Array.isArray(item.questions) ? item.questions : []).reduce((innerSum, question) => {
+          const judgement = resolvePracticeJudge({
+            manualJudgeMap,
+            item,
+            response: response[question.id],
+            subQuestion: question,
+          })
+          return innerSum + (judgement.answered && judgement.isWrong ? 1 : 0)
+        }, 0)
+      }
+
+      if (item.type === 'composite') {
+        const response = answers[item.id] || {}
+        return sum + (Array.isArray(item.questions) ? item.questions : []).reduce((innerSum, question) => {
+          if (question.answer?.type !== 'objective') return innerSum
+          const judgement = resolvePracticeJudge({
+            manualJudgeMap,
+            item,
+            response: response[question.id],
+            subQuestion: question,
+            questionReview: aiQuestionReviewMap[`${item.id}:${question.id}`],
+          })
+          return innerSum + (judgement.answered && judgement.isWrong ? 1 : 0)
+        }, 0)
+      }
+
+      if (item.answer?.type !== 'objective') return sum
+
+      const judgement = resolvePracticeJudge({
+        manualJudgeMap,
+        item,
+        response: answers[item.id],
+      })
+      return sum + (judgement.answered && judgement.isWrong ? 1 : 0)
+    }, 0)
+  }
 
   const handleRunAiReview = async ({
     targetAttemptId = attemptId,
@@ -595,15 +777,20 @@ export function useSubjectWorkspaceState() {
       if (!ok) return
     }
 
-    const nextScore = quiz.items.reduce((sum, item) => sum + getObjectiveItemScore(item, answers[item.id]), 0)
-    const wrongCount = quiz.items.reduce((sum, item) => sum + getObjectiveWrongCount(item, answers[item.id]), 0)
+    const nextScore = getManualAwareObjectiveScore()
+    const wrongCount = getManualAwareWrongCount()
     const initialAiReview = subjectivePendingScore > 0 ? createWorkspacePendingAiReview(subjectivePendingScore) : null
     const itemsSnapshot = buildWorkspacePersistedItemsSnapshot(quiz.items)
-    const wrongItems = buildWorkspaceWrongItems(quiz.items, answers, {
-      subject: subjectKey,
-      paperId,
-      paperTitle: entry?.title || quiz.title || '未命名试卷',
-    })
+    const wrongItems = buildWorkspaceWrongItems(
+      quiz.items,
+      answers,
+      {
+        subject: subjectKey,
+        paperId,
+        paperTitle: entry?.title || quiz.title || '未命名试卷',
+      },
+      manualJudgeMap
+    )
     const shouldPersistAttempt = source !== 'favorites'
     const shouldWriteWrongBook = source !== 'favorites' && (mode === 'exam' ? examWritesWrongBook : practiceWritesWrongBook)
 
@@ -636,6 +823,7 @@ export function useSubjectWorkspaceState() {
         examWritesWrongBook,
         durationSeconds: examDurationSeconds,
         timerSecondsRemaining: remainingSeconds,
+        manualJudgeMap,
         aiReview: initialAiReview,
         aiExplainMap,
         aiAuditMap,
@@ -649,7 +837,7 @@ export function useSubjectWorkspaceState() {
     const nextAttemptId = savedAttempt?.id || ''
     if (nextAttemptId) {
       setAttemptId(nextAttemptId)
-      await persistNow({ attemptId: nextAttemptId, aiReview: initialAiReview })
+      await persistNow({ attemptId: nextAttemptId, aiReview: initialAiReview, manualJudgeMap })
     }
 
     if (subjectivePendingScore > 0) {
@@ -750,6 +938,7 @@ export function useSubjectWorkspaceState() {
     }
 
     const nextAnswers = { ...answersRef.current, [questionId]: nextValue }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -768,7 +957,12 @@ export function useSubjectWorkspaceState() {
         nextIndex = currentIndex + 1
         setCurrentIndex(nextIndex)
       }
-      void persistNow({ answers: nextAnswers, revealedMap: nextRevealed, currentIndex: nextIndex })
+      void persistNow({
+        answers: nextAnswers,
+        revealedMap: nextRevealed,
+        currentIndex: nextIndex,
+        manualJudgeMap: nextManualJudgeMap,
+      })
       return
     }
 
@@ -778,7 +972,7 @@ export function useSubjectWorkspaceState() {
       setCurrentIndex(nextIndex)
     }
 
-    void persistNow({ answers: nextAnswers, currentIndex: nextIndex })
+    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, manualJudgeMap: nextManualJudgeMap })
   }
 
   const handleSelectClozeOption = (questionId, blankId, optionLetter) => {
@@ -790,6 +984,7 @@ export function useSubjectWorkspaceState() {
     let nextFocusMap = applySubQuestionFocus(currentItem, blankId)
     const nextItemResponse = { ...(answersRef.current[questionId] || {}), [blankId]: optionLetter }
     const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -800,7 +995,11 @@ export function useSubjectWorkspaceState() {
           nextFocusMap = applySubQuestionFocus(currentItem, nextBlankId, nextFocusMap)
         }
       }
-      void persistNow({ answers: nextAnswers, subQuestionFocusMap: nextFocusMap })
+      void persistNow({
+        answers: nextAnswers,
+        subQuestionFocusMap: nextFocusMap,
+        manualJudgeMap: nextManualJudgeMap,
+      })
       return
     }
 
@@ -816,7 +1015,12 @@ export function useSubjectWorkspaceState() {
       }
     }
 
-    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
+    void persistNow({
+      answers: nextAnswers,
+      currentIndex: nextIndex,
+      subQuestionFocusMap: nextFocusMap,
+      manualJudgeMap: nextManualJudgeMap,
+    })
   }
 
   const handleSelectCompositeOption = (parentQuestionId, subQuestionId, optionLetter) => {
@@ -842,6 +1046,7 @@ export function useSubjectWorkspaceState() {
     const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextValue }
     const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
     let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem, subQuestion)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -874,6 +1079,7 @@ export function useSubjectWorkspaceState() {
         revealedMap: nextRevealed,
         currentIndex: nextIndex,
         subQuestionFocusMap: nextFocusMap,
+        manualJudgeMap: nextManualJudgeMap,
       })
       return
     }
@@ -888,7 +1094,12 @@ export function useSubjectWorkspaceState() {
       }
     }
 
-    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
+    void persistNow({
+      answers: nextAnswers,
+      currentIndex: nextIndex,
+      subQuestionFocusMap: nextFocusMap,
+      manualJudgeMap: nextManualJudgeMap,
+    })
   }
 
   const handleSelectReadingOption = (questionId, subQuestionId, optionLetter) => {
@@ -898,10 +1109,13 @@ export function useSubjectWorkspaceState() {
     if (currentItem?.type !== 'reading' || currentItem.id !== questionId) return
     const readingQuestions = Array.isArray(currentItem.questions) ? currentItem.questions : []
     if (!readingQuestions.length) return
+    const currentSubQuestion = readingQuestions.find((question) => String(question.id) === String(subQuestionId))
+    if (!currentSubQuestion) return
 
     let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     const nextItemResponse = { ...(answersRef.current[questionId] || {}), [subQuestionId]: optionLetter }
     const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem, currentSubQuestion)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
@@ -910,7 +1124,6 @@ export function useSubjectWorkspaceState() {
       setRevealedMap(nextRevealed)
       const answeredCount = readingQuestions.filter((question) => isNonEmptyText(nextItemResponse[question.id])).length
       const gradableReadingQuestions = readingQuestions.filter((question) => isObjectiveGradable(question))
-      const currentSubQuestion = readingQuestions.find((question) => String(question.id) === String(subQuestionId))
       const currentIsCorrect =
         currentSubQuestion && isObjectiveGradable(currentSubQuestion)
           ? nextItemResponse[subQuestionId] === currentSubQuestion.answer?.correct
@@ -933,6 +1146,7 @@ export function useSubjectWorkspaceState() {
         revealedMap: nextRevealed,
         currentIndex: nextIndex,
         subQuestionFocusMap: nextFocusMap,
+        manualJudgeMap: nextManualJudgeMap,
       })
       return
     }
@@ -948,7 +1162,12 @@ export function useSubjectWorkspaceState() {
       }
     }
 
-    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
+    void persistNow({
+      answers: nextAnswers,
+      currentIndex: nextIndex,
+      subQuestionFocusMap: nextFocusMap,
+      manualJudgeMap: nextManualJudgeMap,
+    })
   }
 
   const handleFillBlankChange = (questionId, blankId, text) => {
@@ -959,15 +1178,16 @@ export function useSubjectWorkspaceState() {
 
     const nextItemResponse = { ...(answersRef.current[questionId] || {}), [blankId]: text }
     const nextAnswers = { ...answersRef.current, [questionId]: nextItemResponse }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
     if (mode === 'practice') {
-      void persistNow({ answers: nextAnswers })
+      void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap })
       return
     }
 
-    void persistNow({ answers: nextAnswers })
+    void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap })
   }
 
   const handleCompositeFillBlankChange = (parentQuestionId, subQuestionId, blankId, text) => {
@@ -985,11 +1205,16 @@ export function useSubjectWorkspaceState() {
     const nextCompositeAnswers = { ...compositeAnswers, [subQuestionId]: nextSubResponse }
     const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
     let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem, subQuestion)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
 
     if (mode === 'practice') {
-      void persistNow({ answers: nextAnswers, subQuestionFocusMap: nextFocusMap })
+      void persistNow({
+        answers: nextAnswers,
+        subQuestionFocusMap: nextFocusMap,
+        manualJudgeMap: nextManualJudgeMap,
+      })
       return
     }
 
@@ -1004,7 +1229,12 @@ export function useSubjectWorkspaceState() {
       }
     }
 
-    void persistNow({ answers: nextAnswers, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
+    void persistNow({
+      answers: nextAnswers,
+      currentIndex: nextIndex,
+      subQuestionFocusMap: nextFocusMap,
+      manualJudgeMap: nextManualJudgeMap,
+    })
   }
 
   const handleRevealCurrentObjective = () => {
@@ -1086,9 +1316,10 @@ export function useSubjectWorkspaceState() {
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type === 'relational_algebra') return
     const nextAnswers = { ...answersRef.current, [questionId]: { text } }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
-    void persistNow({ answers: nextAnswers })
+    void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap })
   }
 
   const handleCompositeTextChange = (parentQuestionId, subQuestionId, text) => {
@@ -1096,15 +1327,18 @@ export function useSubjectWorkspaceState() {
 
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'composite' || currentItem.id !== parentQuestionId) return
+    const subQuestion = currentItem.questions?.find((question) => question.id === subQuestionId)
+    if (!subQuestion) return
 
     const nextCompositeAnswers = {
       ...(answersRef.current[parentQuestionId] || {}),
       [subQuestionId]: { text },
     }
     const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem, subQuestion)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
-    void persistNow({ answers: nextAnswers })
+    void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap })
   }
 
   const handleRelationalAlgebraTextChange = (questionId, subQuestionId, text) => {
@@ -1112,10 +1346,15 @@ export function useSubjectWorkspaceState() {
 
     const currentItem = quiz.items[currentIndex]
     if (currentItem?.type !== 'relational_algebra' || currentItem.id !== questionId) return
+    const subQuestion = Array.isArray(currentItem.subquestions)
+      ? currentItem.subquestions.find((question) => String(question.id) === String(subQuestionId))
+      : null
+    if (!subQuestion) return
 
     const nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     const nextQuestionState = updateRelationalAlgebraAnswer(currentItem, answersRef.current[questionId], subQuestionId, text)
     const nextAnswers = { ...answersRef.current, [questionId]: nextQuestionState }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem, subQuestion)
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
     const reviewKey = `${questionId}:${subQuestionId}`
@@ -1125,7 +1364,11 @@ export function useSubjectWorkspaceState() {
     const currentReview = aiReviewRef.current
     const hasReview = Boolean(currentReview?.questionReviews?.[reviewKey])
     if (!hasReview) {
-      void persistNow({ answers: nextAnswers, subQuestionFocusMap: nextFocusMap })
+      void persistNow({
+        answers: nextAnswers,
+        subQuestionFocusMap: nextFocusMap,
+        manualJudgeMap: nextManualJudgeMap,
+      })
       return
     }
 
@@ -1152,7 +1395,12 @@ export function useSubjectWorkspaceState() {
 
     setAiReview(nextReview)
     aiReviewRef.current = nextReview
-    void persistNow({ answers: nextAnswers, aiReview: nextReview, subQuestionFocusMap: nextFocusMap })
+    void persistNow({
+      answers: nextAnswers,
+      aiReview: nextReview,
+      subQuestionFocusMap: nextFocusMap,
+      manualJudgeMap: nextManualJudgeMap,
+    })
   }
 
   const handleToggleRelationalAlgebraSubQuestion = (questionId, subQuestionId, nextExpanded) => {
@@ -1303,6 +1551,7 @@ export function useSubjectWorkspaceState() {
     setAnswers({})
     setRevealedMap({})
     setRelationalAlgebraExpandedMap({})
+    setManualJudgeMap({})
     setSubmitted(false)
     setScore(0)
     setAttemptId('')
@@ -1325,6 +1574,7 @@ export function useSubjectWorkspaceState() {
       aiAuditMap: {},
       relationalAlgebraExpandedMap: {},
       subQuestionFocusMap: normalizeNestedFocusMap(quiz, {}),
+      manualJudgeMap: {},
       currentIndex: 0,
       timerSecondsRemaining: examDurationSeconds,
       isPaused: false,
@@ -1353,8 +1603,6 @@ export function useSubjectWorkspaceState() {
     })
     return map
   }, [favoriteEntries])
-
-  const aiQuestionReviewMap = aiReview?.questionReviews || {}
 
   const handleToggleFavorite = async () => {
     if (!activeProfile?.id || !quiz?.items?.[currentIndex] || source === 'favorites') return
@@ -1404,6 +1652,7 @@ export function useSubjectWorkspaceState() {
     currentIndex,
     relationalAlgebraExpandedMap,
     subQuestionFocusMap,
+    manualJudgeMap,
     autoAdvance,
     practiceWritesWrongBook,
     examWritesWrongBook,
@@ -1421,6 +1670,7 @@ export function useSubjectWorkspaceState() {
     handleToggleSpoiler,
     handleToggleAutoAdvance,
     handleFocusSubQuestion,
+    handleSetManualJudge,
     handleTogglePracticeWrongBook,
     handleToggleExamWrongBook,
     handleTogglePause,

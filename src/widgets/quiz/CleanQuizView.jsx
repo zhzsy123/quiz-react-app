@@ -1,13 +1,14 @@
 import React from 'react'
 import { LoaderCircle, Sparkles, XCircle } from 'lucide-react'
 import { isObjectiveAnswered } from '../../entities/quiz/lib/objectiveAnswers'
+import { MANUAL_JUDGE_CORRECT, MANUAL_JUDGE_WRONG, resolvePracticeJudge } from '../../entities/quiz/lib/practiceJudging.js'
 import QuizNavigationSidebar from './QuizNavigationSidebar.jsx'
 import QuizObjectiveBlock from './QuizObjectiveBlock.jsx'
 import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
 import QuizAiToolbar from './QuizAiToolbar.jsx'
 import { AiExplainPanel, AiQuestionReviewPanel } from './QuizAiPanels.jsx'
 import QuizAiPracticeModal from './QuizAiPracticeModal.jsx'
-import { difficultyClass, formatDisplayScore, getItemDisplayScore } from './quizViewUtils.jsx'
+import { buildFillBlankSlotHints, difficultyClass, formatDisplayScore, getItemDisplayScore } from './quizViewUtils.jsx'
 
 function getCurrentItem(quiz, currentIndex) {
   if (!quiz?.items?.length) return null
@@ -52,6 +53,20 @@ function getCurrentQuestionReview(currentItem, currentNestedTarget, aiQuestionRe
     return aiQuestionReviewMap[currentNestedTarget.id]
   }
   return aiQuestionReviewMap?.[currentItem.id] || null
+}
+
+function getCurrentJudgeResponse(currentItem, currentNestedTarget, answers = {}) {
+  if (!currentItem) return undefined
+
+  if (currentNestedTarget && currentItem.type === 'relational_algebra') {
+    return answers[currentItem.id]?.responses?.[currentNestedTarget.id]
+  }
+
+  if (currentNestedTarget && (currentItem.type === 'reading' || currentItem.type === 'composite')) {
+    return answers[currentItem.id]?.[currentNestedTarget.id]
+  }
+
+  return answers[currentItem.id]
 }
 
 function InvalidQuizFallback() {
@@ -116,6 +131,7 @@ export default function CleanQuizView({
   revealedMap,
   relationalAlgebraExpandedMap = {},
   subQuestionFocusMap = {},
+  manualJudgeMap = {},
   isFavorite,
   onToggleFavorite,
   onToggleAutoAdvance,
@@ -154,6 +170,7 @@ export default function CleanQuizView({
   onToggleRelationalAlgebraSubQuestion,
   onRevealRelationalAlgebraQuestion,
   onFocusSubQuestion,
+  onSetManualJudge,
 }) {
   const currentItem = getCurrentItem(quiz, currentIndex)
 
@@ -165,7 +182,18 @@ export default function CleanQuizView({
   const currentExplainEntry = getCurrentExplainEntry(currentItem, currentNestedTarget, aiExplainMap)
   const currentAuditEntry = getCurrentAuditEntry(currentItem, currentNestedTarget, aiAuditMap)
   const currentQuestionReview = getCurrentQuestionReview(currentItem, currentNestedTarget, aiQuestionReviewMap)
+  const currentJudgeState =
+    mode === 'practice' && currentItem.type !== 'generation_placeholder'
+      ? resolvePracticeJudge({
+          manualJudgeMap,
+          item: currentItem,
+          response: getCurrentJudgeResponse(currentItem, currentNestedTarget, answers),
+          subQuestion: currentNestedTarget,
+          questionReview: currentQuestionReview,
+        })
+      : null
   const currentItemScore = getItemDisplayScore(currentItem)
+  const fillBlankSlotHints = buildFillBlankSlotHints(currentItem)
   const hasPendingGeneration = quiz.items.some((item) => item.type === 'generation_placeholder')
   const prompt =
     currentItem.type === 'generation_placeholder'
@@ -186,6 +214,25 @@ export default function CleanQuizView({
     !Boolean(revealedMap[currentItem.id]) &&
     isObjectiveAnswered(currentItem, answers[currentItem.id])
 
+  const showPracticeJudgePanel =
+    mode === 'practice' &&
+    !submitted &&
+    currentItem.type !== 'generation_placeholder' &&
+    Boolean(currentJudgeState?.answered) &&
+    typeof onSetManualJudge === 'function'
+
+  const practiceJudgeStatusText = currentJudgeState?.isCorrect
+    ? '当前判定：答对'
+    : currentJudgeState?.isWrong
+      ? '当前判定：答错'
+      : '当前判定：待判定'
+
+  const practiceJudgeStatusClass = currentJudgeState?.isCorrect
+    ? 'correct'
+    : currentJudgeState?.isWrong
+      ? 'wrong'
+      : 'pending'
+
   const toolbarDisabled = isPaused || currentItem.type === 'generation_placeholder'
 
   return (
@@ -197,6 +244,7 @@ export default function CleanQuizView({
         answers={answers}
         subQuestionFocusMap={subQuestionFocusMap}
         revealedMap={revealedMap}
+        manualJudgeMap={manualJudgeMap}
         mode={mode}
         submitted={submitted}
         isPaused={isPaused}
@@ -204,6 +252,7 @@ export default function CleanQuizView({
         autoAdvance={autoAdvance}
         practiceWritesWrongBook={practiceWritesWrongBook}
         examWritesWrongBook={examWritesWrongBook}
+        aiQuestionReviewMap={aiQuestionReviewMap}
         onTogglePause={onTogglePause}
         onToggleAutoAdvance={onToggleAutoAdvance}
         onTogglePracticeWrongBook={onTogglePracticeWrongBook}
@@ -242,6 +291,18 @@ export default function CleanQuizView({
           </div>
 
           <h3>{prompt}</h3>
+          {fillBlankSlotHints.length > 0 ? (
+            <div className="fill-blank-slot-hints">
+              <span className="fill-blank-slot-hints-label">空位顺序</span>
+              <div className="fill-blank-slot-hints-list">
+                {fillBlankSlotHints.map((slot) => (
+                  <span key={`${currentItem.id}-${slot.blankId}`} className="fill-blank-slot-pill">
+                    {slot.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {currentItem.type !== 'generation_placeholder' && (
             <QuizAiToolbar
@@ -253,6 +314,42 @@ export default function CleanQuizView({
               disabled={toolbarDisabled}
             />
           )}
+
+          {showPracticeJudgePanel ? (
+            <div className="practice-judge-panel">
+              <div className="practice-judge-status">
+                <span className={`practice-judge-chip ${practiceJudgeStatusClass}`}>{practiceJudgeStatusText}</span>
+                {currentJudgeState?.overridden ? (
+                  <span className="practice-judge-note">已人工改判</span>
+                ) : null}
+              </div>
+              <div className="practice-judge-actions">
+                <button
+                  type="button"
+                  className="secondary-btn small-btn"
+                  onClick={() => onSetManualJudge(currentItem.id, MANUAL_JUDGE_CORRECT, currentNestedTarget?.id || '')}
+                >
+                  记为答对
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn small-btn danger-btn"
+                  onClick={() => onSetManualJudge(currentItem.id, MANUAL_JUDGE_WRONG, currentNestedTarget?.id || '')}
+                >
+                  记为答错
+                </button>
+                {currentJudgeState?.overridden ? (
+                  <button
+                    type="button"
+                    className="secondary-btn small-btn"
+                    onClick={() => onSetManualJudge(currentItem.id, null, currentNestedTarget?.id || '')}
+                  >
+                    恢复系统判定
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           {currentItem.type === 'generation_placeholder' ? (
             <GenerationPlaceholderBlock item={currentItem} />

@@ -238,4 +238,151 @@ describe('CleanQuizView', () => {
       root.unmount()
     })
   })
+  it('shows fill blank slot hints for top-level fill blank questions', async () => {
+    const item = {
+      id: 'blank_1',
+      type: 'fill_blank',
+      prompt: '算法具有多个重要特性，它们分别是、、、以及有零或多个输入和一个或多个输出。',
+      score: 1.5,
+      blanks: [
+        { blank_id: 'b1', accepted_answers: ['有穷性'], score: 0.5 },
+        { blank_id: 'b2', accepted_answers: ['确定性'], score: 0.5 },
+        { blank_id: 'b3', accepted_answers: ['可行性'], score: 0.5 },
+      ],
+      answer: { type: 'objective' },
+    }
+
+    const { container, root } = await renderComponent(
+      <CleanQuizView
+        quiz={{ items: [item] }}
+        answers={{ blank_1: {} }}
+        submitted={false}
+        currentIndex={0}
+        mode="practice"
+        autoAdvance={false}
+        remainingSeconds={0}
+        isPaused={false}
+        revealedMap={{}}
+        isFavorite={false}
+        onToggleFavorite={noop}
+        onToggleAutoAdvance={noop}
+        onTogglePracticeWrongBook={noop}
+        onToggleExamWrongBook={noop}
+        onTogglePause={noop}
+        practiceWritesWrongBook
+        examWritesWrongBook
+        onJump={noop}
+        onPrev={noop}
+        onNext={noop}
+        onSelectOption={noop}
+        onRevealCurrentObjective={noop}
+        onSelectReadingOption={noop}
+        onFillBlankChange={noop}
+        onTextChange={noop}
+        aiReview={null}
+        aiQuestionReviewMap={{}}
+        aiExplainMap={{}}
+        aiAuditMap={{}}
+        aiExplainMode="standard"
+        aiPracticeModal={null}
+        onChangeAiExplainMode={noop}
+        onExplainQuestion={noop}
+        onAuditQuestion={noop}
+        onExplainWhyWrong={noop}
+        onGenerateSimilarQuestions={noop}
+        onCloseAiPracticeModal={noop}
+        onSubmit={noop}
+        onSelectCompositeOption={noop}
+        onCompositeFillBlankChange={noop}
+        onCompositeTextChange={noop}
+        onRevealCompositeQuestion={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('空位顺序')
+    expect(container.textContent).toContain('第 1 空')
+    expect(container.textContent).toContain('第 2 空')
+    expect(container.textContent).toContain('第 3 空')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('shows manual practice judging controls for answered questions', async () => {
+    const item = {
+      id: 'q1',
+      type: 'single_choice',
+      prompt: 'Which option is correct?',
+      score: 2,
+      options: [
+        { key: 'A', text: 'Option A' },
+        { key: 'B', text: 'Option B' },
+      ],
+      answer: {
+        type: 'objective',
+        correct: 'A',
+        rationale: 'A is correct.',
+      },
+    }
+
+    const { container, root } = await renderComponent(
+      <CleanQuizView
+        quiz={{ items: [item] }}
+        answers={{ q1: 'B' }}
+        submitted={false}
+        currentIndex={0}
+        mode="practice"
+        autoAdvance={false}
+        remainingSeconds={0}
+        isPaused={false}
+        revealedMap={{ q1: true }}
+        manualJudgeMap={{ q1: 'correct' }}
+        isFavorite={false}
+        onToggleFavorite={noop}
+        onToggleAutoAdvance={noop}
+        onTogglePracticeWrongBook={noop}
+        onToggleExamWrongBook={noop}
+        onTogglePause={noop}
+        practiceWritesWrongBook
+        examWritesWrongBook
+        onJump={noop}
+        onPrev={noop}
+        onNext={noop}
+        onSelectOption={noop}
+        onRevealCurrentObjective={noop}
+        onSelectReadingOption={noop}
+        onFillBlankChange={noop}
+        onTextChange={noop}
+        aiReview={null}
+        aiQuestionReviewMap={{}}
+        aiExplainMap={{}}
+        aiAuditMap={{}}
+        aiExplainMode="standard"
+        aiPracticeModal={null}
+        onChangeAiExplainMode={noop}
+        onExplainQuestion={noop}
+        onAuditQuestion={noop}
+        onExplainWhyWrong={noop}
+        onGenerateSimilarQuestions={noop}
+        onCloseAiPracticeModal={noop}
+        onSubmit={noop}
+        onSelectCompositeOption={noop}
+        onCompositeFillBlankChange={noop}
+        onCompositeTextChange={noop}
+        onRevealCompositeQuestion={noop}
+        onSetManualJudge={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('当前判定：答对')
+    expect(container.textContent).toContain('已人工改判')
+    expect(container.textContent).toContain('记为答对')
+    expect(container.textContent).toContain('记为答错')
+    expect(container.textContent).toContain('恢复系统判定')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
 })

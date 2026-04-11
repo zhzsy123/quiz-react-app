@@ -141,6 +141,15 @@ export function buildPreviewText(text, maxLength = 120) {
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized
 }
 
+export function buildFillBlankSlotHints(item) {
+  if (item?.type !== 'fill_blank') return []
+  const blanks = Array.isArray(item.blanks) ? item.blanks : []
+  return blanks.map((blank, index) => ({
+    blankId: blank?.blank_id ?? index + 1,
+    label: `第 ${index + 1} 空`,
+  }))
+}
+
 export function normalizeDisplayScore(value) {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return 0

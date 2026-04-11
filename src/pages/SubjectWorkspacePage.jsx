@@ -18,6 +18,7 @@ export default function SubjectWorkspacePage() {
     answers,
     relationalAlgebraExpandedMap,
     subQuestionFocusMap,
+    manualJudgeMap,
     revealedMap,
     submitted,
     score,
@@ -47,6 +48,7 @@ export default function SubjectWorkspacePage() {
     handleTogglePracticeWrongBook,
     handleToggleExamWrongBook,
     handleTogglePause,
+    handleSetManualJudge,
     handleJump,
     handlePrev,
     handleNext,
@@ -278,6 +280,7 @@ export default function SubjectWorkspacePage() {
           answers={answers}
           relationalAlgebraExpandedMap={relationalAlgebraExpandedMap}
           subQuestionFocusMap={subQuestionFocusMap}
+          manualJudgeMap={manualJudgeMap}
           submitted={submitted}
           currentIndex={currentIndex}
           mode={mode}
@@ -310,6 +313,7 @@ export default function SubjectWorkspacePage() {
           onToggleRelationalAlgebraSubQuestion={handleToggleRelationalAlgebraSubQuestion}
           onRevealRelationalAlgebraQuestion={handleRevealRelationalAlgebraQuestion}
           onFocusSubQuestion={handleFocusSubQuestion}
+          onSetManualJudge={handleSetManualJudge}
           onTextChange={handleTextChange}
           onCompositeTextChange={handleCompositeTextChange}
           aiReview={aiReview}
