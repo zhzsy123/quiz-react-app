@@ -18,7 +18,7 @@ import {
 } from '../../../entities/wrongbook/api/wrongbookRepository'
 import { requestConfirmDialog } from '../../../shared/ui/dialogs/dialogService'
 
-function inferWrongItemType(item) {
+function inferWrongItemType(item = {}) {
   const candidates = [item.type, item.sourceType, item.source_type, item.parentType]
   const explicit = candidates.map(normalizeQuestionTypeKey).find((value) => value && value !== 'unknown')
   if (explicit && getQuestionTypeMeta(explicit).key !== 'unknown') return explicit
@@ -125,7 +125,7 @@ export function buildWrongBookBlankFeedback(item, answers = {}) {
 }
 
 export function getWrongItemCategory(item) {
-  return inferWrongItemType(item)
+  return inferWrongItemType(item || {})
 }
 
 export function getWrongItemCategoryLabel(category) {
@@ -134,7 +134,26 @@ export function getWrongItemCategoryLabel(category) {
 
 export function renderWrongBookOptionLabel(option) {
   if (typeof option === 'string') return option
-  return `${option.key}. ${option.text}`
+  if (!option || typeof option !== 'object') return ''
+  const key = String(option.key || '').trim()
+  const text = String(option.text || '').trim()
+  return key ? `${key}. ${text}` : text
+}
+
+export function isRenderableWrongBookEntry(row) {
+  return Boolean(row && typeof row === 'object' && (row.questionKey || row.questionId || row.prompt))
+}
+
+export function sanitizeWrongBookEntry(row = {}) {
+  return {
+    ...row,
+    questionKey: row.questionKey || row.questionId || `${row.subject || 'unknown'}:${Date.now()}:${Math.random()}`,
+    prompt: String(row.prompt || row.questionPrompt || row.title || '未命名题目').trim(),
+    options: Array.isArray(row.options) ? row.options : [],
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    paperTitle: String(row.paperTitle || row.paper_title || '未命名试卷').trim(),
+    subject: String(row.subject || '').trim() || 'english',
+  }
 }
 
 export function useWrongBookPageState() {
@@ -154,8 +173,19 @@ export function useWrongBookPageState() {
 
   const refreshEntries = async () => {
     if (!activeProfileId) return
-    const rows = await listAllWrongbookEntries(activeProfileId)
-    setEntries(rows.map((row) => ({ ...row, category: getWrongItemCategory(row) })))
+    try {
+      const rows = await listAllWrongbookEntries(activeProfileId)
+      const nextEntries = (Array.isArray(rows) ? rows : [])
+        .filter(isRenderableWrongBookEntry)
+        .map((row) => {
+          const safeRow = sanitizeWrongBookEntry(row)
+          return { ...safeRow, category: getWrongItemCategory(safeRow) }
+        })
+      setEntries(nextEntries)
+    } catch (error) {
+      console.error('加载错题本失败', error)
+      setEntries([])
+    }
   }
 
   useEffect(() => {

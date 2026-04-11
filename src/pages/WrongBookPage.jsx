@@ -218,9 +218,9 @@ export default function WrongBookPage() {
     resetPractice,
   } = useWrongBookPageState()
 
-  const libraryRoute = getSubjectMeta(
-    subjectFilter !== 'all' ? subjectFilter : filteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key
-  ).route
+  const libraryRoute =
+    getSubjectMeta(subjectFilter !== 'all' ? subjectFilter : filteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key)
+      ?.route || '/'
 
   return (
     <div className="app-shell">
