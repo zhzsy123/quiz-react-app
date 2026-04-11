@@ -38,7 +38,10 @@ async function saveWrongBookEntryMap(profileId, subject, value) {
 
 export async function loadWrongBookEntries(profileId, subject) {
   const map = await loadWrongBookEntryMap(profileId, subject)
-  return Object.values(map).sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
+  const safeMap = map && typeof map === 'object' ? map : {}
+  return Object.values(safeMap)
+    .filter((item) => item && typeof item === 'object')
+    .sort((a, b) => (b.lastWrongAt || 0) - (a.lastWrongAt || 0))
 }
 
 export async function upsertWrongBookEntries(profileId, subject, entries) {

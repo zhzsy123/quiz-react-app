@@ -140,19 +140,122 @@ export function renderWrongBookOptionLabel(option) {
   return key ? `${key}. ${text}` : text
 }
 
+export function formatWrongBookDisplayValue(value, fallback = '') {
+  if (value == null) return fallback
+  if (typeof value === 'string') return value.trim() || fallback
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    const next = value
+      .map((item) => formatWrongBookDisplayValue(item, ''))
+      .filter(Boolean)
+      .join(' / ')
+    return next || fallback
+  }
+  if (typeof value === 'object') {
+    if ('label' in value || 'text' in value || 'value' in value) {
+      return (
+        formatWrongBookDisplayValue(value.label, '') ||
+        formatWrongBookDisplayValue(value.text, '') ||
+        formatWrongBookDisplayValue(value.value, '') ||
+        fallback
+      )
+    }
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return fallback
+    }
+  }
+  return fallback
+}
+
+function sanitizeWrongBookOption(option, index) {
+  if (typeof option === 'string') {
+    return {
+      key: String.fromCharCode(65 + index),
+      text: option.trim(),
+    }
+  }
+
+  if (!option || typeof option !== 'object') {
+    return {
+      key: String.fromCharCode(65 + index),
+      text: '',
+    }
+  }
+
+  return {
+    ...option,
+    key: String(option.key || String.fromCharCode(65 + index)).trim(),
+    text: formatWrongBookDisplayValue(option.text ?? option.label ?? option.value, ''),
+  }
+}
+
+function sanitizeWrongBookBlank(blank, index) {
+  if (!blank || typeof blank !== 'object') {
+    return {
+      blank_id: index + 1,
+      options: [],
+      accepted_answers: [],
+      correct: '',
+      rationale: '',
+    }
+  }
+
+  const acceptedAnswers = Array.isArray(blank.accepted_answers)
+    ? blank.accepted_answers.map((item) => formatWrongBookDisplayValue(item, '')).filter(Boolean)
+    : []
+
+  return {
+    ...blank,
+    blank_id: blank.blank_id ?? index + 1,
+    options: Array.isArray(blank.options) ? blank.options.map(sanitizeWrongBookOption) : [],
+    accepted_answers: acceptedAnswers,
+    correct: formatWrongBookDisplayValue(blank.correct, ''),
+    rationale: formatWrongBookDisplayValue(blank.rationale, ''),
+  }
+}
+
 export function isRenderableWrongBookEntry(row) {
   return Boolean(row && typeof row === 'object' && (row.questionKey || row.questionId || row.prompt))
 }
 
 export function sanitizeWrongBookEntry(row = {}) {
+  const normalizedSubject =
+    typeof row.subject === 'string' && row.subject.trim() ? row.subject.trim() : 'english'
+
   return {
     ...row,
-    questionKey: row.questionKey || row.questionId || `${row.subject || 'unknown'}:${Date.now()}:${Math.random()}`,
-    prompt: String(row.prompt || row.questionPrompt || row.title || '未命名题目').trim(),
-    options: Array.isArray(row.options) ? row.options : [],
-    tags: Array.isArray(row.tags) ? row.tags : [],
-    paperTitle: String(row.paperTitle || row.paper_title || '未命名试卷').trim(),
-    subject: String(row.subject || '').trim() || 'english',
+    questionKey: formatWrongBookDisplayValue(
+      row.questionKey || row.questionId,
+      `${Date.now()}:${Math.random()}`
+    ),
+    prompt: formatWrongBookDisplayValue(row.prompt || row.questionPrompt || row.title, '未命名题目'),
+    options: Array.isArray(row.options) ? row.options.map(sanitizeWrongBookOption) : [],
+    blanks: Array.isArray(row.blanks) ? row.blanks.map(sanitizeWrongBookBlank) : [],
+    tags: Array.isArray(row.tags) ? row.tags.map((tag) => formatWrongBookDisplayValue(tag, '')).filter(Boolean) : [],
+    paperTitle: formatWrongBookDisplayValue(row.paperTitle || row.paper_title, '未命名试卷'),
+    subject: normalizedSubject,
+    paperId: formatWrongBookDisplayValue(row.paperId || row.paper_id, ''),
+    category: normalizeQuestionTypeKey(row.category || row.itemType || row.item_type || row.type),
+    type: normalizeQuestionTypeKey(row.type),
+    sourceType: normalizeQuestionTypeKey(row.sourceType || row.source_type),
+    parentType: normalizeQuestionTypeKey(row.parentType || row.parent_type),
+    contextTitle: formatWrongBookDisplayValue(row.contextTitle || row.context_title, ''),
+    contextSnippet: formatWrongBookDisplayValue(row.contextSnippet || row.context_snippet, ''),
+    rationale: formatWrongBookDisplayValue(row.rationale, ''),
+    correctAnswerLabel: formatWrongBookDisplayValue(row.correctAnswerLabel || row.correct_answer_label, ''),
+    userAnswerLabel: formatWrongBookDisplayValue(row.userAnswerLabel || row.user_answer_label, ''),
+    correctAnswer:
+      Array.isArray(row.correctAnswer) || typeof row.correctAnswer === 'object'
+        ? row.correctAnswer
+        : formatWrongBookDisplayValue(row.correctAnswer || row.correct_answer, ''),
+    userAnswer:
+      Array.isArray(row.userAnswer) || typeof row.userAnswer === 'object'
+        ? row.userAnswer
+        : formatWrongBookDisplayValue(row.userAnswer || row.user_answer, ''),
+    wrongTimes: Math.max(1, Number(row.wrongTimes || row.wrong_times) || 1),
+    lastWrongAt: Number(row.lastWrongAt || row.last_wrong_at) || 0,
   }
 }
 

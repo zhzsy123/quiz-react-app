@@ -60,7 +60,7 @@ describe('WrongBookPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renders subject-aware type options and wrongbook list', async () => {
+  it('renders subject-aware type options and tolerates object-like wrongbook display fields', async () => {
     useWrongBookPageStateMock.mockReturnValue({
       filteredWrongItems: [
         {
@@ -72,8 +72,8 @@ describe('WrongBookPage', () => {
           lastWrongAt: Date.now(),
           paperTitle: '国际贸易模拟卷一',
           userAnswerLabel: '认为无权拒收',
-          correctAnswerLabel: '有权拒收',
-          rationale: '应结合延期交单的后果判断。',
+          correctAnswerLabel: { label: '有权拒收' },
+          rationale: { text: '应结合延期交单的后果判断。' },
         },
       ],
       subjectFilter: 'international_trade',
@@ -129,6 +129,21 @@ describe('WrongBookPage', () => {
     expect(container.textContent).toContain('全部题型')
     expect(container.textContent).toContain('案例分析题')
     expect(container.textContent).toContain('国际贸易模拟卷一')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('shows a fallback card instead of white screen when page render throws', async () => {
+    useWrongBookPageStateMock.mockImplementation(() => {
+      throw new Error('bad wrongbook payload')
+    })
+
+    const { container, root } = await renderComponent()
+
+    expect(container.textContent).toContain('错题本暂时无法渲染')
+    expect(container.textContent).toContain('页面已阻止白屏')
 
     await act(async () => {
       root.unmount()

@@ -14,10 +14,61 @@ import {
 import { Link } from 'react-router-dom'
 import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subjects'
 import {
+  formatWrongBookDisplayValue,
   getWrongItemCategoryLabel,
   renderWrongBookOptionLabel,
   useWrongBookPageState,
 } from '../features/wrong-book/model/useWrongBookPageState'
+
+class WrongBookPageErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error) {
+    console.error('错题本页面渲染失败', error)
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false })
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="app-shell">
+          <div className="container dashboard-page">
+            <section className="record-list-card">
+              <div className="section-header-row">
+                <h2>
+                  <BookX size={18} /> 错题本暂时无法渲染
+                </h2>
+              </div>
+              <div className="local-library-empty">
+                当前错题本里存在异常数据，页面已阻止白屏。你可以先重试打开；如果问题持续，继续清洗历史错题记录。
+              </div>
+              <div className="dashboard-action-row">
+                <button type="button" className="primary-btn small-btn" onClick={this.handleRetry}>
+                  重新加载
+                </button>
+                <Link className="secondary-btn small-btn" to="/">
+                  返回首页
+                </Link>
+              </div>
+            </section>
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
 
 function BlankPracticePanel({
   item,
@@ -167,16 +218,21 @@ function MultipleChoicePracticePanel({
       {feedback && (
         <div className="analysis-box">
           <div>
-            正确答案：<strong>{Array.isArray(item.correctAnswer) ? item.correctAnswer.join(' / ') : '见题目配置'}</strong>
+            正确答案：
+            <strong>
+              {Array.isArray(item.correctAnswer)
+                ? formatWrongBookDisplayValue(item.correctAnswer, '见题目配置')
+                : '见题目配置'}
+            </strong>
           </div>
-          <div>解析：{item.rationale || '暂无解析'}</div>
+          <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
         </div>
       )}
     </>
   )
 }
 
-export default function WrongBookPage() {
+function WrongBookPageContent() {
   const {
     filteredWrongItems,
     subjectFilter,
@@ -462,9 +518,10 @@ export default function WrongBookPage() {
                     {selectedAnswer && (
                       <div className="analysis-box">
                         <div>
-                          正确答案：<strong>{displayPracticeItem.correctAnswer}</strong>
+                          正确答案：
+                          <strong>{formatWrongBookDisplayValue(displayPracticeItem.correctAnswer, '见题目配置')}</strong>
                         </div>
-                        <div>解析：{displayPracticeItem.rationale || '暂无解析'}</div>
+                        <div>解析：{formatWrongBookDisplayValue(displayPracticeItem.rationale, '暂无解析')}</div>
                       </div>
                     )}
                   </>
@@ -553,9 +610,15 @@ export default function WrongBookPage() {
 
                       <div className="analysis-box compact-analysis-box">
                         <div>
-                          正确答案：<strong>{item.correctAnswerLabel || item.correctAnswer || '见题目配置'}</strong>
+                          正确答案：
+                          <strong>
+                            {formatWrongBookDisplayValue(
+                              item.correctAnswerLabel || item.correctAnswer,
+                              '见题目配置'
+                            )}
+                          </strong>
                         </div>
-                        <div>解析：{item.rationale || '暂无解析'}</div>
+                        <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
                       </div>
                     </article>
                   )
@@ -566,5 +629,13 @@ export default function WrongBookPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function WrongBookPage() {
+  return (
+    <WrongBookPageErrorBoundary>
+      <WrongBookPageContent />
+    </WrongBookPageErrorBoundary>
   )
 }
