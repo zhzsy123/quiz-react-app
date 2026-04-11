@@ -1,6 +1,6 @@
 import React from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, LoaderCircle, TriangleAlert, XCircle } from 'lucide-react'
-import { buildPreviewText } from './quizViewUtils.jsx'
+import { buildPreviewText, formatDisplayScore } from './quizViewUtils.jsx'
 import RelationalAlgebraToolbar from './RelationalAlgebraToolbar.jsx'
 
 function getStatusMeta(review, hasAnswer) {
@@ -121,7 +121,7 @@ export default function RelationalAlgebraSubquestionCard({
             {statusMeta.icon}
             {statusMeta.label}
           </span>
-          <span className="rel-algebra-score">{scoreLabel} 分</span>
+          <span className="rel-algebra-score">{formatDisplayScore(scoreLabel)} 分</span>
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </div>
       </button>
@@ -178,7 +178,7 @@ export default function RelationalAlgebraSubquestionCard({
                 </div>
                 {typeof review?.score === 'number' && typeof review?.maxScore === 'number' ? (
                   <div className="rel-algebra-review-score">
-                    {review.score} / {review.maxScore} 分
+                    {formatDisplayScore(review.score)} / {formatDisplayScore(review.maxScore)} 分
                   </div>
                 ) : null}
               </div>

@@ -141,6 +141,17 @@ export function buildPreviewText(text, maxLength = 120) {
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized
 }
 
+export function normalizeDisplayScore(value) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  const safe = Math.max(0, numeric)
+  return Math.floor((safe + Number.EPSILON) * 2) / 2
+}
+
+export function formatDisplayScore(value) {
+  return normalizeDisplayScore(value).toFixed(1)
+}
+
 export function getItemDisplayScore(item) {
   return Number(getItemScoreBreakdown(item).paperTotal || 0)
 }

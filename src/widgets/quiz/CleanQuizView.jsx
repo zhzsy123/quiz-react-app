@@ -7,7 +7,7 @@ import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
 import QuizAiToolbar from './QuizAiToolbar.jsx'
 import { AiExplainPanel, AiQuestionReviewPanel } from './QuizAiPanels.jsx'
 import QuizAiPracticeModal from './QuizAiPracticeModal.jsx'
-import { difficultyClass, getItemDisplayScore } from './quizViewUtils.jsx'
+import { difficultyClass, formatDisplayScore, getItemDisplayScore } from './quizViewUtils.jsx'
 
 function getCurrentItem(quiz, currentIndex) {
   if (!quiz?.items?.length) return null
@@ -81,7 +81,7 @@ function GenerationPlaceholderBlock({ item }) {
           {isFailed ? '生成失败' : 'AI 正在生成本题'}
         </span>
         <span className="generation-placeholder-meta">
-          {placeholder.label || item?.generation_type_key || '题目'} · {placeholder.score || 0} 分
+          {placeholder.label || item?.generation_type_key || '题目'} · {formatDisplayScore(placeholder.score || 0)} 分
         </span>
       </div>
       <div className="generation-placeholder-summary">
@@ -218,7 +218,7 @@ export default function CleanQuizView({
             <div>
               <div className="question-meta">
                 <span className="tag blue">第 {currentIndex + 1} 题</span>
-                <span className="tag score">{currentItemScore} 分</span>
+                <span className="tag score">{formatDisplayScore(currentItemScore)} 分</span>
                 {currentItem.difficulty ? (
                   <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>
                 ) : null}

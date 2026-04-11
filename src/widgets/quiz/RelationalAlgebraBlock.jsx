@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import RelationalAlgebraSchemaPanel from './RelationalAlgebraSchemaPanel.jsx'
 import RelationalAlgebraSubquestionCard from './RelationalAlgebraSubquestionCard.jsx'
+import { formatDisplayScore } from './quizViewUtils.jsx'
 import {
   buildRelationalAlgebraInsertion,
   insertTextAtCursor,
@@ -118,7 +119,7 @@ export default function RelationalAlgebraBlock({
 
           <div className="rel-algebra-meta-pills">
             <span className="rel-algebra-meta-pill">{subquestions.length} 个子题</span>
-            <span className="rel-algebra-meta-pill">{contentScore} 分</span>
+            <span className="rel-algebra-meta-pill">{formatDisplayScore(contentScore)} 分</span>
             <span className="rel-algebra-meta-pill neutral">待AI核验 {answeredCount} / {subquestions.length}</span>
           </div>
         </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Clock3, LoaderCircle, Pause, Play, XCircle } from 'lucide-react'
 import { isObjectiveWrong } from '../../entities/quiz/lib/objectiveAnswers'
 import {
+  formatDisplayScore,
   formatRemainingSeconds,
   getGroupDisplayScore,
   getNavGroupMeta,
@@ -199,7 +200,7 @@ export default function QuizNavigationSidebar({
                 <div className="nav-group-title-wrap">
                   <span className="nav-group-title">{section.label}</span>
                   <span className="nav-group-count">{safeDisplayCount}</span>
-                  <span className="nav-group-score">{groupTotalScore} 分</span>
+                  <span className="nav-group-score">{formatDisplayScore(groupTotalScore)} 分</span>
                 </div>
                 {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>

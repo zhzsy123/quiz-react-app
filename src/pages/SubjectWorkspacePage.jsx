@@ -5,6 +5,7 @@ import CleanQuizView from '../widgets/quiz/CleanQuizView'
 import { useSubjectWorkspaceState } from '../features/workspace/model/useSubjectWorkspaceState'
 import { buildQuizExportMarkdown } from '../entities/quiz/lib/export/buildQuizExportMarkdown'
 import { downloadTextFile } from '../shared/lib/export/downloadFile'
+import { formatDisplayScore } from '../widgets/quiz/quizViewUtils.jsx'
 
 export default function SubjectWorkspacePage() {
   const {
@@ -211,8 +212,8 @@ export default function SubjectWorkspacePage() {
             <div className="score-hero">
               <div className="score-hero-label">试卷总分</div>
               <div className="score-hero-value">
-                {aiReview?.status === 'completed' ? aiReview.totalScore : score}
-                <span>/ {paperTotalScore}</span>
+                {formatDisplayScore(aiReview?.status === 'completed' ? aiReview.totalScore : score)}
+                <span>/ {formatDisplayScore(paperTotalScore)}</span>
               </div>
             </div>
 
@@ -220,15 +221,15 @@ export default function SubjectWorkspacePage() {
               <article className="score-subcard">
                 <div className="score-subtitle">客观题得分</div>
                 <div className="score-subvalue">
-                  {score}
-                  <span>/ {objectiveTotalScore}</span>
+                  {formatDisplayScore(score)}
+                  <span>/ {formatDisplayScore(objectiveTotalScore)}</span>
                 </div>
               </article>
               <article className="score-subcard">
                 <div className="score-subtitle">主观题</div>
                 <div className="score-subvalue">
-                  {aiReview?.status === 'completed' ? aiReview.totalSubjectiveScore : 0}
-                  <span>/ {subjectivePendingScore}</span>
+                  {formatDisplayScore(aiReview?.status === 'completed' ? aiReview.totalSubjectiveScore : 0)}
+                  <span>/ {formatDisplayScore(subjectivePendingScore)}</span>
                 </div>
               </article>
             </div>

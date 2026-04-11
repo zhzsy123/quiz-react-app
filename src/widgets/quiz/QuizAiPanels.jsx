@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { LoaderCircle } from 'lucide-react'
-import { buildPreviewText } from './quizViewUtils.jsx'
+import { buildPreviewText, formatDisplayScore } from './quizViewUtils.jsx'
 
 function PanelSection({ title, items }) {
   if (!Array.isArray(items) || items.length === 0) return null
@@ -160,7 +160,7 @@ export function AiQuestionReviewPanel({ review }) {
 
       <div className="ai-review-score">
         <strong>AI 评分</strong>
-        {review.score} / {review.maxScore}
+        {formatDisplayScore(review.score)} / {formatDisplayScore(review.maxScore)}
       </div>
 
       {preview ? <div className="ai-panel-preview">{preview}</div> : null}

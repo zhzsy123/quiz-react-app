@@ -16,6 +16,7 @@ import {
 } from '../../entities/quiz/lib/objectiveAnswers'
 import {
   countWords,
+  formatDisplayScore,
   getNavGroupMeta,
   getReadingQuestionDisplayLabel,
   getSubjectiveText,
@@ -96,7 +97,7 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
 
 function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   const text = getSubjectiveText(userResponse)
-  const scoreLabel = item.score ? `${item.score} 分` : ''
+  const scoreLabel = item.score ? `${formatDisplayScore(item.score)} 分` : ''
   const typeLabelMap = {
     short_answer: '简答题',
     case_analysis: '案例分析',
@@ -233,7 +234,7 @@ function ReadingBlock({
                 <div className="reading-question-title">
                   <div className="reading-question-meta">
                     <span className="tag">{getReadingQuestionDisplayLabel(item, subIndex)}</span>
-                    <span className="tag score">{Number(subQuestion?.score) || 0} 分</span>
+                    <span className="tag score">{formatDisplayScore(subQuestion?.score)} 分</span>
                   </div>
                   <span>{subQuestion.prompt}</span>
                 </div>
@@ -380,7 +381,7 @@ function ReadingBlockV2({
                 <div className="reading-question-title">
                   <div className="reading-question-meta">
                     <span className="tag">{getReadingQuestionDisplayLabel(item, subIndex)}</span>
-                    <span className="tag score">{Number(subQuestion?.score) || 0} 分</span>
+                    <span className="tag score">{formatDisplayScore(subQuestion?.score)} 分</span>
                   </div>
                   <span>{subQuestion.prompt}</span>
                 </div>
@@ -685,7 +686,7 @@ function CompositeBlock({
                   {getNavGroupMeta(question).label}
                 </span>
                 <span className="tag score" style={{ marginLeft: 8 }}>
-                  {Number(question?.score) || 0} 分
+                  {formatDisplayScore(question?.score)} 分
                 </span>
               </div>
               <div className="wrongbook-card-title">{question.prompt}</div>
