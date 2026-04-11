@@ -15,6 +15,25 @@ describe('questionGenerationService', () => {
     requestAiJsonMock.mockReset()
   })
 
+  function mockBlueprintPlan(typeKey, count, score = 2) {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        items: Array.from({ length: count }, (_, index) => ({
+          blueprint_key: `${typeKey}_${index + 1}`,
+          type_key: typeKey,
+          order_index: index + 1,
+          score,
+          difficulty: 'medium',
+          knowledge_point: `${typeKey}_knowledge_${index + 1}`,
+          task_pattern: `${typeKey}_pattern_${index + 1}`,
+          scenario: `${typeKey}_scenario_${index + 1}`,
+          variant: String.fromCharCode(97 + index),
+          dedupe_tags: [typeKey, `variant_${index + 1}`],
+        })),
+      },
+    })
+  }
+
   it('builds a draft paper from generated questions', () => {
     const draftPaper = buildDraftPaper({
       config: {
@@ -113,6 +132,8 @@ describe('questionGenerationService', () => {
   })
 
   it('generates practice questions with per-question json calls and normalizes english single choice', async () => {
+    mockBlueprintPlan('single_choice', 2, 2)
+
     requestAiJsonMock
       .mockResolvedValueOnce({
         content: {
@@ -155,9 +176,10 @@ describe('questionGenerationService', () => {
       },
     })
 
-    expect(requestAiJsonMock).toHaveBeenCalledTimes(2)
-    expect(requestAiJsonMock.mock.calls[0][0].systemPrompt).toContain('generate exactly one quiz question JSON object')
-    expect(requestAiJsonMock.mock.calls[0][0].userPrompt).toContain('"target_question_type":"single_choice"')
+    expect(requestAiJsonMock).toHaveBeenCalledTimes(3)
+    expect(requestAiJsonMock.mock.calls[0][0].feature).toBe('question_generation_blueprint')
+    expect(requestAiJsonMock.mock.calls[1][0].systemPrompt).toContain('generate exactly one quiz question JSON object')
+    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).toContain('"target_question_type":"single_choice"')
 
     expect(result.status).toBe('completed')
     expect(result.draftQuestions).toHaveLength(2)
@@ -172,7 +194,142 @@ describe('questionGenerationService', () => {
     expect(result.draftQuestions[1].normalizedQuestion.answer.correct).toBe('B')
   })
 
+  it('replans blueprints once when knowledge coverage is too narrow', async () => {
+    requestAiJsonMock
+      .mockResolvedValueOnce({
+        content: {
+          items: [
+            {
+              blueprint_key: 'single_choice_1',
+              type_key: 'single_choice',
+              order_index: 1,
+              score: 2,
+              difficulty: 'medium',
+              knowledge_point: 'vocabulary',
+              task_pattern: 'context',
+              scenario: 'campus',
+              variant: 'a',
+            },
+            {
+              blueprint_key: 'single_choice_2',
+              type_key: 'single_choice',
+              order_index: 2,
+              score: 2,
+              difficulty: 'medium',
+              knowledge_point: 'vocabulary',
+              task_pattern: 'context',
+              scenario: 'office',
+              variant: 'b',
+            },
+            {
+              blueprint_key: 'single_choice_3',
+              type_key: 'single_choice',
+              order_index: 3,
+              score: 2,
+              difficulty: 'medium',
+              knowledge_point: 'vocabulary',
+              task_pattern: 'context',
+              scenario: 'travel',
+              variant: 'c',
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        content: {
+          items: [
+            {
+              blueprint_key: 'single_choice_retry_1',
+              type_key: 'single_choice',
+              order_index: 1,
+              score: 2,
+              difficulty: 'medium',
+              knowledge_point: 'vocabulary',
+              task_pattern: 'context',
+              scenario: 'campus',
+              variant: 'a',
+            },
+            {
+              blueprint_key: 'single_choice_retry_2',
+              type_key: 'single_choice',
+              order_index: 2,
+              score: 2,
+              difficulty: 'medium',
+              knowledge_point: 'grammar',
+              task_pattern: 'tense',
+              scenario: 'office',
+              variant: 'b',
+            },
+            {
+              blueprint_key: 'single_choice_retry_3',
+              type_key: 'single_choice',
+              order_index: 3,
+              score: 2,
+              difficulty: 'medium',
+              knowledge_point: 'reading',
+              task_pattern: 'detail',
+              scenario: 'travel',
+              variant: 'c',
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        content: {
+          id: 'q1',
+          type: 'single_choice',
+          prompt: 'Q1',
+          score: 2,
+          options: ['A. One', 'B. Two', 'C. Three', 'D. Four'],
+          correct_answer: 'A',
+        },
+      })
+      .mockResolvedValueOnce({
+        content: {
+          id: 'q2',
+          type: 'single_choice',
+          prompt: 'Q2',
+          score: 2,
+          options: ['A. One', 'B. Two', 'C. Three', 'D. Four'],
+          correct_answer: 'B',
+        },
+      })
+      .mockResolvedValueOnce({
+        content: {
+          id: 'q3',
+          type: 'single_choice',
+          prompt: 'Q3',
+          score: 2,
+          options: ['A. One', 'B. Two', 'C. Three', 'D. Four'],
+          correct_answer: 'C',
+        },
+      })
+
+    const progressEvents = []
+    const result = await startQuestionGeneration({
+      config: {
+        subject: 'english',
+        mode: 'practice',
+        difficulty: 'medium',
+        count: 3,
+        questionTypes: ['single_choice'],
+        paperTitle: 'English draft',
+      },
+      meta: {
+        requestId: 'gen_replan_001',
+      },
+      onProgress: (event) => progressEvents.push(event),
+    })
+
+    expect(result.status).toBe('completed')
+    expect(requestAiJsonMock.mock.calls.filter((call) => call[0].feature === 'question_generation_blueprint')).toHaveLength(2)
+    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).toContain('previous_warnings')
+    expect(progressEvents.some((event) => event.summary?.includes('覆盖率不足'))).toBe(true)
+  })
+
   it('normalizes reading children and object-style answers', async () => {
+    mockBlueprintPlan('reading', 1, 10)
+
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'rq1',
@@ -225,6 +382,8 @@ describe('questionGenerationService', () => {
   })
 
   it('preserves cloze questions as a single normalized draft item for english generation', async () => {
+    mockBlueprintPlan('cloze', 1, 20)
+
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'cq1',
@@ -285,6 +444,8 @@ describe('questionGenerationService', () => {
   })
 
   it('accepts localized cloze type labels from AI and normalizes them to cloze', async () => {
+    mockBlueprintPlan('cloze', 1, 20)
+
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'cq_localized',
@@ -340,6 +501,8 @@ describe('questionGenerationService', () => {
   })
 
   it('normalizes relational algebra generation for database_principles', async () => {
+    mockBlueprintPlan('relational_algebra', 1, 20)
+
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'ra_001',
@@ -396,6 +559,8 @@ describe('questionGenerationService', () => {
   })
 
   it('falls back to the planned cloze type when AI returns an unknown type label', async () => {
+    mockBlueprintPlan('cloze', 1, 20)
+
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'cq_unknown',
@@ -453,6 +618,8 @@ describe('questionGenerationService', () => {
   })
 
   it('normalizes cloze questions when AI returns passage text and sub questions instead of article + blanks', async () => {
+    mockBlueprintPlan('cloze', 1, 20)
+
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'cq_variant',
@@ -507,6 +674,8 @@ describe('questionGenerationService', () => {
   })
 
   it('retries cloze generation when the first response has an incomplete structure', async () => {
+    mockBlueprintPlan('cloze', 1, 20)
+
     requestAiJsonMock
       .mockResolvedValueOnce({
         content: {
@@ -565,12 +734,12 @@ describe('questionGenerationService', () => {
       },
     })
 
-    expect(requestAiJsonMock).toHaveBeenCalledTimes(2)
-    expect(requestAiJsonMock.mock.calls[0][0].userPrompt).toContain('allowed_question_types')
-    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).toContain('previous_generation_error')
-    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).not.toContain('allowed_question_types')
-    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).not.toContain('"example"')
-    expect(requestAiJsonMock.mock.calls[1][0].systemPrompt).toContain('repair exactly one malformed quiz question JSON object')
+    expect(requestAiJsonMock).toHaveBeenCalledTimes(3)
+    expect(requestAiJsonMock.mock.calls[1][0].userPrompt).toContain('allowed_question_types')
+    expect(requestAiJsonMock.mock.calls[2][0].userPrompt).toContain('previous_generation_error')
+    expect(requestAiJsonMock.mock.calls[2][0].userPrompt).not.toContain('allowed_question_types')
+    expect(requestAiJsonMock.mock.calls[2][0].userPrompt).not.toContain('"example"')
+    expect(requestAiJsonMock.mock.calls[2][0].systemPrompt).toContain('repair exactly one malformed quiz question JSON object')
     expect(result.status).toBe('completed')
     expect(result.draftQuestions).toHaveLength(1)
     expect(result.draftQuestions[0].status).toBe('valid')
@@ -579,6 +748,8 @@ describe('questionGenerationService', () => {
   })
 
   it('repairs cloze passages that omit inline placeholders or article text', async () => {
+    mockBlueprintPlan('cloze', 1, 20)
+
     requestAiJsonMock.mockResolvedValueOnce({
       content: {
         id: 'cq_repairable',
@@ -636,6 +807,8 @@ describe('questionGenerationService', () => {
   })
 
   it('retries duplicate generated questions within the same batch', async () => {
+    mockBlueprintPlan('case_analysis', 2, 10)
+
     requestAiJsonMock
       .mockResolvedValueOnce({
         content: {
@@ -702,6 +875,7 @@ describe('questionGenerationService', () => {
   })
 
   it('returns diagnostic invalid entries when generation fails', async () => {
+    mockBlueprintPlan('single_choice', 1, 2)
     requestAiJsonMock.mockRejectedValueOnce(new Error('network error'))
 
     const result = await startQuestionGeneration({
@@ -725,6 +899,8 @@ describe('questionGenerationService', () => {
   })
 
   it('marks cloze questions invalid when a full passage has no inferable blank positions', async () => {
+    mockBlueprintPlan('cloze', 1, 20)
+
     const invalidCloze = {
       content: {
         id: 'cq_unlocatable',

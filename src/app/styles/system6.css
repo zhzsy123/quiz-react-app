@@ -33,6 +33,10 @@
 .generator-extra-prompt{min-height:110px}
 .generator-summary-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;color:#94a3b8;font-size:.92rem}
 .generator-results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.generator-activity-groups{display:flex;flex-direction:column;gap:16px}
+.generator-activity-section{display:flex;flex-direction:column;gap:10px}
+.generator-activity-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#cbd5e1;font-size:.92rem}
+.generator-activity-section-head strong{color:#f8fafc}
 .generator-empty-state{min-height:220px;display:flex;align-items:center;justify-content:center;color:#94a3b8;border:1px dashed rgba(148,163,184,.18);border-radius:16px}
 .generator-list{display:flex;flex-direction:column;gap:12px;max-height:52vh;overflow:auto;padding-right:4px}
 .generator-item{padding:14px 16px;border-radius:16px;background:rgba(2,6,23,.42);border:1px solid rgba(148,163,184,.14)}

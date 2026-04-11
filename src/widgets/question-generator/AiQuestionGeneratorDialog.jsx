@@ -104,7 +104,7 @@ export default function AiQuestionGeneratorDialog({
           <div className="download-dialog-copy">
             <span className="dashboard-eyebrow">AI Generator</span>
             <h3>{subjectMeta?.shortLabel || '当前科目'} AI 生成题目</h3>
-            <p>按当前科目的题型协议生成题目。生成完成后可以保存到题库，或直接进入刷题模式。</p>
+            <p>系统会先规划题目蓝图，再逐题扩写成完整题目。蓝图阶段会控制覆盖率和重复度。</p>
           </div>
 
           <button
@@ -265,7 +265,7 @@ export default function AiQuestionGeneratorDialog({
           <section className="generator-results-panel">
             <div className="generator-results-head">
               <span className="generator-section-title">生成进度</span>
-              <span className="section-header-tip">默认折叠，点击可展开详情</span>
+              <span className="section-header-tip">系统会先规划蓝图，再逐题扩写。默认折叠，点击可展开详情。</span>
             </div>
 
             <GeneratedQuestionList

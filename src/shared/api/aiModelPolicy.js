@@ -1,5 +1,6 @@
 const CHAT_FEATURES = new Set([
   'question_generation',
+  'question_generation_blueprint',
   'similar_question_generation',
   'document_import',
   'document_import_section',

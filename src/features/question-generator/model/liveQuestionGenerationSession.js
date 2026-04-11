@@ -176,6 +176,14 @@ function buildPlaceholderItem(session, planItem, index, activityEntry) {
   }
 }
 
+function getQuestionActivityEntry(session, index) {
+  return (
+    session.activityEntries.find((entry) => entry.id === `question-${index + 1}`) ||
+    session.activityEntries[index] ||
+    null
+  )
+}
+
 function buildSessionQuiz(session) {
   return {
     title: session.title,
@@ -187,7 +195,7 @@ function buildSessionQuiz(session) {
         return getEntryQuestion(entry)
       }
 
-      return buildPlaceholderItem(session, planItem, index, session.activityEntries[index])
+      return buildPlaceholderItem(session, planItem, index, getQuestionActivityEntry(session, index))
     }),
     generation: {
       sessionId: session.sessionId,
