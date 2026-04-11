@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatWrongBookDisplayValue,
+  inferWrongItemType,
   isRenderableWrongBookEntry,
   sanitizeWrongBookEntry,
 } from './useWrongBookPageState'
@@ -44,5 +45,10 @@ describe('useWrongBookPageState helpers', () => {
     expect(formatWrongBookDisplayValue({ text: '解析文本' }, '')).toBe('解析文本')
     expect(formatWrongBookDisplayValue(['A', 'B'], '')).toBe('A / B')
     expect(formatWrongBookDisplayValue({ nested: true }, '')).toBe('{"nested":true}')
+  })
+
+  it('tolerates null items when inferring wrongbook item types', () => {
+    expect(inferWrongItemType(null)).toBe('single_choice')
+    expect(inferWrongItemType(undefined)).toBe('single_choice')
   })
 })

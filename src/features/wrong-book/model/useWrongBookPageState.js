@@ -18,13 +18,14 @@ import {
 } from '../../../entities/wrongbook/api/wrongbookRepository'
 import { requestConfirmDialog } from '../../../shared/ui/dialogs/dialogService'
 
-function inferWrongItemType(item = {}) {
-  const candidates = [item.type, item.sourceType, item.source_type, item.parentType]
+export function inferWrongItemType(item = {}) {
+  const safeItem = item && typeof item === 'object' ? item : {}
+  const candidates = [safeItem.type, safeItem.sourceType, safeItem.source_type, safeItem.parentType]
   const explicit = candidates.map(normalizeQuestionTypeKey).find((value) => value && value !== 'unknown')
   if (explicit && getQuestionTypeMeta(explicit).key !== 'unknown') return explicit
 
-  const blanks = Array.isArray(item?.blanks) ? item.blanks : []
-  if (String(item.contextTitle || '').includes('完形')) return 'cloze'
+  const blanks = Array.isArray(safeItem.blanks) ? safeItem.blanks : []
+  if (String(safeItem.contextTitle || '').includes('完形')) return 'cloze'
   if (blanks.length > 0 && blanks.every((blank) => Array.isArray(blank.options) && String(blank.correct || '').trim())) {
     return 'cloze'
   }
