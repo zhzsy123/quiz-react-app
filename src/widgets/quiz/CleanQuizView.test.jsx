@@ -309,7 +309,7 @@ describe('CleanQuizView', () => {
     })
   })
 
-  it('shows manual practice judging controls for answered questions', async () => {
+  it('shows the compact practice override button instead of the old manual judge panel', async () => {
     const item = {
       id: 'q1',
       type: 'single_choice',
@@ -375,11 +375,9 @@ describe('CleanQuizView', () => {
       />
     )
 
-    expect(container.textContent).toContain('当前判定：答对')
-    expect(container.textContent).toContain('已人工改判')
-    expect(container.textContent).toContain('记为答对')
-    expect(container.textContent).toContain('记为答错')
-    expect(container.textContent).toContain('恢复系统判定')
+    expect(container.querySelectorAll('.ai-inline-btn').length).toBe(3)
+    expect(container.querySelector('.ai-practice-judge-btn.active')).not.toBeNull()
+    expect(container.querySelector('.practice-judge-panel')).toBeNull()
 
     await act(async () => {
       root.unmount()

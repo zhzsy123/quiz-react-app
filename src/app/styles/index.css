@@ -1589,6 +1589,14 @@ button { border: none; }
   gap: 8px;
   flex-wrap: wrap;
 }
+.ai-practice-judge-btn.active {
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #d1fae5;
+}
+.ai-practice-judge-btn.active:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
 .question-actions {
   display: flex;
   justify-content: space-between;

@@ -1,7 +1,7 @@
 import React from 'react'
 import { LoaderCircle, Sparkles, XCircle } from 'lucide-react'
 import { isObjectiveAnswered } from '../../entities/quiz/lib/objectiveAnswers'
-import { MANUAL_JUDGE_CORRECT, MANUAL_JUDGE_WRONG, resolvePracticeJudge } from '../../entities/quiz/lib/practiceJudging.js'
+import { MANUAL_JUDGE_CORRECT, resolvePracticeJudge } from '../../entities/quiz/lib/practiceJudging.js'
 import QuizNavigationSidebar from './QuizNavigationSidebar.jsx'
 import QuizObjectiveBlock from './QuizObjectiveBlock.jsx'
 import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
@@ -221,17 +221,11 @@ export default function CleanQuizView({
     Boolean(currentJudgeState?.answered) &&
     typeof onSetManualJudge === 'function'
 
-  const practiceJudgeStatusText = currentJudgeState?.isCorrect
-    ? '当前判定：答对'
-    : currentJudgeState?.isWrong
-      ? '当前判定：答错'
-      : '当前判定：待判定'
-
-  const practiceJudgeStatusClass = currentJudgeState?.isCorrect
-    ? 'correct'
-    : currentJudgeState?.isWrong
-      ? 'wrong'
-      : 'pending'
+  const showPracticeJudgeToggle =
+    showPracticeJudgePanel &&
+    (currentJudgeState?.isWrong ||
+      currentJudgeState?.manualVerdict === MANUAL_JUDGE_CORRECT ||
+      currentJudgeState?.manualVerdict === 'wrong')
 
   const toolbarDisabled = isPaused || currentItem.type === 'generation_placeholder'
 
@@ -309,47 +303,22 @@ export default function CleanQuizView({
               currentItem={currentItem}
               currentExplainEntry={currentExplainEntry}
               currentAuditEntry={currentAuditEntry}
+              practiceJudgeState={showPracticeJudgeToggle ? currentJudgeState : null}
               onExplainQuestion={() => onExplainQuestion({ item: currentItem, subQuestion: currentNestedTarget })}
               onAuditQuestion={() => onAuditQuestion?.({ item: currentItem, subQuestion: currentNestedTarget })}
+              onTogglePracticeCorrect={
+                showPracticeJudgeToggle
+                  ? () =>
+                      onSetManualJudge(
+                        currentItem.id,
+                        currentJudgeState?.manualVerdict === MANUAL_JUDGE_CORRECT ? null : MANUAL_JUDGE_CORRECT,
+                        currentNestedTarget?.id || ''
+                      )
+                  : null
+              }
               disabled={toolbarDisabled}
             />
           )}
-
-          {showPracticeJudgePanel ? (
-            <div className="practice-judge-panel">
-              <div className="practice-judge-status">
-                <span className={`practice-judge-chip ${practiceJudgeStatusClass}`}>{practiceJudgeStatusText}</span>
-                {currentJudgeState?.overridden ? (
-                  <span className="practice-judge-note">已人工改判</span>
-                ) : null}
-              </div>
-              <div className="practice-judge-actions">
-                <button
-                  type="button"
-                  className="secondary-btn small-btn"
-                  onClick={() => onSetManualJudge(currentItem.id, MANUAL_JUDGE_CORRECT, currentNestedTarget?.id || '')}
-                >
-                  记为答对
-                </button>
-                <button
-                  type="button"
-                  className="secondary-btn small-btn danger-btn"
-                  onClick={() => onSetManualJudge(currentItem.id, MANUAL_JUDGE_WRONG, currentNestedTarget?.id || '')}
-                >
-                  记为答错
-                </button>
-                {currentJudgeState?.overridden ? (
-                  <button
-                    type="button"
-                    className="secondary-btn small-btn"
-                    onClick={() => onSetManualJudge(currentItem.id, null, currentNestedTarget?.id || '')}
-                  >
-                    恢复系统判定
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
 
           {currentItem.type === 'generation_placeholder' ? (
             <GenerationPlaceholderBlock item={currentItem} />
