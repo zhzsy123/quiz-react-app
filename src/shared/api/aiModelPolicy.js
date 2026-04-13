@@ -6,6 +6,7 @@ const CHAT_FEATURES = new Set([
   'document_import_section',
   'question_audit',
   'question_explanation',
+  'question_scoring',
 ])
 
 const REASONER_FEATURES = new Set([

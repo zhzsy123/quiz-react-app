@@ -1,13 +1,16 @@
-import React, { useState } from 'react'
-import { Bot, CheckCircle2, LoaderCircle } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { Bot, CheckCircle2, LoaderCircle, Sparkles } from 'lucide-react'
 
 export default function QuizAiToolbar({
   currentItem,
+  currentReviewTarget,
   currentExplainEntry,
   currentAuditEntry,
+  currentQuestionReview,
   practiceJudgeState,
   onExplainQuestion,
   onAuditQuestion,
+  onGradeQuestion,
   onTogglePracticeCorrect,
   disabled,
 }) {
@@ -15,7 +18,9 @@ export default function QuizAiToolbar({
 
   const explainPending = currentExplainEntry?.status === 'pending'
   const auditPending = currentAuditEntry?.status === 'pending'
+  const gradePending = currentQuestionReview?.status === 'pending'
   const practiceJudgeOverridden = practiceJudgeState?.manualVerdict === 'correct'
+  const canGradeQuestion = ['short_answer', 'er_diagram'].includes(String(currentReviewTarget?.type || ''))
   const [restoreHover, setRestoreHover] = useState(false)
 
   const practiceJudgeLabel = practiceJudgeOverridden
@@ -23,6 +28,12 @@ export default function QuizAiToolbar({
       ? '恢复判定'
       : '已记为答对'
     : '改成答对'
+
+  const gradeButtonLabel = useMemo(() => {
+    if (gradePending) return 'AI评分中'
+    if (currentQuestionReview?.status === 'completed') return '重新评分'
+    return 'AI评分'
+  }, [currentQuestionReview?.status, gradePending])
 
   return (
     <div className="ai-toolbar">
@@ -45,6 +56,17 @@ export default function QuizAiToolbar({
           {auditPending ? <LoaderCircle size={14} className="spin" /> : <CheckCircle2 size={14} />}
           {auditPending ? 'AI核题中' : 'AI核题'}
         </button>
+        {canGradeQuestion ? (
+          <button
+            type="button"
+            className="secondary-btn small-btn ai-inline-btn"
+            onClick={onGradeQuestion}
+            disabled={disabled || gradePending}
+          >
+            {gradePending ? <LoaderCircle size={14} className="spin" /> : <Sparkles size={14} />}
+            {gradeButtonLabel}
+          </button>
+        ) : null}
         {practiceJudgeState && typeof onTogglePracticeCorrect === 'function' ? (
           <button
             type="button"

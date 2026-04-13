@@ -26,8 +26,25 @@ import {
   renderFormattedMaterial,
 } from './quizViewUtils.jsx'
 import QuizClozeBlock from './QuizClozeBlock.jsx'
+import ErDiagramBlock from './ErDiagramBlock.jsx'
 import RelationalAlgebraBlock from './RelationalAlgebraBlock.jsx'
 import SqlQuestionBlock from './SqlQuestionBlock.jsx'
+
+function normalizeVisibleText(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isDistinctDisplayText(candidate, prompt, referenceTitle = '') {
+  const normalizedCandidate = normalizeVisibleText(candidate)
+  if (!normalizedCandidate) return false
+
+  const normalizedPrompt = normalizeVisibleText(prompt)
+  const normalizedReferenceTitle = normalizeVisibleText(referenceTitle)
+
+  return normalizedCandidate !== normalizedPrompt && normalizedCandidate !== normalizedReferenceTitle
+}
 
 function TranslationBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   return (
@@ -102,6 +119,8 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
   const scoreLabel = item.score ? `${formatDisplayScore(item.score)} 分` : ''
   const typeMeta = getQuestionDisplayMeta(item)
   const scoringPoints = Array.isArray(item.answer?.scoring_points) ? item.answer.scoring_points : []
+  const showContextTitle = isDistinctDisplayText(item.context_title, item.prompt)
+  const showContext = isDistinctDisplayText(item.context, item.prompt, item.context_title)
 
   return (
     <div className="subjective-block essay-card">
@@ -109,8 +128,8 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
         <div className="essay-type-chip">{typeMeta.label}</div>
         <div className="essay-word-count">{scoreLabel}</div>
       </div>
-      {item.context_title ? <div className="essay-topic">{item.context_title}</div> : null}
-      {item.context ? <div className="analysis-box">{renderFormattedMaterial(item.context, item.context_format)}</div> : null}
+      {showContextTitle ? <div className="essay-topic">{item.context_title}</div> : null}
+      {showContext ? <div className="analysis-box">{renderFormattedMaterial(item.context, item.context_format)}</div> : null}
       {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 ? (
         <div className="analysis-box">
           <div className="analysis-section-title">作答要求</div>
@@ -542,6 +561,8 @@ function DatabaseCompositeBlock({
             const isGradable = isObjectiveGradable(question)
             const isFocused = String(focusSubQuestionId || '') === String(question.id)
             const questionMeta = getQuestionDisplayMeta(question)
+            const showContextTitle = isDistinctDisplayText(question.context_title, question.prompt)
+            const showContext = isDistinctDisplayText(question.context, question.prompt, question.context_title)
 
             return (
               <article
@@ -557,8 +578,8 @@ function DatabaseCompositeBlock({
                   </div>
                 </div>
                 <div className="wrongbook-card-title">{question.prompt}</div>
-                {question.context_title ? <div className="question-context-title">{question.context_title}</div> : null}
-                {question.context ? renderFormattedMaterial(question.context, question.context_format) : null}
+                {showContextTitle ? <div className="question-context-title">{question.context_title}</div> : null}
+                {showContext ? renderFormattedMaterial(question.context, question.context_format) : null}
 
                 {!isSubjective ? (
                   <CompositeObjectiveBlock
@@ -612,8 +633,8 @@ function DatabaseCompositeBlock({
                     onTextChange={(targetId, text) => {
                       onFocusSubQuestion?.(targetId)
                       onTextChange(targetId, text)
-                    }}
-                  />
+                      }}
+                    />
                 ) : (
                   <GenericSubjectiveBlock
                     item={question}
@@ -658,6 +679,7 @@ export default function QuizSubjectiveBlock({
   onRevealRelationalAlgebraQuestion,
   onFillBlankChange,
   onTextChange,
+  onErDiagramChange,
 }) {
   if (item.type === 'cloze') {
     return (
@@ -767,8 +789,20 @@ export default function QuizSubjectiveBlock({
     )
   }
 
+  if (item.type === 'er_diagram') {
+    return (
+      <ErDiagramBlock
+        item={item}
+        userResponse={response}
+        disabled={isPaused || submitted}
+        submitted={submitted}
+        onChange={onErDiagramChange}
+      />
+    )
+  }
+
   if (
-    ['short_answer', 'case_analysis', 'calculation', 'operation', 'programming', 'er_diagram'].includes(item.type)
+    ['short_answer', 'case_analysis', 'calculation', 'operation', 'programming'].includes(item.type)
   ) {
     return (
       <GenericSubjectiveBlock

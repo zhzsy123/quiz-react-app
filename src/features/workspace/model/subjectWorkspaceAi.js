@@ -4,6 +4,7 @@ import {
   generateSimilarQuestions,
   gradeRelationalAlgebraAttempt,
   gradeRelationalAlgebraSubquestionAttempt,
+  gradeSingleSubjectiveQuestionAttempt,
   gradeSubjectiveAttempt,
 } from '../../ai/reviewService'
 import { createPendingAiReview as createWorkspacePendingAiReview } from './subjectWorkspaceObjective.js'
@@ -139,5 +140,21 @@ export async function runRelationalAlgebraSubquestionAi({
     objectiveScore,
     objectiveTotal,
     paperTotal,
+  })
+}
+
+export async function runSingleSubjectiveQuestionAiReview({
+  quiz,
+  answers,
+  item,
+  subQuestion = null,
+}) {
+  if (!quiz || !item) return null
+
+  return gradeSingleSubjectiveQuestionAttempt({
+    paperTitle: quiz.title,
+    item,
+    response: subQuestion ? answers?.[item.id]?.[subQuestion.id] : answers?.[item.id],
+    subQuestion,
   })
 }

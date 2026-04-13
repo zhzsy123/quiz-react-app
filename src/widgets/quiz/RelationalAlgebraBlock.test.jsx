@@ -11,7 +11,7 @@ function Harness() {
     type: 'relational_algebra',
     responses: { '1': '' },
   })
-  const [expandedMap, setExpandedMap] = useState({ '1': false })
+  const [expandedMap, setExpandedMap] = useState({ '1': true })
 
   const item = {
     id: 'ra_1',
@@ -55,6 +55,7 @@ function Harness() {
         }))
       }
       onRevealQuestion={vi.fn()}
+      onFocusSubQuestion={vi.fn()}
     />
   )
 }
@@ -76,21 +77,10 @@ afterEach(() => {
 })
 
 describe('RelationalAlgebraBlock', () => {
-  it('renders schema lines, supports template insertion, and can collapse tools', () => {
+  it('renders schema tools, inserts symbols, and supports collapsing the schema panel', () => {
     const { container, root } = mountHarness()
 
-    const promptText = '请完成下列查询。'
-    const pageText = container.textContent || ''
-    const promptCount = pageText.split(promptText).length - 1
-    expect(promptCount).toBe(0)
-    expect(pageText).not.toContain('待核验 0 / 2')
-
-    const header = container.querySelector('.rel-algebra-subquestion-head')
-    expect(header).toBeTruthy()
-
-    act(() => {
-      header.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
+    expect(container.textContent).not.toContain('常用模板')
 
     const textarea = container.querySelector('.rel-algebra-editor')
     expect(textarea).toBeTruthy()
@@ -100,16 +90,16 @@ describe('RelationalAlgebraBlock', () => {
       textarea.setSelectionRange(0, 0)
     })
 
-    const templateBtn = Array.from(container.querySelectorAll('.rel-algebra-template-card')).find((button) =>
-      button.textContent.includes('选择后投影')
+    const projectionBtn = Array.from(container.querySelectorAll('.rel-algebra-toolbar-btn')).find((button) =>
+      button.textContent.includes('π[]()')
     )
-    expect(templateBtn).toBeTruthy()
+    expect(projectionBtn).toBeTruthy()
 
     act(() => {
-      templateBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      projectionBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(container.querySelector('.rel-algebra-editor').value).toContain('σ[条件]')
+    expect(container.querySelector('.rel-algebra-editor').value).toContain('π[]()')
 
     const studentToken = Array.from(container.querySelectorAll('.rel-algebra-token')).find(
       (button) => button.textContent === '学生'
@@ -130,7 +120,6 @@ describe('RelationalAlgebraBlock', () => {
     })
 
     expect(container.querySelector('.rel-algebra-sidebar')?.className).toContain('collapsed')
-    expect(container.querySelector('.rel-algebra-tools-collapsed-hint')).toBeTruthy()
 
     act(() => {
       root.unmount()

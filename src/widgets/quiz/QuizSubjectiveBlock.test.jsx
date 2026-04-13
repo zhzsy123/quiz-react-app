@@ -43,6 +43,7 @@ function createBaseProps(item, extraProps = {}) {
     onRevealRelationalAlgebraQuestion: () => {},
     onFillBlankChange: () => {},
     onTextChange: () => {},
+    onErDiagramChange: () => {},
     ...extraProps,
   }
 }
@@ -165,9 +166,8 @@ describe('QuizSubjectiveBlock', () => {
 
     const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(sqlQuestion)} />)
 
-    expect(container.textContent).toContain('SQL 题工作区')
+    expect(container.textContent).toContain('SQL 工作区')
     expect(container.textContent).toContain('表结构')
-    expect(container.textContent).toContain('支持 Tab 缩进、关键字高亮和自动补全。')
     expect(container.textContent).toContain('SELECT')
     expect(container.textContent).toContain('GROUP BY')
     expect(container.textContent).toContain('Student')
@@ -217,8 +217,33 @@ describe('QuizSubjectiveBlock', () => {
     expect(container.textContent).toContain('材料区')
     expect(container.textContent).toContain('子题区')
     expect(container.textContent).toContain('学生选课案例')
-    expect(container.textContent).toContain('SQL 题工作区')
+    expect(container.textContent).toContain('SQL 工作区')
     expect(container.textContent).toContain('主键的作用')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('renders er diagram workspace with structured relation schema inputs', async () => {
+    const erDiagram = {
+      id: 'er_1',
+      type: 'er_diagram',
+      prompt: '为学生选课系统绘制 E-R 图，并写出转换后的关系模式。',
+      score: 10,
+      answer: {
+        type: 'subjective',
+        reference_answer: '实体：学生、课程；联系：选课。',
+        scoring_points: ['实体完整', '联系合理', '关系模式转换正确'],
+      },
+    }
+
+    const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(erDiagram)} />)
+
+    expect(container.textContent).toContain('E-R 建模面板')
+    expect(container.textContent).toContain('转换后的关系模式')
+    expect(container.textContent).toContain('添加实体')
+    expect(container.textContent).toContain('添加关系模式')
 
     await act(async () => {
       root.unmount()

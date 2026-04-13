@@ -2559,3 +2559,237 @@ button { border: none; }
   display: grid;
   gap: 6px;
 }
+.rel-algebra-sidebar-toggle.icon-only {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 12px;
+}
+
+.sql-workbench-editor.refined {
+  gap: 20px;
+}
+
+.sql-panel-head.refined {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.sql-schema-panel.refined,
+.sql-editor-card.refined {
+  background: rgba(15, 23, 42, 0.84);
+  border: 1px solid rgba(96, 165, 250, 0.16);
+  border-radius: 22px;
+  padding: 22px;
+}
+
+.sql-schema-body.refined {
+  display: grid;
+  gap: 14px;
+}
+
+.sql-schema-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.52);
+  border: 1px solid rgba(96, 165, 250, 0.1);
+  color: #dbeafe;
+  line-height: 1.9;
+}
+
+.sql-schema-token {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sql-schema-token.table {
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.sql-schema-token.column {
+  color: #cbd5f5;
+}
+
+.sql-schema-token:hover,
+.sql-schema-token:focus-visible {
+  color: #93c5fd;
+  text-decoration: underline;
+  outline: none;
+}
+
+.sql-schema-token:disabled {
+  cursor: default;
+  opacity: 0.72;
+  text-decoration: none;
+}
+
+.sql-schema-punctuation {
+  color: #94a3b8;
+}
+
+.sql-schema-notes.subtle {
+  display: grid;
+  gap: 10px;
+}
+
+.sql-schema-content.compact {
+  margin: 0;
+}
+
+.sql-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sql-toolbar-btn {
+  padding: 10px 14px;
+  border-radius: 14px;
+}
+
+.er-diagram-block {
+  display: grid;
+  gap: 18px;
+}
+
+.er-section-card {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(96, 165, 250, 0.16);
+  border-radius: 22px;
+  padding: 22px;
+}
+
+.er-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.er-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.er-card-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.er-entity-card,
+.er-relation-card,
+.er-relationship-row {
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(96, 165, 250, 0.12);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.er-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.er-card-title-input,
+.er-inline-input,
+.er-inline-select {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.16);
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font: inherit;
+}
+
+.er-inline-input.mini {
+  max-width: 120px;
+}
+
+.er-inline-preview {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(96, 165, 250, 0.12);
+  color: #e2e8f0;
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+
+.er-attribute-list,
+.er-relationship-list {
+  display: grid;
+  gap: 10px;
+}
+
+.er-attribute-row,
+.er-relationship-grid {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+}
+
+.er-attribute-row {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.er-relationship-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 100px minmax(0, 1fr) 100px auto;
+}
+
+.er-flag-btn.active {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(16, 185, 129, 0.16);
+  color: #d1fae5;
+}
+
+.er-remove-btn {
+  min-width: 42px;
+  justify-content: center;
+}
+
+.er-attribute-preview.primary {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.er-attribute-preview.foreign {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1.5px;
+}
+
+.er-preview-separator {
+  color: #94a3b8;
+}
+
+.er-placeholder-text {
+  color: #64748b;
+}
+
+@media (max-width: 960px) {
+  .er-attribute-row,
+  .er-relationship-grid {
+    grid-template-columns: 1fr;
+  }
+}

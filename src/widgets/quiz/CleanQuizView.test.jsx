@@ -238,6 +238,74 @@ describe('CleanQuizView', () => {
       root.unmount()
     })
   })
+
+  it('shows AI评分 for short answer questions with existing response', async () => {
+    const item = {
+      id: 'short_1',
+      type: 'short_answer',
+      prompt: '简述数据库系统中数据独立性的含义。',
+      score: 8,
+      answer: {
+        type: 'subjective',
+        scoring_points: ['说明逻辑独立性', '说明物理独立性'],
+      },
+    }
+
+    const { container, root } = await renderComponent(
+      <CleanQuizView
+        quiz={{ items: [item] }}
+        answers={{ short_1: { text: '逻辑独立性与物理独立性。' } }}
+        submitted={false}
+        currentIndex={0}
+        mode="practice"
+        autoAdvance={false}
+        remainingSeconds={0}
+        isPaused={false}
+        revealedMap={{}}
+        isFavorite={false}
+        onToggleFavorite={noop}
+        onToggleAutoAdvance={noop}
+        onTogglePracticeWrongBook={noop}
+        onToggleExamWrongBook={noop}
+        onTogglePause={noop}
+        practiceWritesWrongBook
+        examWritesWrongBook
+        onJump={noop}
+        onPrev={noop}
+        onNext={noop}
+        onSelectOption={noop}
+        onRevealCurrentObjective={noop}
+        onSelectReadingOption={noop}
+        onFillBlankChange={noop}
+        onTextChange={noop}
+        onErDiagramChange={noop}
+        aiReview={null}
+        aiQuestionReviewMap={{}}
+        aiExplainMap={{}}
+        aiAuditMap={{}}
+        aiExplainMode="standard"
+        aiPracticeModal={null}
+        onChangeAiExplainMode={noop}
+        onExplainQuestion={noop}
+        onAuditQuestion={noop}
+        onGradeQuestion={noop}
+        onExplainWhyWrong={noop}
+        onGenerateSimilarQuestions={noop}
+        onCloseAiPracticeModal={noop}
+        onSubmit={noop}
+        onSelectCompositeOption={noop}
+        onCompositeFillBlankChange={noop}
+        onCompositeTextChange={noop}
+        onRevealCompositeQuestion={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('AI评分')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
   it('shows fill blank slot hints for top-level fill blank questions', async () => {
     const item = {
       id: 'blank_1',

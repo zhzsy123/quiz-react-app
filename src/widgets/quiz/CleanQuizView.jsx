@@ -1,6 +1,7 @@
 import React from 'react'
 import { LoaderCircle, Sparkles, XCircle } from 'lucide-react'
 import { isObjectiveAnswered } from '../../entities/quiz/lib/objectiveAnswers'
+import { hasMeaningfulErDiagramResponse } from '../../entities/quiz/lib/erDiagramAnswerUtils.js'
 import { MANUAL_JUDGE_CORRECT, resolvePracticeJudge } from '../../entities/quiz/lib/practiceJudging.js'
 import QuizNavigationSidebar from './QuizNavigationSidebar.jsx'
 import QuizObjectiveBlock from './QuizObjectiveBlock.jsx'
@@ -73,6 +74,21 @@ function getCurrentJudgeResponse(currentItem, currentNestedTarget, answers = {})
   }
 
   return answers[currentItem.id]
+}
+
+function hasGradableSubjectiveResponse(target, response) {
+  const targetType = String(target?.type || '')
+  if (!target) return false
+  if (targetType === 'er_diagram') {
+    return hasMeaningfulErDiagramResponse(response)
+  }
+  if (typeof response === 'string') {
+    return response.trim().length > 0
+  }
+  if (response && typeof response.text === 'string') {
+    return response.text.trim().length > 0
+  }
+  return false
 }
 
 function InvalidQuizFallback() {
@@ -177,6 +193,8 @@ export default function CleanQuizView({
   onRevealRelationalAlgebraQuestion,
   onFocusSubQuestion,
   onSetManualJudge,
+  onGradeQuestion,
+  onErDiagramChange,
 }) {
   const currentItem = getCurrentItem(quiz, currentIndex)
 
@@ -188,6 +206,10 @@ export default function CleanQuizView({
   const currentExplainEntry = getCurrentExplainEntry(currentItem, currentNestedTarget, aiExplainMap)
   const currentAuditEntry = getCurrentAuditEntry(currentItem, currentNestedTarget, aiAuditMap)
   const currentQuestionReview = getCurrentQuestionReview(currentItem, currentNestedTarget, aiQuestionReviewMap)
+  const currentReviewTarget = currentNestedTarget || currentItem
+  const currentReviewResponse = currentNestedTarget
+    ? answers[currentItem.id]?.[currentNestedTarget.id]
+    : answers[currentItem.id]
   const currentJudgeState =
     mode === 'practice' && currentItem.type !== 'generation_placeholder'
       ? resolvePracticeJudge({
@@ -236,6 +258,7 @@ export default function CleanQuizView({
       currentJudgeState?.manualVerdict === 'wrong')
 
   const toolbarDisabled = isPaused || currentItem.type === 'generation_placeholder'
+  const canGradeCurrentQuestion = hasGradableSubjectiveResponse(currentReviewTarget, currentReviewResponse)
 
   return (
     <div className="quiz-layout">
@@ -319,11 +342,18 @@ export default function CleanQuizView({
           {currentItem.type !== 'generation_placeholder' && (
             <QuizAiToolbar
               currentItem={currentItem}
+              currentReviewTarget={currentReviewTarget}
               currentExplainEntry={currentExplainEntry}
               currentAuditEntry={currentAuditEntry}
+              currentQuestionReview={currentQuestionReview}
               practiceJudgeState={showPracticeJudgeToggle ? currentJudgeState : null}
               onExplainQuestion={() => onExplainQuestion({ item: currentItem, subQuestion: currentNestedTarget })}
               onAuditQuestion={() => onAuditQuestion?.({ item: currentItem, subQuestion: currentNestedTarget })}
+              onGradeQuestion={
+                canGradeCurrentQuestion
+                  ? () => onGradeQuestion?.({ item: currentItem, subQuestion: currentNestedTarget })
+                  : null
+              }
               onTogglePracticeCorrect={
                 showPracticeJudgeToggle
                   ? () =>
@@ -381,6 +411,7 @@ export default function CleanQuizView({
               onRevealRelationalAlgebraQuestion={onRevealRelationalAlgebraQuestion}
               onFillBlankChange={onFillBlankChange}
               onTextChange={onTextChange}
+              onErDiagramChange={onErDiagramChange}
             />
           )}
 

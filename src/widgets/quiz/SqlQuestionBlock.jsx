@@ -7,7 +7,7 @@ import { keymap, EditorView } from '@codemirror/view'
 import { oneDark } from '@codemirror/theme-one-dark'
 
 import SqlSchemaPanel from './SqlSchemaPanel.jsx'
-import { getQuestionDisplayMeta, getSubjectiveText } from './quizViewUtils.jsx'
+import { getSubjectiveText } from './quizViewUtils.jsx'
 import {
   buildSqlAutocompleteSchema,
   insertTextIntoEditor,
@@ -88,7 +88,6 @@ function SqlToolbar({ onInsertSnippet, disabled }) {
 
 export default function SqlQuestionBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   const [editorView, setEditorView] = useState(null)
-  const displayMeta = getQuestionDisplayMeta(item)
   const text = getSubjectiveText(userResponse)
   const readOnly = disabled || submitted
   const schema = buildSqlAutocompleteSchema(item.context)
@@ -109,7 +108,7 @@ export default function SqlQuestionBlock({ item, userResponse, disabled, submitt
 
   return (
     <div className="sql-question-block">
-      <div className="sql-workbench sql-workbench-editor">
+      <div className="sql-workbench sql-workbench-editor refined">
         <SqlSchemaPanel
           title={item.context_title || '表结构与题目背景'}
           context={item.context}
@@ -118,29 +117,15 @@ export default function SqlQuestionBlock({ item, userResponse, disabled, submitt
           disabled={readOnly}
         />
 
-        <section className="sql-editor-card compact">
-          <div className="sql-panel-head compact">
+        <section className="sql-editor-card refined">
+          <div className="sql-panel-head refined">
             <div className="sql-panel-title">
               <Braces size={16} />
-              <span>{displayMeta.label}工作区</span>
+              <span>SQL 工作区</span>
             </div>
-            <span className="sql-panel-caption subtle">支持 Tab 缩进、关键字高亮和自动补全。</span>
           </div>
 
-          {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 ? (
-            <div className="sql-requirements-card">
-              <div className="sql-section-title">作答要求</div>
-              <ul className="analysis-list">
-                {item.requirements.points.map((point, index) => (
-                  <li key={index}>{point}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <div className="sql-editor-tools compact">
-            <SqlToolbar onInsertSnippet={handleInsertSnippet} disabled={readOnly} />
-          </div>
+          <SqlToolbar onInsertSnippet={handleInsertSnippet} disabled={readOnly} />
 
           <div className="sql-editor-shell">
             <CodeMirror

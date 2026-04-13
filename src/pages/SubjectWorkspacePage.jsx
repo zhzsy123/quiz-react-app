@@ -66,10 +66,12 @@ export default function SubjectWorkspacePage() {
     handleFocusSubQuestion,
     handleTextChange,
     handleCompositeTextChange,
+    handleErDiagramChange,
     handleReset,
     handleChangeAiExplainMode,
     handleExplainQuestionWithMode,
     handleAuditQuestion,
+    handleGradeQuestion,
     handleExplainWhyWrong,
     handleGenerateSimilarQuestions,
     handleCloseAiPracticeModal,
@@ -316,6 +318,7 @@ export default function SubjectWorkspacePage() {
           onSetManualJudge={handleSetManualJudge}
           onTextChange={handleTextChange}
           onCompositeTextChange={handleCompositeTextChange}
+          onErDiagramChange={handleErDiagramChange}
           aiReview={aiReview}
           aiQuestionReviewMap={aiQuestionReviewMap}
           aiExplainMap={aiExplainMap}
@@ -325,6 +328,7 @@ export default function SubjectWorkspacePage() {
           onChangeAiExplainMode={handleChangeAiExplainMode}
           onExplainQuestion={handleExplainQuestionWithMode}
           onAuditQuestion={handleAuditQuestion}
+          onGradeQuestion={handleGradeQuestion}
           onExplainWhyWrong={handleExplainWhyWrong}
           onGenerateSimilarQuestions={handleGenerateSimilarQuestions}
           onCloseAiPracticeModal={handleCloseAiPracticeModal}

@@ -58,6 +58,7 @@ import {
   runExplainQuestionAi as runWorkspaceExplainQuestionAi,
   runRelationalAlgebraSubquestionAi as runWorkspaceRelationalAlgebraSubquestionAi,
   runSimilarQuestionsAi as runWorkspaceSimilarQuestionsAi,
+  runSingleSubjectiveQuestionAiReview as runWorkspaceSingleSubjectiveQuestionAiReview,
   runSubjectiveAiReview as runWorkspaceSubjectiveAiReview,
 } from './subjectWorkspaceAi.js'
 import {
@@ -125,6 +126,7 @@ export function useSubjectWorkspaceState() {
   const [readyToPersist, setReadyToPersist] = useState(false)
   const [favoriteEntries, setFavoriteEntries] = useState([])
   const relationalAlgebraReviewRequestRef = useRef({})
+  const singleQuestionReviewRequestRef = useRef({})
 
   useEffect(() => {
     answersRef.current = answers
@@ -340,6 +342,28 @@ export function useSubjectWorkspaceState() {
     await persistNow({ aiReview: nextReview, ...progressOverrides })
     await persistAttemptPatch(attemptId, { aiReview: nextReview })
     return nextReview
+  }
+
+  const buildStaleQuestionReview = (reviewKey, feedback) => {
+    const currentReview = aiReviewRef.current
+    const existingEntry = currentReview?.questionReviews?.[reviewKey]
+    if (!currentReview || !existingEntry) return null
+
+    return {
+      ...currentReview,
+      questionReviews: {
+        ...(currentReview.questionReviews || {}),
+        [reviewKey]: {
+          ...existingEntry,
+          status: 'stale',
+          score: 0,
+          feedback,
+          strengths: [],
+          weaknesses: [],
+          suggestions: [],
+        },
+      },
+    }
   }
 
   const syncAiExplainEntry = async (entryKey, nextEntry, nextAttemptId = attemptId) => {
@@ -718,6 +742,54 @@ export function useSubjectWorkspaceState() {
         answerStrategy: [],
         auditVerdict: '',
         error: error?.message || 'AI 核题失败',
+      })
+    }
+  }
+
+  const handleGradeQuestion = async ({ item, subQuestion = null }) => {
+    if (!quiz || !item) return
+
+    const target = subQuestion || item
+    if (!['short_answer', 'er_diagram'].includes(target?.type || '')) return
+
+    const reviewKey = subQuestion ? `${item.id}:${subQuestion.id}` : item.id
+    const requestId = (singleQuestionReviewRequestRef.current[reviewKey] || 0) + 1
+    singleQuestionReviewRequestRef.current[reviewKey] = requestId
+
+    await upsertAiQuestionReview(reviewKey, {
+      status: 'pending',
+      questionId: reviewKey,
+      score: 0,
+      maxScore: Number(target?.score || item?.score || 0),
+      feedback: 'AI 正在评分，请稍候。',
+      strengths: [],
+      weaknesses: [],
+      suggestions: [],
+    })
+
+    try {
+      const completedReview = await runWorkspaceSingleSubjectiveQuestionAiReview({
+        quiz,
+        answers,
+        item,
+        subQuestion,
+      })
+      if (singleQuestionReviewRequestRef.current[reviewKey] !== requestId) return
+      await upsertAiQuestionReview(reviewKey, {
+        ...completedReview,
+        status: 'completed',
+      })
+    } catch (error) {
+      if (singleQuestionReviewRequestRef.current[reviewKey] !== requestId) return
+      await upsertAiQuestionReview(reviewKey, {
+        status: 'failed',
+        questionId: reviewKey,
+        score: 0,
+        maxScore: Number(target?.score || item?.score || 0),
+        feedback: error?.message || 'AI 评分失败，请稍后重试。',
+        strengths: [],
+        weaknesses: [],
+        suggestions: [],
       })
     }
   }
@@ -1317,8 +1389,16 @@ export function useSubjectWorkspaceState() {
     if (currentItem?.type === 'relational_algebra') return
     const nextAnswers = { ...answersRef.current, [questionId]: { text } }
     const nextManualJudgeMap = clearManualJudgeForTarget(currentItem)
+    const nextReview = buildStaleQuestionReview(questionId, '答案已更新，请重新点击 AI评分。')
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
+    if (nextReview) {
+      setAiReview(nextReview)
+      aiReviewRef.current = nextReview
+      void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap, aiReview: nextReview })
+      void persistAttemptPatch(attemptId, { aiReview: nextReview })
+      return
+    }
     void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap })
   }
 
@@ -1336,8 +1416,40 @@ export function useSubjectWorkspaceState() {
     }
     const nextAnswers = { ...answersRef.current, [parentQuestionId]: nextCompositeAnswers }
     const nextManualJudgeMap = clearManualJudgeForTarget(currentItem, subQuestion)
+    const reviewKey = `${parentQuestionId}:${subQuestionId}`
+    const nextReview = buildStaleQuestionReview(reviewKey, '答案已更新，请重新点击 AI评分。')
     setAnswers(nextAnswers)
     answersRef.current = nextAnswers
+    if (nextReview) {
+      setAiReview(nextReview)
+      aiReviewRef.current = nextReview
+      void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap, aiReview: nextReview })
+      void persistAttemptPatch(attemptId, { aiReview: nextReview })
+      return
+    }
+    void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap })
+  }
+
+  const handleErDiagramChange = (questionId, nextResponse) => {
+    if (!quiz || submitted || (mode === 'exam' && isPaused)) return
+
+    const currentItem = quiz.items[currentIndex]
+    if (currentItem?.type !== 'er_diagram' || currentItem.id !== questionId) return
+
+    const nextAnswers = { ...answersRef.current, [questionId]: nextResponse }
+    const nextManualJudgeMap = clearManualJudgeForTarget(currentItem)
+    const nextReview = buildStaleQuestionReview(questionId, '图形答案已更新，请重新点击 AI评分。')
+    setAnswers(nextAnswers)
+    answersRef.current = nextAnswers
+
+    if (nextReview) {
+      setAiReview(nextReview)
+      aiReviewRef.current = nextReview
+      void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap, aiReview: nextReview })
+      void persistAttemptPatch(attemptId, { aiReview: nextReview })
+      return
+    }
+
     void persistNow({ answers: nextAnswers, manualJudgeMap: nextManualJudgeMap })
   }
 
@@ -1690,10 +1802,12 @@ export function useSubjectWorkspaceState() {
     handleRevealRelationalAlgebraQuestion,
     handleTextChange,
     handleCompositeTextChange,
+    handleErDiagramChange,
     handleReset,
     handleChangeAiExplainMode,
     handleExplainQuestionWithMode,
     handleAuditQuestion,
+    handleGradeQuestion,
     handleExplainWhyWrong,
     handleGenerateSimilarQuestions,
     handleCloseAiPracticeModal,

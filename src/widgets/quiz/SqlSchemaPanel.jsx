@@ -4,35 +4,30 @@ import { Database, Files } from 'lucide-react'
 import { renderFormattedMaterial } from './quizViewUtils.jsx'
 import { parseSqlSchemaContext } from './sqlEditorUtils.js'
 
-function InlineToken({ text, onClick, disabled, tone = 'default' }) {
+function SqlInlineToken({ text, disabled, onClick, kind = 'default' }) {
   return (
     <button
       type="button"
-      className={`sql-inline-token ${tone}`}
-      onClick={onClick}
+      className={`sql-schema-token ${kind}`}
       disabled={disabled}
+      onClick={onClick}
     >
       {text}
     </button>
   )
 }
 
-function SqlSchemaLine({ table, onInsertToken, disabled }) {
+function SqlSchemaLine({ table, disabled, onInsertToken }) {
   return (
     <div className="sql-schema-line">
-      <InlineToken
-        text={table.name}
-        tone="table"
-        disabled={disabled}
-        onClick={() => onInsertToken?.(table.name)}
-      />
+      <SqlInlineToken text={table.name} kind="table" disabled={disabled} onClick={() => onInsertToken?.(table.name)} />
       <span className="sql-schema-punctuation">（</span>
       {table.columns.map((column, index) => (
         <React.Fragment key={`${table.name}:${column}`}>
           {index > 0 ? <span className="sql-schema-punctuation">、</span> : null}
-          <InlineToken
+          <SqlInlineToken
             text={column}
-            tone="column"
+            kind="column"
             disabled={disabled}
             onClick={() => onInsertToken?.(column)}
           />
@@ -53,35 +48,30 @@ export default function SqlSchemaPanel({
   const { tables, notes } = parseSqlSchemaContext(context)
 
   return (
-    <section className="sql-schema-panel">
-      <div className="sql-panel-head compact">
+    <section className="sql-schema-panel refined">
+      <div className="sql-panel-head refined">
         <div className="sql-panel-title">
           <Database size={16} />
           <span>{title}</span>
         </div>
       </div>
 
-      <div className="sql-schema-body">
+      <div className="sql-schema-body refined">
         {tables.length > 0 ? (
           <div className="sql-schema-lines">
             {tables.map((table) => (
-              <SqlSchemaLine
-                key={table.name}
-                table={table}
-                onInsertToken={onInsertToken}
-                disabled={disabled}
-              />
+              <SqlSchemaLine key={table.name} table={table} disabled={disabled} onInsertToken={onInsertToken} />
             ))}
           </div>
         ) : null}
 
         {notes.length > 0 ? (
-          <div className="sql-schema-notes">
+          <div className="sql-schema-notes subtle">
             <div className="sql-schema-notes-title">
-              <Files size={15} />
-              <span>补充说明</span>
+              <Files size={14} />
+              <span>题目背景</span>
             </div>
-            {renderFormattedMaterial(notes.join('\n'), format || 'sql', 'sql-schema-content')}
+            {renderFormattedMaterial(notes.join('\n'), format || 'sql', 'sql-schema-content compact')}
           </div>
         ) : null}
 

@@ -2,50 +2,29 @@ const SYMBOL_ALIAS_MAP = new Map([
   ['Π', 'π'],
   ['PI', 'π'],
   ['pi', 'π'],
-  ['PROJECT', 'π'],
   ['project', 'π'],
-  ['σ', 'σ'],
-  ['SELECT', 'σ'],
-  ['select', 'σ'],
+  ['PROJECT', 'π'],
+  ['Σ', 'σ'],
   ['SIGMA', 'σ'],
   ['sigma', 'σ'],
-  ['⋈', '⋈'],
-  ['⨝', '⋈'],
+  ['select', 'σ'],
+  ['SELECT', 'σ'],
+  ['∞', '⋈'],
   ['JOIN', '⋈'],
   ['join', '⋈'],
-  ['∞', '⋈'],
-  ['÷', '÷'],
   ['DIVIDE', '÷'],
   ['divide', '÷'],
-  ['∪', '∪'],
   ['UNION', '∪'],
   ['union', '∪'],
-  ['∩', '∩'],
   ['INTERSECT', '∩'],
   ['intersect', '∩'],
-  ['¬', '¬'],
-  ['NOT', '¬'],
-  ['not', '¬'],
-  ['∨', '∨'],
   ['OR', '∨'],
   ['or', '∨'],
-  ['^', '^'],
-  ['∧', '^'],
-  ['AND', '^'],
-  ['and', '^'],
-  ['≥', '≥'],
-  ['>=', '≥'],
-  ['≤', '≤'],
-  ['<=', '≤'],
-  ['≠', '≠'],
+  ['NOT', '¬'],
+  ['not', '¬'],
   ['!=', '≠'],
   ['<>', '≠'],
-  ['ρ', 'ρ'],
-  ['RENAME', 'ρ'],
-  ['rename', 'ρ'],
 ])
-
-const WRAP_SYMBOLS = new Set(['π', 'σ', 'ρ'])
 
 function safeParseJson(text) {
   if (typeof text !== 'string') return null
@@ -54,11 +33,6 @@ function safeParseJson(text) {
   } catch {
     return null
   }
-}
-
-export function normalizeSymbol(value = '') {
-  const trimmed = String(value || '').trim()
-  return SYMBOL_ALIAS_MAP.get(trimmed) || trimmed
 }
 
 function normalizeSubquestionId(subquestion, fallbackIndex) {
@@ -71,6 +45,38 @@ function createEmptyResponseMap(subquestions = []) {
     map[normalizeSubquestionId(subquestion, index)] = ''
     return map
   }, {})
+}
+
+function clampSelection(selection, text) {
+  const safe = Number.isFinite(selection) ? selection : text.length
+  return Math.max(0, Math.min(text.length, safe))
+}
+
+function buildSelectionPayload(text, selectionStartOffset, selectionEndOffset = selectionStartOffset) {
+  return {
+    text,
+    selectionStartOffset,
+    selectionEndOffset,
+  }
+}
+
+function getBracketContext(value, cursor) {
+  const openIndex = value.lastIndexOf('[', Math.max(0, cursor - 1))
+  if (openIndex === -1) return null
+
+  const closeIndex = value.indexOf(']', openIndex)
+  if (closeIndex === -1 || cursor > closeIndex) return null
+
+  return {
+    openIndex,
+    closeIndex,
+    content: value.slice(openIndex + 1, closeIndex),
+  }
+}
+
+export function normalizeSymbol(value = '') {
+  const trimmed = String(value || '').trim()
+  return SYMBOL_ALIAS_MAP.get(trimmed) || trimmed
 }
 
 export function normalizeRelationalAlgebraResponse(response, subquestions = []) {
@@ -172,45 +178,65 @@ export function getRelationalAlgebraSchemaTokens(schemas = []) {
   return tokens
 }
 
+export function buildRelationalAlgebraInsertion(symbol, options = {}) {
+  const normalized = normalizeSymbol(symbol)
+  const value = options.textValue || ''
+  const cursor = clampSelection(options.selectionStart, value)
+  const kind = options.kind || 'symbol'
+
+  if (kind === 'attribute') {
+    const bracketContext = getBracketContext(value, cursor)
+    if (bracketContext) {
+      const existing = bracketContext.content.trim()
+      const needsComma = Boolean(existing) && !/[，,]\s*$/.test(value.slice(0, cursor))
+      const prefix = needsComma ? '，' : ''
+      const text = `${prefix}${normalized}`
+      return buildSelectionPayload(text, text.length)
+    }
+  }
+
+  if (normalized === 'π') {
+    return buildSelectionPayload('π[]()', 2)
+  }
+
+  if (normalized === 'σ') {
+    return buildSelectionPayload('σ[]()', 2)
+  }
+
+  if (options.wrapStyle === 'quotes' || normalized === "'") {
+    return buildSelectionPayload("''", 1)
+  }
+
+  return buildSelectionPayload(normalized, normalized.length)
+}
+
 export function insertTextAtCursor(textarea, insertedText, options = {}) {
   if (!textarea) return null
 
   const value = textarea.value || ''
-  const start = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : value.length
-  const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : value.length
-  const insertion = String(insertedText || '')
-  const nextValue = `${value.slice(0, start)}${insertion}${value.slice(end)}`
-  const normalizedSymbol = normalizeSymbol(insertion.replace(/\[\]$|\(\)$|''$/g, ''))
-  const cursorOffset =
-    typeof options.cursorOffset === 'number'
-      ? options.cursorOffset
-      : WRAP_SYMBOLS.has(normalizedSymbol)
-        ? insertion.length - 1
-        : insertion.length
-  const nextCursor = start + cursorOffset
+  const start = clampSelection(textarea.selectionStart, value)
+  const end = clampSelection(textarea.selectionEnd, value)
+  const insertion =
+    typeof insertedText === 'string'
+      ? buildSelectionPayload(insertedText, insertedText.length)
+      : insertedText && typeof insertedText === 'object'
+        ? insertedText
+        : buildSelectionPayload('', 0)
+
+  const nextValue = `${value.slice(0, start)}${insertion.text}${value.slice(end)}`
+  const nextSelectionStart = start + clampSelection(insertion.selectionStartOffset, insertion.text)
+  const nextSelectionEnd = start + clampSelection(insertion.selectionEndOffset, insertion.text)
 
   textarea.value = nextValue
   if (typeof textarea.setSelectionRange === 'function') {
-    textarea.setSelectionRange(nextCursor, nextCursor)
+    textarea.setSelectionRange(nextSelectionStart, nextSelectionEnd)
   }
   textarea.dispatchEvent(new Event('input', { bubbles: true }))
   textarea.focus()
 
   return {
     value: nextValue,
-    cursor: nextCursor,
+    selectionStart: nextSelectionStart,
+    selectionEnd: nextSelectionEnd,
   }
-}
-
-export function buildRelationalAlgebraInsertion(symbol, { wrap = false, wrapStyle = 'parens' } = {}) {
-  const normalized = normalizeSymbol(symbol)
-  if (!normalized) return ''
-  if (!wrap) return normalized
-  if (wrapStyle === 'brackets') return `${normalized}[]`
-  if (wrapStyle === 'quotes') return "''"
-  return `${normalized}()`
-}
-
-export function isRelationalAlgebraWrapSymbol(symbol) {
-  return WRAP_SYMBOLS.has(normalizeSymbol(symbol))
 }

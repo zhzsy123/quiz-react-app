@@ -1,9 +1,24 @@
 import { requestAiJson } from '../../shared/api/aiGateway.js'
+import { serializeErDiagramResponse } from '../../entities/quiz/lib/erDiagramAnswerUtils.js'
 
 export {
   gradeRelationalAlgebraAttempt,
   gradeRelationalAlgebraSubquestionAttempt,
 } from './relationalAlgebraReview'
+
+function normalizeSubjectiveResponse(response, itemType = '') {
+  if (typeof response === 'string') return response.trim()
+  if (!response || typeof response !== 'object') return ''
+  if (typeof response.text === 'string') return response.text.trim()
+  if (itemType === 'er_diagram' || response.diagram || response.relations) {
+    return serializeErDiagramResponse(response)
+  }
+  try {
+    return JSON.stringify(response, null, 2)
+  } catch {
+    return ''
+  }
+}
 
 function subjectiveQuestionPayload(item, response) {
   return {
@@ -18,7 +33,7 @@ function subjectiveQuestionPayload(item, response) {
     reference_answer: item.answer?.reference_answer || '',
     scoring_points: item.answer?.scoring_points || [],
     scoring_rubric: item.answer?.scoring_rubric || null,
-    user_answer: response?.text || '',
+    user_answer: normalizeSubjectiveResponse(response, item.type),
   }
 }
 
@@ -27,6 +42,7 @@ function buildQuestionReviewMap(questionReviews = []) {
     if (!review?.question_id) return map
     map[review.question_id] = {
       questionId: review.question_id,
+      status: 'completed',
       score: Number(review.score) || 0,
       maxScore: Number(review.max_score) || 0,
       feedback: review.feedback || '',
@@ -82,14 +98,7 @@ function buildQuestionTarget(item, response, subQuestion = null) {
     blanks: item.blanks || [],
     correct_answer: item.answer?.correct || item.answer?.reference_answer || '',
     rationale: item.answer?.rationale || item.answer?.reference_answer || '',
-    user_answer:
-      item.answer?.type === 'subjective'
-        ? response?.text || ''
-        : Array.isArray(response)
-          ? response.join(', ')
-          : typeof response === 'object'
-            ? JSON.stringify(response)
-            : response || '',
+    user_answer: normalizeSubjectiveResponse(response, item.type),
     score: Number(item?.score) || 0,
     source_text: item.source_text || '',
     context_title: item.context_title || '',
@@ -109,6 +118,7 @@ function buildQuestionTarget(item, response, subQuestion = null) {
       : [],
     requirements: item.requirements || {},
     scoring_points: item.answer?.scoring_points || [],
+    er_diagram_answer: item.type === 'er_diagram' ? normalizeSubjectiveResponse(response, item.type) : '',
   }
 }
 
@@ -138,7 +148,7 @@ function resolveQuestionAuditStrategy(item, subQuestion = null) {
         '实体与属性划分是否清晰',
         '联系、联系名、基数和约束是否一致',
         '主键、外键或唯一标识是否缺失',
-        '题干、答案、解析是否在同一建模语境下',
+        '题干、答案、解析是否处在同一建模语境中',
       ],
     }
   }
@@ -260,6 +270,81 @@ export async function gradeSubjectiveAttempt({
     overallComment: content?.overall_comment || '',
     weaknessSummary: Array.isArray(content?.weakness_summary) ? content.weakness_summary : [],
     questionReviews: questionReviewMap,
+  }
+}
+
+export async function gradeSingleSubjectiveQuestionAttempt({
+  paperTitle,
+  item,
+  response,
+  subQuestion = null,
+}) {
+  const target = subQuestion || item
+  if (!item || !target) return null
+
+  const payload = {
+    question_id: subQuestion ? `${item.id}:${target.id}` : item.id,
+    type: target.type || item.type,
+    prompt: target.prompt || item.prompt || '',
+    score: Number(target.score || item.score || 0),
+    context_title: target.context_title || item.context_title || '',
+    context: target.context || item.context || '',
+    requirements: target.requirements || item.requirements || {},
+    reference_answer:
+      target.answer?.reference_answer || target.reference_answer || item.answer?.reference_answer || '',
+    scoring_points:
+      target.answer?.scoring_points || target.scoring_points || item.answer?.scoring_points || [],
+    user_answer: normalizeSubjectiveResponse(response, target.type || item.type),
+    parent_question: subQuestion
+      ? {
+          id: item.id,
+          type: item.type,
+          prompt: item.prompt,
+          material_title: item.material_title || item.context_title || '',
+          material: item.material || item.context || '',
+        }
+      : null,
+    schemas: Array.isArray(item.schemas) ? item.schemas : [],
+  }
+
+  const { content, model } = await requestAiJson({
+    feature: 'question_scoring',
+    title: paperTitle || 'Untitled paper',
+    subject: item?.subject || '',
+    systemPrompt:
+      '你是一名数据库课程助教。只返回 JSON。请依据题干、参考答案、评分点和学生答案，用中文给出分数、优点、不足和改进建议。',
+    userPrompt: JSON.stringify(
+      {
+        task: 'grade_single_subjective_question',
+        paper_title: paperTitle || 'Untitled paper',
+        question: payload,
+        output_schema: {
+          question_id: 'string',
+          score: 'number',
+          max_score: 'number',
+          feedback: '中文字符串',
+          strengths: ['中文字符串'],
+          weaknesses: ['中文字符串'],
+          suggestions: ['中文字符串'],
+        },
+      },
+      null,
+      2
+    ),
+  })
+
+  return {
+    status: 'completed',
+    provider: 'deepseek',
+    model,
+    reviewedAt: Date.now(),
+    questionId: content?.question_id || payload.question_id,
+    score: Number(content?.score) || 0,
+    maxScore: Number(content?.max_score) || payload.score,
+    feedback: content?.feedback || '',
+    strengths: Array.isArray(content?.strengths) ? content.strengths : [],
+    weaknesses: Array.isArray(content?.weaknesses) ? content.weaknesses : [],
+    suggestions: Array.isArray(content?.suggestions) ? content.suggestions : [],
   }
 }
 
