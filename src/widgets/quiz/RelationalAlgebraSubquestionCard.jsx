@@ -1,5 +1,6 @@
 import React from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, LoaderCircle, TriangleAlert, XCircle } from 'lucide-react'
+
 import { buildPreviewText, formatDisplayScore } from './quizViewUtils.jsx'
 import RelationalAlgebraToolbar from './RelationalAlgebraToolbar.jsx'
 
@@ -47,7 +48,7 @@ function getStatusMeta(review, hasAnswer) {
   if (hasAnswer) {
     return {
       tone: 'waiting',
-      label: '待 AI 核验',
+      label: '待核验',
       icon: null,
     }
   }
@@ -134,7 +135,6 @@ export default function RelationalAlgebraSubquestionCard({
           <div className="rel-algebra-editor-shell">
             <div className="rel-algebra-editor-head">
               <div className="rel-algebra-editor-title">关系代数表达式</div>
-              <div className="rel-algebra-editor-caption">左侧关系模式和下方模板、符号都支持点击插入。</div>
             </div>
 
             <textarea

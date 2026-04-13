@@ -4,35 +4,42 @@ import { Database, Files } from 'lucide-react'
 import { renderFormattedMaterial } from './quizViewUtils.jsx'
 import { parseSqlSchemaContext } from './sqlEditorUtils.js'
 
-function SqlSchemaCard({ table, onInsertToken, disabled }) {
+function InlineToken({ text, onClick, disabled, tone = 'default' }) {
   return (
-    <article className="sql-schema-card">
-      <div className="sql-schema-card-head">
-        <button
-          type="button"
-          className="sql-schema-token sql-schema-token-table"
-          onClick={() => onInsertToken?.(table.name)}
-          disabled={disabled}
-        >
-          {table.name}
-        </button>
-        <span className="sql-schema-card-meta">{table.columns.length} 列</span>
-      </div>
+    <button
+      type="button"
+      className={`sql-inline-token ${tone}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {text}
+    </button>
+  )
+}
 
-      <div className="sql-schema-token-list">
-        {table.columns.map((column) => (
-          <button
-            key={`${table.name}:${column}`}
-            type="button"
-            className="sql-schema-token sql-schema-token-column"
-            onClick={() => onInsertToken?.(column)}
+function SqlSchemaLine({ table, onInsertToken, disabled }) {
+  return (
+    <div className="sql-schema-line">
+      <InlineToken
+        text={table.name}
+        tone="table"
+        disabled={disabled}
+        onClick={() => onInsertToken?.(table.name)}
+      />
+      <span className="sql-schema-punctuation">（</span>
+      {table.columns.map((column, index) => (
+        <React.Fragment key={`${table.name}:${column}`}>
+          {index > 0 ? <span className="sql-schema-punctuation">、</span> : null}
+          <InlineToken
+            text={column}
+            tone="column"
             disabled={disabled}
-          >
-            {column}
-          </button>
-        ))}
-      </div>
-    </article>
+            onClick={() => onInsertToken?.(column)}
+          />
+        </React.Fragment>
+      ))}
+      <span className="sql-schema-punctuation">）</span>
+    </div>
   )
 }
 
@@ -47,21 +54,18 @@ export default function SqlSchemaPanel({
 
   return (
     <section className="sql-schema-panel">
-      <div className="sql-panel-head">
+      <div className="sql-panel-head compact">
         <div className="sql-panel-title">
           <Database size={16} />
           <span>{title}</span>
         </div>
-        <span className="sql-panel-caption">
-          点击表名或字段可直接插入到编辑器。编辑器支持 Tab 缩进、自动补全和 SQL 关键字高亮。
-        </span>
       </div>
 
       <div className="sql-schema-body">
         {tables.length > 0 ? (
-          <div className="sql-schema-cards">
+          <div className="sql-schema-lines">
             {tables.map((table) => (
-              <SqlSchemaCard
+              <SqlSchemaLine
                 key={table.name}
                 table={table}
                 onInsertToken={onInsertToken}
@@ -82,7 +86,7 @@ export default function SqlSchemaPanel({
         ) : null}
 
         {!tables.length && !notes.length ? (
-          <div className="sql-schema-empty">当前 SQL 题未提供表结构或业务背景。</div>
+          <div className="sql-schema-empty">当前 SQL 题未提供表结构或题目背景。</div>
         ) : null}
       </div>
     </section>

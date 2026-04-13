@@ -79,6 +79,12 @@ describe('RelationalAlgebraBlock', () => {
   it('renders schema lines, supports template insertion, and can collapse tools', () => {
     const { container, root } = mountHarness()
 
+    const promptText = '请完成下列查询。'
+    const pageText = container.textContent || ''
+    const promptCount = pageText.split(promptText).length - 1
+    expect(promptCount).toBe(0)
+    expect(pageText).not.toContain('待核验 0 / 2')
+
     const header = container.querySelector('.rel-algebra-subquestion-head')
     expect(header).toBeTruthy()
 

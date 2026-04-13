@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
-import { Braces, Sparkles } from 'lucide-react'
+import { Braces } from 'lucide-react'
 import { sql, StandardSQL } from '@codemirror/lang-sql'
 import { indentWithTab } from '@codemirror/commands'
 import { keymap, EditorView } from '@codemirror/view'
@@ -118,18 +118,14 @@ export default function SqlQuestionBlock({ item, userResponse, disabled, submitt
           disabled={readOnly}
         />
 
-        <section className="sql-editor-card">
-          <div className="sql-panel-head">
+        <section className="sql-editor-card compact">
+          <div className="sql-panel-head compact">
             <div className="sql-panel-title">
               <Braces size={16} />
-              <span>{displayMeta.label}工作台</span>
+              <span>{displayMeta.label}工作区</span>
             </div>
-            <span className="sql-panel-caption">
-              真实 SQL 编辑器已启用。支持 Tab 缩进、SQL 关键字高亮、自动补全和多行作答。
-            </span>
+            <span className="sql-panel-caption subtle">支持 Tab 缩进、关键字高亮和自动补全。</span>
           </div>
-
-          {item.prompt ? <div className="sql-question-prompt">{item.prompt}</div> : null}
 
           {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 ? (
             <div className="sql-requirements-card">
@@ -142,12 +138,8 @@ export default function SqlQuestionBlock({ item, userResponse, disabled, submitt
             </div>
           ) : null}
 
-          <div className="sql-editor-tools">
+          <div className="sql-editor-tools compact">
             <SqlToolbar onInsertSnippet={handleInsertSnippet} disabled={readOnly} />
-            <div className="sql-editor-hint">
-              <Sparkles size={15} />
-              <span>支持点击左侧表名和字段插入，也可按 Tab 缩进、Enter 换行。</span>
-            </div>
           </div>
 
           <div className="sql-editor-shell">

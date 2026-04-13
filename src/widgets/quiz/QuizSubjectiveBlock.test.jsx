@@ -89,7 +89,6 @@ describe('QuizSubjectiveBlock', () => {
     const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(translation)} />)
 
     expect(container.textContent).toContain('英译中')
-    expect(container.textContent).toContain('Translate the paragraph.')
     expect(container.textContent).toContain('This is the source paragraph.')
 
     await act(async () => {
@@ -109,12 +108,39 @@ describe('QuizSubjectiveBlock', () => {
       },
     }
 
-    const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(essay)} />)
+    const { container, root } = await renderComponent(
+      <QuizSubjectiveBlock {...createBaseProps(essay, { submitted: true })} />
+    )
 
     expect(container.textContent).toContain('评分要点')
     expect(container.textContent).toContain('切题')
     expect(container.textContent).toContain('结构完整')
     expect(container.textContent).toContain('表达连贯')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('does not repeat prompt or expose scoring points for short answers before submit', async () => {
+    const shortAnswer = {
+      id: 'short_1',
+      type: 'short_answer',
+      prompt: '简述数据库系统中“数据独立性”的含义，并区分逻辑独立性和物理独立性。',
+      score: 8,
+      answer: {
+        type: 'subjective',
+        scoring_points: ['说明数据独立性的总体含义', '正确区分逻辑独立性', '正确区分物理独立性'],
+      },
+    }
+
+    const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(shortAnswer)} />)
+    const text = container.textContent || ''
+    const prompt = shortAnswer.prompt
+    const promptCount = text.split(prompt).length - 1
+
+    expect(promptCount).toBe(0)
+    expect(text).not.toContain('评分要点')
 
     await act(async () => {
       root.unmount()
@@ -139,9 +165,9 @@ describe('QuizSubjectiveBlock', () => {
 
     const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(sqlQuestion)} />)
 
-    expect(container.textContent).toContain('SQL 题工作台')
+    expect(container.textContent).toContain('SQL 题工作区')
     expect(container.textContent).toContain('表结构')
-    expect(container.textContent).toContain('真实 SQL 编辑器已启用')
+    expect(container.textContent).toContain('支持 Tab 缩进、关键字高亮和自动补全。')
     expect(container.textContent).toContain('SELECT')
     expect(container.textContent).toContain('GROUP BY')
     expect(container.textContent).toContain('Student')
@@ -191,7 +217,7 @@ describe('QuizSubjectiveBlock', () => {
     expect(container.textContent).toContain('材料区')
     expect(container.textContent).toContain('子题区')
     expect(container.textContent).toContain('学生选课案例')
-    expect(container.textContent).toContain('SQL 题工作台')
+    expect(container.textContent).toContain('SQL 题工作区')
     expect(container.textContent).toContain('主键的作用')
 
     await act(async () => {

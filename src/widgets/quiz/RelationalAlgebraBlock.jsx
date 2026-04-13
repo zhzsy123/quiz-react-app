@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+
 import RelationalAlgebraSchemaPanel from './RelationalAlgebraSchemaPanel.jsx'
 import RelationalAlgebraSubquestionCard from './RelationalAlgebraSubquestionCard.jsx'
-import { formatDisplayScore } from './quizViewUtils.jsx'
 import { RELATIONAL_ALGEBRA_TEMPLATES } from './relationalAlgebraTemplates.js'
 import {
   buildRelationalAlgebraInsertion,
@@ -29,7 +29,7 @@ function TemplatePanel({ disabled, onInsertTemplate }) {
       <div className="rel-algebra-panel-header">
         <div>
           <div className="rel-algebra-panel-title">常用模板</div>
-          <div className="rel-algebra-panel-caption">先插模板再替换属性、条件和关系名，录入会更快。</div>
+          <div className="rel-algebra-panel-caption">先插模板，再替换属性、条件和关系名，录入会更快。</div>
         </div>
       </div>
 
@@ -75,7 +75,6 @@ export default function RelationalAlgebraBlock({
   const activeSubquestionId = focusSubQuestionId || getFirstQuestionId(subquestions)
 
   const effectiveExpandedMap = buildExpandedMap(subquestions, expandedMap)
-  const contentScore = subquestions.reduce((sum, subquestion) => sum + (Number(subquestion?.score) || 0), 0)
   const answeredCount = useMemo(
     () =>
       subquestions.filter((subquestion, index) => {
@@ -154,21 +153,6 @@ export default function RelationalAlgebraBlock({
 
   return (
     <div className="subjective-block rel-algebra-block">
-      <section className="rel-algebra-overview-card">
-        <div className="rel-algebra-overview-body compact">
-          <div className="rel-algebra-overview-copy">
-            <h3 className="rel-algebra-overview-title">{item?.title || '关系代数题'}</h3>
-            {item?.prompt ? <p className="rel-algebra-overview-prompt">{item.prompt}</p> : null}
-          </div>
-
-          <div className="rel-algebra-meta-pills">
-            <span className="rel-algebra-meta-pill">{subquestions.length} 个子题</span>
-            <span className="rel-algebra-meta-pill">{formatDisplayScore(contentScore)} 分</span>
-            <span className="rel-algebra-meta-pill neutral">待核验 {answeredCount} / {subquestions.length}</span>
-          </div>
-        </div>
-      </section>
-
       <div className={`rel-algebra-workbench spacious ${toolsCollapsed ? 'tools-collapsed' : ''}`}>
         <aside className={`rel-algebra-sidebar wide ${toolsCollapsed ? 'collapsed' : ''}`}>
           <div className="rel-algebra-sidebar-toggle-row">
@@ -197,7 +181,7 @@ export default function RelationalAlgebraBlock({
               <TemplatePanel disabled={isPaused} onInsertTemplate={insertTemplateIntoActive} />
             </>
           ) : (
-            <div className="rel-algebra-tools-collapsed-hint">已折叠工具区，点击“展开工具”查看关系模式和模板。</div>
+            <div className="rel-algebra-tools-collapsed-hint">工具区已折叠，点击“展开工具”可查看关系模式和模板。</div>
           )}
         </aside>
 
@@ -205,7 +189,7 @@ export default function RelationalAlgebraBlock({
           <div className="rel-algebra-canvas-head">
             <div>
               <div className="rel-algebra-canvas-title">答题工作区</div>
-              <div className="rel-algebra-panel-caption">按子题依次作答，每个子题单独 AI 判题。</div>
+              <div className="rel-algebra-panel-caption">按题依次作答，已作答 {answeredCount} / {subquestions.length}。</div>
             </div>
           </div>
 

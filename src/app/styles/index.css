@@ -1266,28 +1266,32 @@ button { border: none; }
 }
 .sql-workbench {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 .sql-schema-panel,
 .sql-editor-card {
-  padding: 18px;
+  padding: 16px 18px;
   border-radius: 18px;
-  background: rgba(15,23,42,0.78);
-  border: 1px solid rgba(96,165,250,0.18);
+  background: linear-gradient(180deg, rgba(15,23,42,0.92), rgba(15,23,42,0.74));
+  border: 1px solid rgba(96,165,250,0.16);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.24);
 }
 .sql-panel-head {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.sql-panel-head.compact {
+  margin-bottom: 10px;
 }
 .sql-panel-title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #dbeafe;
+  color: #eff6ff;
   font-weight: 800;
 }
 .sql-panel-caption {
@@ -1295,74 +1299,60 @@ button { border: none; }
   line-height: 1.6;
   font-size: 0.9rem;
 }
+.sql-panel-caption.subtle {
+  font-size: 0.88rem;
+}
 .sql-schema-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   color: #dbeafe;
 }
-.sql-schema-cards {
+.sql-schema-lines {
   display: grid;
-  gap: 12px;
-}
-.sql-schema-card {
-  padding: 14px;
-  border-radius: 14px;
-  background: rgba(2,6,23,0.42);
-  border: 1px solid rgba(148,163,184,0.14);
-}
-.sql-schema-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.sql-schema-card-meta {
-  color: #94a3b8;
-  font-size: 0.84rem;
-}
-.sql-schema-token-list {
-  display: flex;
-  flex-wrap: wrap;
   gap: 10px;
 }
-.sql-schema-token {
+.sql-schema-line {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(2,6,23,0.32);
+  border: 1px solid rgba(148,163,184,0.12);
+  color: #dbeafe;
+  line-height: 1.9;
+  word-break: break-word;
+}
+.sql-inline-token {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(96,165,250,0.16);
-  background: rgba(15,23,42,0.82);
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #dbeafe;
-  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: color 0.15s ease;
 }
-.sql-schema-token:hover {
-  background: rgba(59,130,246,0.12);
-  border-color: rgba(96,165,250,0.34);
-  transform: translateY(-1px);
+.sql-inline-token.table {
+  font-weight: 800;
 }
-.sql-schema-token:disabled {
+.sql-inline-token.column {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+.sql-inline-token:hover {
+  color: #ffffff;
+}
+.sql-inline-token:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
 }
-.sql-schema-token-table {
-  background: rgba(16,185,129,0.12);
-  border-color: rgba(16,185,129,0.3);
-  color: #ccfbf1;
-}
-.sql-schema-token-column {
-  font-weight: 500;
+.sql-schema-punctuation {
+  color: #64748b;
 }
 .sql-schema-notes {
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(2,6,23,0.3);
+  background: rgba(2,6,23,0.28);
   border: 1px solid rgba(148,163,184,0.14);
 }
 .sql-schema-notes-title {
@@ -1397,35 +1387,37 @@ button { border: none; }
   line-height: 1.75;
 }
 .sql-requirements-card {
-  margin-bottom: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 14px;
   background: rgba(2,6,23,0.34);
   border: 1px solid rgba(148,163,184,0.14);
 }
 .sql-section-title {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: #bfdbfe;
   font-weight: 700;
 }
 .sql-editor-tools {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.sql-editor-tools.compact {
+  margin-bottom: 10px;
 }
 .sql-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 .sql-toolbar-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 12px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 14px;
   background: rgba(17,24,39,0.88);
   border: 1px solid rgba(96,165,250,0.18);
   color: #dbeafe;
@@ -1458,6 +1450,12 @@ button { border: none; }
 }
 .sql-editor-shell .cm-scroller {
   overflow: auto;
+}
+
+@media (max-width: 1100px) {
+  .sql-workbench {
+    grid-template-columns: 1fr;
+  }
 }
 
 .reading-layout {
