@@ -8,7 +8,7 @@ vi.mock('../../shared/api/aiGateway.js', () => ({
   requestAiJson: requestAiJsonMock,
 }))
 
-import { gradeRelationalAlgebraAttempt } from './reviewService.js'
+import { auditQuizQuestionCompliance, gradeRelationalAlgebraAttempt } from './reviewService.js'
 
 describe('reviewService relational algebra grading', () => {
   beforeEach(() => {
@@ -171,5 +171,79 @@ describe('reviewService relational algebra grading', () => {
       })
     )
     expect(result.totalRelationalAlgebraScore).toBe(0)
+  })
+})
+
+describe('reviewService question audit strategies', () => {
+  beforeEach(() => {
+    requestAiJsonMock.mockReset()
+  })
+
+  it('uses sql-specific audit strategy for sql questions', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        verdict: '基本合理',
+        summary: '题目基本合理，但建议明确分组字段。',
+        issues: ['GROUP BY 描述不够明确'],
+        consistency_checks: ['表名与字段名自洽'],
+        suggestions: ['补充分组要求'],
+      },
+      model: 'deepseek-chat',
+    })
+
+    await auditQuizQuestionCompliance({
+      paperTitle: '数据库练习',
+      item: {
+        id: 'sql_1',
+        type: 'sql',
+        prompt: '查询平均分大于 80 的学生姓名。',
+        context_title: '表结构',
+        context: 'Student(id, name, score)',
+        answer: {
+          reference_answer: 'SELECT name FROM Student WHERE score > 80',
+          rationale: '筛选 score > 80 的记录后投影 name。',
+          scoring_points: ['字段正确', '条件正确'],
+        },
+      },
+      response: { text: 'SELECT name FROM Student WHERE score >= 80' },
+    })
+
+    expect(requestAiJsonMock).toHaveBeenCalledTimes(1)
+    const payload = requestAiJsonMock.mock.calls[0][0]
+    expect(payload.feature).toBe('question_audit')
+    expect(payload.userPrompt).toContain('"audit_strategy": "database_sql"')
+    expect(payload.userPrompt).toContain('GROUP BY')
+    expect(payload.userPrompt).toContain('Student(id, name, score)')
+  })
+
+  it('uses er-diagram strategy for er_diagram questions', async () => {
+    requestAiJsonMock.mockResolvedValueOnce({
+      content: {
+        verdict: '存在问题',
+        summary: '基数约束描述不完整。',
+        issues: ['未说明一对多关系'],
+        consistency_checks: ['实体和属性划分清晰'],
+        suggestions: ['补充联系基数'],
+      },
+      model: 'deepseek-chat',
+    })
+
+    await auditQuizQuestionCompliance({
+      paperTitle: '数据库练习',
+      item: {
+        id: 'er_1',
+        type: 'er_diagram',
+        prompt: '为学生选课系统绘制 E-R 图。',
+        answer: {
+          reference_answer: '实体：学生、课程；联系：选课',
+          rationale: '需要包含学生与课程之间的选课联系。',
+        },
+      },
+      response: { text: '学生-选课-课程' },
+    })
+
+    const payload = requestAiJsonMock.mock.calls[0][0]
+    expect(payload.userPrompt).toContain('"audit_strategy": "database_er_diagram"')
+    expect(payload.userPrompt).toContain('主键、外键或唯一标识是否缺失')
   })
 })

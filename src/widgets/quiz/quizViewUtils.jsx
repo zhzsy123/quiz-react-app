@@ -3,6 +3,104 @@ import { getQuestionTypeMeta } from '../../entities/subject/model/subjects'
 import { normalizeChoiceArray } from '../../entities/quiz/lib/objectiveAnswers'
 import { getItemScoreBreakdown } from '../../entities/quiz/lib/scoring/compoundScoring'
 
+const QUESTION_DISPLAY_META = {
+  single_choice: {
+    label: '单项选择题',
+    shortLabel: '单选',
+    gradingLabel: '自动判分',
+  },
+  multiple_choice: {
+    label: '多项选择题',
+    shortLabel: '多选',
+    gradingLabel: '自动判分',
+  },
+  true_false: {
+    label: '判断题',
+    shortLabel: '判断',
+    gradingLabel: '自动判分',
+  },
+  fill_blank: {
+    label: '填空题',
+    shortLabel: '填空',
+    gradingLabel: '自动判分',
+  },
+  function_fill_blank: {
+    label: '函数填空题',
+    shortLabel: '函数填空',
+    gradingLabel: '自动判分',
+  },
+  cloze: {
+    label: '完形填空',
+    shortLabel: '完形',
+    gradingLabel: '自动判分',
+  },
+  reading: {
+    label: '阅读理解',
+    shortLabel: '阅读',
+    gradingLabel: '自动判分',
+  },
+  translation: {
+    label: '翻译题',
+    shortLabel: '翻译',
+    gradingLabel: 'AI评分',
+  },
+  essay: {
+    label: '作文题',
+    shortLabel: '作文',
+    gradingLabel: 'AI评分',
+  },
+  short_answer: {
+    label: '简答题',
+    shortLabel: '简答',
+    gradingLabel: 'AI评分',
+  },
+  case_analysis: {
+    label: '案例分析题',
+    shortLabel: '案例',
+    gradingLabel: 'AI评分',
+  },
+  calculation: {
+    label: '计算题',
+    shortLabel: '计算',
+    gradingLabel: 'AI评分',
+  },
+  operation: {
+    label: '操作题',
+    shortLabel: '操作',
+    gradingLabel: 'AI评分',
+  },
+  programming: {
+    label: '程序设计题',
+    shortLabel: '程序',
+    gradingLabel: 'AI评分',
+  },
+  sql: {
+    label: 'SQL 题',
+    shortLabel: 'SQL',
+    gradingLabel: 'AI核题',
+  },
+  er_diagram: {
+    label: 'E-R 图题',
+    shortLabel: 'E-R图',
+    gradingLabel: 'AI核题',
+  },
+  relational_algebra: {
+    label: '关系代数题',
+    shortLabel: '关系代数',
+    gradingLabel: 'AI判等',
+  },
+  composite: {
+    label: '综合题',
+    shortLabel: '综合',
+    gradingLabel: '混合判分',
+  },
+  generation_placeholder: {
+    label: '生成中',
+    shortLabel: '生成中',
+    gradingLabel: 'AI生成',
+  },
+}
+
 export function difficultyClass(difficulty = '') {
   switch ((difficulty || '').toLowerCase()) {
     case 'easy':
@@ -77,21 +175,35 @@ export function getSpoilerTags(item) {
   return (item.tags || []).filter((tag) => !hiddenTags.has(String(tag).toLowerCase()))
 }
 
-export function getNavGroupMeta(item) {
-  if (item?.type === 'generation_placeholder') {
-    const generatedType = item.generation_type_key || item.source_type || 'generation_placeholder'
-    const meta = getQuestionTypeMeta(generatedType)
-    return {
-      key: meta.key,
-      label: meta.label,
-    }
-  }
+export function getQuestionDisplayMeta(itemOrType) {
+  const rawType =
+    typeof itemOrType === 'string'
+      ? itemOrType
+      : itemOrType?.type === 'generation_placeholder'
+        ? itemOrType?.generation_type_key || itemOrType?.source_type || 'generation_placeholder'
+        : itemOrType?.source_type === 'cloze'
+          ? 'cloze'
+          : itemOrType?.type
 
-  const normalizedType = item.source_type === 'cloze' ? 'cloze' : item.type
-  const meta = getQuestionTypeMeta(normalizedType)
+  const normalizedType = getQuestionTypeMeta(rawType).key
+  const fallbackMeta = getQuestionTypeMeta(normalizedType)
+  const displayMeta = QUESTION_DISPLAY_META[normalizedType] || {}
+
+  return {
+    key: normalizedType,
+    label: displayMeta.label || fallbackMeta.label || normalizedType,
+    shortLabel: displayMeta.shortLabel || fallbackMeta.shortLabel || normalizedType,
+    gradingLabel: displayMeta.gradingLabel || '',
+  }
+}
+
+export function getNavGroupMeta(item) {
+  const meta = getQuestionDisplayMeta(item)
   return {
     key: meta.key,
     label: meta.label,
+    shortLabel: meta.shortLabel,
+    gradingLabel: meta.gradingLabel,
   }
 }
 

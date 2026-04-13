@@ -6,6 +6,7 @@ import {
   isObjectiveResponseCorrect,
   normalizeChoiceArray,
 } from '../../../entities/quiz/lib/objectiveAnswers'
+import { buildQuestionDisplayModel, formatDisplayValue } from '../../../entities/quiz/lib/display/questionDisplayModel'
 import {
   getQuestionTypeMeta,
   getSubjectQuestionTypeOptions,
@@ -168,6 +169,42 @@ export function formatWrongBookDisplayValue(value, fallback = '') {
     }
   }
   return fallback
+}
+
+export function buildWrongBookEntryDisplayModel(item = {}) {
+  const category = getWrongItemCategory(item)
+  const compositeContext =
+    item?.composite_context && typeof item.composite_context === 'object' ? item.composite_context : {}
+
+  const display = buildQuestionDisplayModel(
+    {
+      type: category,
+      context_title: item.contextTitle || compositeContext.material_title || '',
+      context:
+        item.context || item.contextSnippet || compositeContext.composite_prompt || '',
+      context_format: item.context_format || compositeContext.material_format || compositeContext.presentation || 'plain',
+      answer: {
+        reference_answer: item.correctAnswerLabel || item.correctAnswer || '',
+        scoring_points: item.scoring_points || [],
+      },
+      requirements: item.requirements || {},
+      schemas: item.schemas || [],
+    },
+    item.userAnswer ?? item.userAnswerLabel ?? ''
+  )
+
+  return {
+    ...display,
+    category,
+    rationaleText: formatWrongBookDisplayValue(item.rationale, '暂无解析'),
+    correctText: formatDisplayValue(item.correctAnswerLabel || item.correctAnswer, '见题目配置'),
+    userAnswerText: formatDisplayValue(item.userAnswerLabel || item.userAnswer, '未记录'),
+    compositePrompt: formatWrongBookDisplayValue(compositeContext.composite_prompt, ''),
+    compositeMaterialTitle: formatWrongBookDisplayValue(compositeContext.material_title, ''),
+    compositeMaterialText: formatWrongBookDisplayValue(compositeContext.material, ''),
+    compositeMaterialCodeLike:
+      String(compositeContext.material_format || compositeContext.presentation || '').trim() === 'sql',
+  }
 }
 
 function sanitizeWrongBookOption(option, index) {

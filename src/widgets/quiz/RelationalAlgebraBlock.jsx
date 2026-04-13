@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import RelationalAlgebraSchemaPanel from './RelationalAlgebraSchemaPanel.jsx'
 import RelationalAlgebraSubquestionCard from './RelationalAlgebraSubquestionCard.jsx'
 import { formatDisplayScore } from './quizViewUtils.jsx'
+import { RELATIONAL_ALGEBRA_TEMPLATES } from './relationalAlgebraTemplates.js'
 import {
   buildRelationalAlgebraInsertion,
   insertTextAtCursor,
@@ -19,6 +21,35 @@ function buildExpandedMap(subquestions = [], existingMap = {}) {
     map[key] = Boolean(existingMap?.[key])
     return map
   }, {})
+}
+
+function TemplatePanel({ disabled, onInsertTemplate }) {
+  return (
+    <section className="rel-algebra-template-panel">
+      <div className="rel-algebra-panel-header">
+        <div>
+          <div className="rel-algebra-panel-title">常用模板</div>
+          <div className="rel-algebra-panel-caption">先插模板再替换属性、条件和关系名，录入会更快。</div>
+        </div>
+      </div>
+
+      <div className="rel-algebra-template-grid">
+        {RELATIONAL_ALGEBRA_TEMPLATES.map((template) => (
+          <button
+            key={template.key}
+            type="button"
+            className="rel-algebra-template-card"
+            disabled={disabled}
+            onClick={() => onInsertTemplate?.(template.expression)}
+          >
+            <div className="rel-algebra-template-title">{template.label}</div>
+            <div className="rel-algebra-template-description">{template.description}</div>
+            <code className="rel-algebra-template-expression">{template.expression}</code>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 export default function RelationalAlgebraBlock({
@@ -40,6 +71,7 @@ export default function RelationalAlgebraBlock({
     .join('|')
   const editorRefs = useRef({})
   const [draftMap, setDraftMap] = useState(() => normalizeRelationalAlgebraResponse(response, subquestions))
+  const [toolsCollapsed, setToolsCollapsed] = useState(false)
   const activeSubquestionId = focusSubQuestionId || getFirstQuestionId(subquestions)
 
   const effectiveExpandedMap = buildExpandedMap(subquestions, expandedMap)
@@ -67,13 +99,12 @@ export default function RelationalAlgebraBlock({
     commitDraft(nextDraft, String(subquestionId))
   }
 
-  function insertIntoSubquestion(subquestionId, token, options = {}) {
+  function insertRawIntoSubquestion(subquestionId, insertion) {
     const textarea = editorRefs.current[String(subquestionId)]
-    const insertion = buildRelationalAlgebraInsertion(token, options)
 
     if (textarea) {
       const result = insertTextAtCursor(textarea, insertion, {
-        cursorOffset: options.wrap ? insertion.length - 1 : insertion.length,
+        cursorOffset: insertion.length,
       })
       if (result) {
         updateSubquestionValue(subquestionId, result.value)
@@ -85,10 +116,23 @@ export default function RelationalAlgebraBlock({
     updateSubquestionValue(subquestionId, `${currentValue}${insertion}`)
   }
 
+  function insertIntoSubquestion(subquestionId, token, options = {}) {
+    const insertion = buildRelationalAlgebraInsertion(token, options)
+    insertRawIntoSubquestion(subquestionId, insertion)
+  }
+
   function insertIntoActive(token, options = {}) {
     const targetId = activeSubquestionId || getFirstQuestionId(subquestions)
     if (!targetId) return
     insertIntoSubquestion(targetId, token, options)
+    onToggleSubQuestion?.(item.id, targetId, true)
+    onFocusSubQuestion?.(targetId)
+  }
+
+  function insertTemplateIntoActive(expression) {
+    const targetId = activeSubquestionId || getFirstQuestionId(subquestions)
+    if (!targetId) return
+    insertRawIntoSubquestion(targetId, expression)
     onToggleSubQuestion?.(item.id, targetId, true)
     onFocusSubQuestion?.(targetId)
   }
@@ -114,32 +158,55 @@ export default function RelationalAlgebraBlock({
         <div className="rel-algebra-overview-body compact">
           <div className="rel-algebra-overview-copy">
             <h3 className="rel-algebra-overview-title">{item?.title || '关系代数题'}</h3>
-            {item?.prompt && <p className="rel-algebra-overview-prompt">{item.prompt}</p>}
+            {item?.prompt ? <p className="rel-algebra-overview-prompt">{item.prompt}</p> : null}
           </div>
 
           <div className="rel-algebra-meta-pills">
             <span className="rel-algebra-meta-pill">{subquestions.length} 个子题</span>
             <span className="rel-algebra-meta-pill">{formatDisplayScore(contentScore)} 分</span>
-            <span className="rel-algebra-meta-pill neutral">待AI核验 {answeredCount} / {subquestions.length}</span>
+            <span className="rel-algebra-meta-pill neutral">待核验 {answeredCount} / {subquestions.length}</span>
           </div>
         </div>
       </section>
 
-      <div className="rel-algebra-workbench spacious">
-        <aside className="rel-algebra-sidebar wide">
-          <RelationalAlgebraSchemaPanel
-            schemas={item?.schemas || []}
-            activeToken=""
-            disabled={isPaused}
-            onHoverToken={() => {}}
-            onLeaveToken={() => {}}
-            onInsertToken={insertIntoActive}
-          />
+      <div className={`rel-algebra-workbench spacious ${toolsCollapsed ? 'tools-collapsed' : ''}`}>
+        <aside className={`rel-algebra-sidebar wide ${toolsCollapsed ? 'collapsed' : ''}`}>
+          <div className="rel-algebra-sidebar-toggle-row">
+            <button
+              type="button"
+              className="secondary-btn small-btn rel-algebra-sidebar-toggle"
+              onClick={() => setToolsCollapsed((current) => !current)}
+              aria-expanded={!toolsCollapsed}
+            >
+              {toolsCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              {toolsCollapsed ? '展开工具' : '收起工具'}
+            </button>
+          </div>
+
+          {!toolsCollapsed ? (
+            <>
+              <RelationalAlgebraSchemaPanel
+                schemas={item?.schemas || []}
+                activeToken=""
+                disabled={isPaused}
+                onHoverToken={() => {}}
+                onLeaveToken={() => {}}
+                onInsertToken={insertIntoActive}
+              />
+
+              <TemplatePanel disabled={isPaused} onInsertTemplate={insertTemplateIntoActive} />
+            </>
+          ) : (
+            <div className="rel-algebra-tools-collapsed-hint">已折叠工具区，点击“展开工具”查看关系模式和模板。</div>
+          )}
         </aside>
 
         <section className="rel-algebra-canvas wide">
           <div className="rel-algebra-canvas-head">
-            <div className="rel-algebra-canvas-title">答题工作区</div>
+            <div>
+              <div className="rel-algebra-canvas-title">答题工作区</div>
+              <div className="rel-algebra-panel-caption">按子题依次作答，每个子题单独 AI 判题。</div>
+            </div>
           </div>
 
           <div className="rel-algebra-subquestion-list">

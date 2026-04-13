@@ -27,7 +27,7 @@ function Harness() {
         id: '1',
         prompt: '找出学生信息。',
         score: 5,
-        reference_answer: 'π(学生)',
+        reference_answer: 'π[姓名](学生)',
       },
     ],
   }
@@ -76,7 +76,7 @@ afterEach(() => {
 })
 
 describe('RelationalAlgebraBlock', () => {
-  it('renders schema lines and inserts operators into the active textarea', () => {
+  it('renders schema lines, supports template insertion, and can collapse tools', () => {
     const { container, root } = mountHarness()
 
     const header = container.querySelector('.rel-algebra-subquestion-head')
@@ -94,14 +94,16 @@ describe('RelationalAlgebraBlock', () => {
       textarea.setSelectionRange(0, 0)
     })
 
-    const projectionBtn = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'π[]')
-    expect(projectionBtn).toBeTruthy()
+    const templateBtn = Array.from(container.querySelectorAll('.rel-algebra-template-card')).find((button) =>
+      button.textContent.includes('选择后投影')
+    )
+    expect(templateBtn).toBeTruthy()
 
     act(() => {
-      projectionBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      templateBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(container.querySelector('.rel-algebra-editor').value).toContain('π[]')
+    expect(container.querySelector('.rel-algebra-editor').value).toContain('σ[条件]')
 
     const studentToken = Array.from(container.querySelectorAll('.rel-algebra-token')).find(
       (button) => button.textContent === '学生'
@@ -113,6 +115,16 @@ describe('RelationalAlgebraBlock', () => {
     })
 
     expect(container.querySelector('.rel-algebra-editor').value).toContain('学生')
+
+    const toggleButton = container.querySelector('.rel-algebra-sidebar-toggle')
+    expect(toggleButton).toBeTruthy()
+
+    act(() => {
+      toggleButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.querySelector('.rel-algebra-sidebar')?.className).toContain('collapsed')
+    expect(container.querySelector('.rel-algebra-tools-collapsed-hint')).toBeTruthy()
 
     act(() => {
       root.unmount()

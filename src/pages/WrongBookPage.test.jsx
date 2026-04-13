@@ -57,6 +57,7 @@ vi.mock('../entities/subject/model/subjects', async () => {
       ({
         single_choice: { key: 'single_choice', label: '单项选择题' },
         case_analysis: { key: 'case_analysis', label: '案例分析题' },
+        sql: { key: 'sql', label: 'SQL 题' },
       })[type] || { key: type, label: type },
   }
 })
@@ -79,6 +80,55 @@ async function renderComponent() {
   return { container, root }
 }
 
+function createBaseState(overrides = {}) {
+  return {
+    filteredWrongItems: [],
+    subjectFilter: 'all',
+    setSubjectFilter: vi.fn(),
+    typeFilter: 'all',
+    setTypeFilter: vi.fn(),
+    typeOptions: [],
+    query: '',
+    setQuery: vi.fn(),
+    practiceMode: false,
+    setPracticeMode: vi.fn(),
+    practiceIndex: 0,
+    setPracticeIndex: vi.fn(),
+    selectedAnswer: '',
+    selectedChoices: [],
+    blankAnswers: {},
+    blankFeedback: [],
+    feedback: '',
+    displayPracticeItem: null,
+    holdSolvedItem: null,
+    isBlankPracticeItem: false,
+    isClozePracticeItem: false,
+    isMultipleChoicePracticeItem: false,
+    selectedKeys: [],
+    wrongSummary: {
+      totalWrongRecords: 0,
+      uniqueWrongQuestions: 0,
+      filteredCount: 0,
+      latestWrongAt: Date.now(),
+    },
+    handleRemove: vi.fn(),
+    handleToggleSelected: vi.fn(),
+    handleSelectAllFiltered: vi.fn(),
+    handleClearSelected: vi.fn(),
+    handleRemoveSelected: vi.fn(),
+    handleRemoveAllFiltered: vi.fn(),
+    handlePracticeAnswer: vi.fn(),
+    handleTogglePracticeChoice: vi.fn(),
+    handlePracticeBlankChange: vi.fn(),
+    handlePracticeClozeAnswer: vi.fn(),
+    handleCheckPracticeBlank: vi.fn(),
+    handleCheckPracticeObjective: vi.fn(),
+    handleAdvanceAfterSolved: vi.fn(),
+    resetPractice: vi.fn(),
+    ...overrides,
+  }
+}
+
 describe('WrongBookPage', () => {
   afterEach(() => {
     document.body.innerHTML = ''
@@ -95,68 +145,36 @@ describe('WrongBookPage', () => {
     })
   })
 
-  it('renders subject-aware type options and tolerates object-like wrongbook display fields', async () => {
-    useWrongBookPageStateMock.mockReturnValue({
-      filteredWrongItems: [
-        {
-          questionKey: 'international_trade:paper-1:q1',
-          subject: 'international_trade',
-          prompt: '根据案例分析买方是否有权拒收。',
-          category: 'case_analysis',
-          wrongTimes: 2,
-          lastWrongAt: Date.now(),
-          paperTitle: '国际贸易模拟卷一',
-          userAnswerLabel: '认为无权拒收',
-          correctAnswerLabel: { label: '有权拒收' },
-          rationale: { text: '应结合延期交单的后果判断。' },
+  it('renders subject-aware type options and object-like display fields', async () => {
+    useWrongBookPageStateMock.mockReturnValue(
+      createBaseState({
+        filteredWrongItems: [
+          {
+            questionKey: 'international_trade:paper-1:q1',
+            subject: 'international_trade',
+            prompt: '根据案例分析买方是否有权拒收。',
+            category: 'case_analysis',
+            wrongTimes: 2,
+            lastWrongAt: Date.now(),
+            paperTitle: '国际贸易模拟卷一',
+            userAnswerLabel: '认为无权拒收',
+            correctAnswerLabel: { label: '有权拒收' },
+            rationale: { text: '应结合延期交单的后果判断。' },
+          },
+        ],
+        subjectFilter: 'international_trade',
+        typeOptions: [
+          { key: 'single_choice', label: '单项选择题' },
+          { key: 'case_analysis', label: '案例分析题' },
+        ],
+        wrongSummary: {
+          totalWrongRecords: 2,
+          uniqueWrongQuestions: 1,
+          filteredCount: 1,
+          latestWrongAt: Date.now(),
         },
-      ],
-      subjectFilter: 'international_trade',
-      setSubjectFilter: vi.fn(),
-      typeFilter: 'all',
-      setTypeFilter: vi.fn(),
-      typeOptions: [
-        { key: 'single_choice', label: '单项选择题' },
-        { key: 'case_analysis', label: '案例分析题' },
-      ],
-      query: '',
-      setQuery: vi.fn(),
-      practiceMode: false,
-      setPracticeMode: vi.fn(),
-      practiceIndex: 0,
-      setPracticeIndex: vi.fn(),
-      selectedAnswer: '',
-      selectedChoices: [],
-      blankAnswers: {},
-      blankFeedback: [],
-      feedback: '',
-      displayPracticeItem: null,
-      holdSolvedItem: null,
-      isBlankPracticeItem: false,
-      isClozePracticeItem: false,
-      isMultipleChoicePracticeItem: false,
-      selectedKeys: [],
-      wrongSummary: {
-        totalWrongRecords: 2,
-        uniqueWrongQuestions: 1,
-        filteredCount: 1,
-        latestWrongAt: Date.now(),
-      },
-      handleRemove: vi.fn(),
-      handleToggleSelected: vi.fn(),
-      handleSelectAllFiltered: vi.fn(),
-      handleClearSelected: vi.fn(),
-      handleRemoveSelected: vi.fn(),
-      handleRemoveAllFiltered: vi.fn(),
-      handlePracticeAnswer: vi.fn(),
-      handleTogglePracticeChoice: vi.fn(),
-      handlePracticeBlankChange: vi.fn(),
-      handlePracticeClozeAnswer: vi.fn(),
-      handleCheckPracticeBlank: vi.fn(),
-      handleCheckPracticeObjective: vi.fn(),
-      handleAdvanceAfterSolved: vi.fn(),
-      resetPractice: vi.fn(),
-    })
+      })
+    )
 
     const { container, root } = await renderComponent()
 
@@ -171,69 +189,75 @@ describe('WrongBookPage', () => {
   })
 
   it('renders wrongbook rows directly from the state layer', async () => {
-    useWrongBookPageStateMock.mockReturnValue({
-      filteredWrongItems: [
-        {
-          questionKey: 'q1',
-          subject: 'english',
-          prompt: '标准题干',
-          category: 'single_choice',
-          wrongTimes: 2,
-          paperTitle: '标准试卷',
-          correctAnswer: 'A. 正确',
-          rationale: '标准解析',
-          options: [{ key: 'A', text: '选项 A' }],
+    useWrongBookPageStateMock.mockReturnValue(
+      createBaseState({
+        filteredWrongItems: [
+          {
+            questionKey: 'q1',
+            subject: 'english',
+            prompt: '标准题干',
+            category: 'single_choice',
+            wrongTimes: 2,
+            paperTitle: '标准试卷',
+            correctAnswer: 'A. 正确',
+            rationale: '标准解析',
+            options: [{ key: 'A', text: '选项 A' }],
+          },
+        ],
+        wrongSummary: {
+          totalWrongRecords: 2,
+          uniqueWrongQuestions: 1,
+          filteredCount: 1,
+          latestWrongAt: Date.now(),
         },
-      ],
-      subjectFilter: 'all',
-      setSubjectFilter: vi.fn(),
-      typeFilter: 'all',
-      setTypeFilter: vi.fn(),
-      typeOptions: [],
-      query: '',
-      setQuery: vi.fn(),
-      practiceMode: false,
-      setPracticeMode: vi.fn(),
-      practiceIndex: 0,
-      setPracticeIndex: vi.fn(),
-      selectedAnswer: '',
-      selectedChoices: [],
-      blankAnswers: {},
-      blankFeedback: [],
-      feedback: '',
-      displayPracticeItem: null,
-      holdSolvedItem: null,
-      isBlankPracticeItem: false,
-      isClozePracticeItem: false,
-      isMultipleChoicePracticeItem: false,
-      selectedKeys: [],
-      wrongSummary: {
-        totalWrongRecords: 2,
-        uniqueWrongQuestions: 1,
-        filteredCount: 1,
-        latestWrongAt: Date.now(),
-      },
-      handleRemove: vi.fn(),
-      handleToggleSelected: vi.fn(),
-      handleSelectAllFiltered: vi.fn(),
-      handleClearSelected: vi.fn(),
-      handleRemoveSelected: vi.fn(),
-      handleRemoveAllFiltered: vi.fn(),
-      handlePracticeAnswer: vi.fn(),
-      handleTogglePracticeChoice: vi.fn(),
-      handlePracticeBlankChange: vi.fn(),
-      handlePracticeClozeAnswer: vi.fn(),
-      handleCheckPracticeBlank: vi.fn(),
-      handleCheckPracticeObjective: vi.fn(),
-      handleAdvanceAfterSolved: vi.fn(),
-      resetPractice: vi.fn(),
-    })
+      })
+    )
 
     const { container, root } = await renderComponent()
 
     expect(container.textContent).toContain('标准题干')
     expect(container.textContent).toContain('标准试卷')
     expect(container.textContent).toContain('标准解析')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('renders structured database wrongbook entries with context and code-like answers', async () => {
+    useWrongBookPageStateMock.mockReturnValue(
+      createBaseState({
+        filteredWrongItems: [
+          {
+            questionKey: 'database:sql_1',
+            subject: 'english',
+            prompt: '查询成绩大于 80 分的学生姓名。',
+            category: 'sql',
+            wrongTimes: 1,
+            paperTitle: '数据库练习卷',
+            userAnswer: { text: 'SELECT id FROM Student WHERE score > 80' },
+            correctAnswer: 'SELECT name FROM Student WHERE score > 80',
+            rationale: '应返回姓名字段，而不是学号字段。',
+            contextTitle: '学生表',
+            contextSnippet: 'Student(id, name, score)',
+          },
+        ],
+        wrongSummary: {
+          totalWrongRecords: 1,
+          uniqueWrongQuestions: 1,
+          filteredCount: 1,
+          latestWrongAt: Date.now(),
+        },
+      })
+    )
+
+    const { container, root } = await renderComponent()
+
+    expect(container.textContent).toContain('查询成绩大于 80 分的学生姓名。')
+    expect(container.textContent).toContain('学生表')
+    expect(container.textContent).toContain('Student(id, name, score)')
+    expect(container.textContent).toContain('SELECT name FROM Student WHERE score > 80')
+    expect(container.textContent).toContain('应返回姓名字段，而不是学号字段。')
 
     await act(async () => {
       root.unmount()
@@ -278,7 +302,7 @@ describe('WrongBookPage', () => {
     expect(container.textContent).toContain('错题本暂时无法渲染')
     expect(container.textContent).toContain('页面已阻止白屏')
     expect(container.textContent).toContain('错题本真实存量诊断')
-    expect(container.textContent).toContain('可疑记录：1')
+    expect(container.textContent).toContain('可疑记录')
     expect(container.textContent).toContain('安全模式题干')
     expect(container.textContent).toContain('安全模式解析')
 

@@ -15,7 +15,7 @@ function getStatusMeta(review, hasAnswer) {
   if (review?.status === 'failed') {
     return {
       tone: 'incorrect',
-      label: '错误',
+      label: '判题失败',
       icon: <XCircle size={14} />,
     }
   }
@@ -23,7 +23,7 @@ function getStatusMeta(review, hasAnswer) {
   if (review?.verdict === 'correct') {
     return {
       tone: 'correct',
-      label: '正确！',
+      label: '正确',
       icon: <CheckCircle2 size={14} />,
     }
   }
@@ -47,14 +47,14 @@ function getStatusMeta(review, hasAnswer) {
   if (hasAnswer) {
     return {
       tone: 'waiting',
-      label: '待AI核验',
+      label: '待 AI 核验',
       icon: null,
     }
   }
 
   return {
     tone: 'empty',
-    label: '未填写',
+    label: '未作答',
     icon: null,
   }
 }
@@ -107,6 +107,7 @@ export default function RelationalAlgebraSubquestionCard({
       : typeof review?.score === 'number' && typeof review?.maxScore === 'number' && review.maxScore > 0
         ? Math.round((review.score / review.maxScore) * 100)
         : 0
+  const hasDetails = points.length > 0 || missing.length > 0 || issues.length > 0 || Boolean(review?.normalizedReference || referenceAnswer)
 
   return (
     <article className={`rel-algebra-subquestion-card ${expanded ? 'expanded' : ''} ${focused ? 'focused' : ''}`}>
@@ -126,14 +127,14 @@ export default function RelationalAlgebraSubquestionCard({
         </div>
       </button>
 
-      {preview && !expanded && <div className="rel-algebra-subquestion-preview">{preview}</div>}
+      {preview && !expanded ? <div className="rel-algebra-subquestion-preview">{preview}</div> : null}
 
-      {expanded && (
+      {expanded ? (
         <div className="rel-algebra-subquestion-body">
           <div className="rel-algebra-editor-shell">
             <div className="rel-algebra-editor-head">
               <div className="rel-algebra-editor-title">关系代数表达式</div>
-              <div className="rel-algebra-editor-caption">左侧关系模式和下方符号栏都支持点击插入。</div>
+              <div className="rel-algebra-editor-caption">左侧关系模式和下方模板、符号都支持点击插入。</div>
             </div>
 
             <textarea
@@ -169,7 +170,7 @@ export default function RelationalAlgebraSubquestionCard({
             </div>
           </div>
 
-          {review && (
+          {review ? (
             <div className={`rel-algebra-review-card ${statusMeta.tone}`}>
               <div className="rel-algebra-review-head">
                 <div className={`rel-algebra-review-badge ${statusMeta.tone}`}>
@@ -189,49 +190,55 @@ export default function RelationalAlgebraSubquestionCard({
 
               {review?.feedback ? <div className="rel-algebra-review-line">{review.feedback}</div> : null}
 
-              {points.length > 0 && (
-                <div className="rel-algebra-review-list">
-                  <div className="rel-algebra-review-list-title">得分点</div>
-                  <ul>
-                    {points.map((point, pointIndex) => (
-                      <li key={`${review?.questionId || subquestion.id}-point-${pointIndex}`}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {hasDetails ? (
+                <details className="rel-algebra-review-details">
+                  <summary>查看详细得分点</summary>
 
-              {missing.length > 0 && (
-                <div className="rel-algebra-review-list">
-                  <div className="rel-algebra-review-list-title">缺失点</div>
-                  <ul>
-                    {missing.map((point, pointIndex) => (
-                      <li key={`${review?.questionId || subquestion.id}-missing-${pointIndex}`}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                  {points.length > 0 ? (
+                    <div className="rel-algebra-review-list">
+                      <div className="rel-algebra-review-list-title">得分点</div>
+                      <ul>
+                        {points.map((point, pointIndex) => (
+                          <li key={`${review?.questionId || subquestion.id}-point-${pointIndex}`}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
-              {issues.length > 0 && (
-                <div className="rel-algebra-review-list">
-                  <div className="rel-algebra-review-list-title">问题定位</div>
-                  <ul>
-                    {issues.map((point, pointIndex) => (
-                      <li key={`${review?.questionId || subquestion.id}-issue-${pointIndex}`}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                  {missing.length > 0 ? (
+                    <div className="rel-algebra-review-list">
+                      <div className="rel-algebra-review-list-title">缺失点</div>
+                      <ul>
+                        {missing.map((point, pointIndex) => (
+                          <li key={`${review?.questionId || subquestion.id}-missing-${pointIndex}`}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
-              {review?.normalizedReference || referenceAnswer ? (
-                <div className="rel-algebra-review-reference">
-                  <div className="rel-algebra-review-list-title">参考表达式</div>
-                  <code>{review?.normalizedReference || referenceAnswer}</code>
-                </div>
+                  {issues.length > 0 ? (
+                    <div className="rel-algebra-review-list">
+                      <div className="rel-algebra-review-list-title">问题定位</div>
+                      <ul>
+                        {issues.map((point, pointIndex) => (
+                          <li key={`${review?.questionId || subquestion.id}-issue-${pointIndex}`}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {review?.normalizedReference || referenceAnswer ? (
+                    <div className="rel-algebra-review-reference">
+                      <div className="rel-algebra-review-list-title">参考表达式</div>
+                      <code>{review?.normalizedReference || referenceAnswer}</code>
+                    </div>
+                  ) : null}
+                </details>
               ) : null}
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </article>
   )
 }

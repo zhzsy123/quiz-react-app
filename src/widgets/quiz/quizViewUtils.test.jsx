@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getNavGroupMeta, getReadingQuestionDisplayLabel } from './quizViewUtils.jsx'
+import { getNavGroupMeta, getQuestionDisplayMeta, getReadingQuestionDisplayLabel } from './quizViewUtils.jsx'
 
 describe('quizViewUtils', () => {
   it('groups top-level cloze items under the cloze navigation group', () => {
@@ -31,5 +31,13 @@ describe('quizViewUtils', () => {
         1
       )
     ).toBe('B-1')
+  })
+
+  it('returns clean display metadata for database sql questions', () => {
+    const meta = getQuestionDisplayMeta({ id: 'sql_1', type: 'sql' })
+
+    expect(meta.label).toBe('SQL 题')
+    expect(meta.shortLabel).toBe('SQL')
+    expect(meta.gradingLabel).toBe('AI核题')
   })
 })

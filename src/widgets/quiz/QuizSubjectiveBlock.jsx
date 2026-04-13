@@ -20,12 +20,14 @@ import {
   countWords,
   formatDisplayScore,
   getNavGroupMeta,
+  getQuestionDisplayMeta,
   getReadingQuestionDisplayLabel,
   getSubjectiveText,
   renderFormattedMaterial,
 } from './quizViewUtils.jsx'
 import QuizClozeBlock from './QuizClozeBlock.jsx'
 import RelationalAlgebraBlock from './RelationalAlgebraBlock.jsx'
+import SqlQuestionBlock from './SqlQuestionBlock.jsx'
 
 function TranslationBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   return (
@@ -34,7 +36,7 @@ function TranslationBlock({ item, userResponse, disabled, submitted, onTextChang
         <Languages size={16} />
         <span>{item.direction === 'zh_to_en' ? '中译英' : '英译中'}</span>
       </div>
-      {item.prompt && <div className="essay-topic">{item.prompt}</div>}
+      {item.prompt ? <div className="essay-topic">{item.prompt}</div> : null}
       <div className="translation-source">{item.source_text}</div>
       <textarea
         className="subjective-textarea"
@@ -46,11 +48,11 @@ function TranslationBlock({ item, userResponse, disabled, submitted, onTextChang
         autoCorrect="off"
         autoCapitalize="off"
       />
-      {submitted && item.answer?.reference_answer && (
+      {submitted && item.answer?.reference_answer ? (
         <div className="analysis-box">
           <div>{item.answer.reference_answer}</div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -66,9 +68,9 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
         <div className="essay-type-chip">{item.essay_type || 'writing'}</div>
         <div className="essay-word-count">{wordCount}</div>
       </div>
-      {item.prompt && <div className="essay-topic">{item.prompt}</div>}
-      {item.requirements?.topic && <div className="essay-topic">{item.requirements.topic}</div>}
-      {scoringPoints.length > 0 && (
+      {item.prompt ? <div className="essay-topic">{item.prompt}</div> : null}
+      {item.requirements?.topic ? <div className="essay-topic">{item.requirements.topic}</div> : null}
+      {scoringPoints.length > 0 ? (
         <div className="analysis-box">
           <div className="analysis-section-title">评分要点</div>
           <ul className="analysis-list">
@@ -77,7 +79,7 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
             ))}
           </ul>
         </div>
-      )}
+      ) : null}
       <textarea
         className="subjective-textarea essay-textarea"
         value={text}
@@ -88,11 +90,11 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
         autoCorrect="off"
         autoCapitalize="off"
       />
-      {submitted && item.answer?.reference_answer && (
+      {submitted && item.answer?.reference_answer ? (
         <div className="analysis-box">
           <div>{item.answer.reference_answer}</div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -100,27 +102,19 @@ function EssayBlock({ item, userResponse, disabled, submitted, onTextChange }) {
 function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTextChange }) {
   const text = getSubjectiveText(userResponse)
   const scoreLabel = item.score ? `${formatDisplayScore(item.score)} 分` : ''
-  const typeLabelMap = {
-    short_answer: '简答题',
-    case_analysis: '案例分析',
-    calculation: '计算题',
-    operation: '操作题',
-    programming: '程序设计',
-    sql: 'SQL 题',
-    er_diagram: 'E-R 图题',
-  }
+  const typeMeta = getQuestionDisplayMeta(item)
   const scoringPoints = Array.isArray(item.answer?.scoring_points) ? item.answer.scoring_points : []
 
   return (
     <div className="subjective-block essay-card">
       <div className="essay-head">
-        <div className="essay-type-chip">{typeLabelMap[item.type] || item.type}</div>
+        <div className="essay-type-chip">{typeMeta.label}</div>
         <div className="essay-word-count">{scoreLabel}</div>
       </div>
-      {item.prompt && <div className="essay-topic">{item.prompt}</div>}
-      {item.context_title && <div className="essay-topic">{item.context_title}</div>}
-      {item.context && <div className="analysis-box">{renderFormattedMaterial(item.context, item.context_format)}</div>}
-      {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 && (
+      {item.prompt ? <div className="essay-topic">{item.prompt}</div> : null}
+      {item.context_title ? <div className="essay-topic">{item.context_title}</div> : null}
+      {item.context ? <div className="analysis-box">{renderFormattedMaterial(item.context, item.context_format)}</div> : null}
+      {Array.isArray(item.requirements?.points) && item.requirements.points.length > 0 ? (
         <div className="analysis-box">
           <div className="analysis-section-title">作答要点</div>
           <ul className="analysis-list">
@@ -129,8 +123,8 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
             ))}
           </ul>
         </div>
-      )}
-      {scoringPoints.length > 0 && (
+      ) : null}
+      {scoringPoints.length > 0 ? (
         <div className="analysis-box">
           <div className="analysis-section-title">评分要点</div>
           <ul className="analysis-list">
@@ -139,7 +133,7 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
             ))}
           </ul>
         </div>
-      )}
+      ) : null}
       <textarea
         className="subjective-textarea essay-textarea"
         value={text}
@@ -150,11 +144,11 @@ function GenericSubjectiveBlock({ item, userResponse, disabled, submitted, onTex
         autoCorrect="off"
         autoCapitalize="off"
       />
-      {submitted && item.answer?.reference_answer && (
+      {submitted && item.answer?.reference_answer ? (
         <div className="analysis-box">
           <div>{item.answer.reference_answer}</div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -216,14 +210,6 @@ function ReadingBlock({
             const isFocused = focusSubQuestionId === subQuestion.id
             const subOptions = Array.isArray(subQuestion.options) ? subQuestion.options : []
             const isGradable = isObjectiveGradable(subQuestion)
-            const aiLabel =
-              mode === 'exam'
-                ? explainEntry?.status === 'pending'
-                  ? 'AI 核题中'
-                  : 'AI 核题'
-                : explainEntry?.status === 'pending'
-                  ? 'AI 解释中'
-                  : 'AI 解释'
 
             return (
               <div
@@ -277,13 +263,13 @@ function ReadingBlock({
                   })}
                 </div>
 
-                {!subOptions.length && (
+                {!subOptions.length ? (
                   <div className="analysis-box compact-analysis-box">
                     <div>当前小题缺少可作答的选项，无法继续作答。</div>
                   </div>
-                )}
+                ) : null}
 
-                {showFeedback && (
+                {showFeedback ? (
                   <div className="analysis-box compact-analysis-box">
                     {isGradable ? (
                       <>
@@ -296,163 +282,16 @@ function ReadingBlock({
                       <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
                     )}
                   </div>
-                )}
-
-                      {explainEntry?.status === 'pending' ? 'AI解释中' : 'AI解释'}
-                      {auditEntry?.status === 'pending' ? 'AI核题中' : 'AI核题'}
-              </div>
-            )
-          })}
-          {!readingQuestions.length && (
-            <div className="analysis-box compact-analysis-box">
-              <div>当前阅读题缺少可作答的小题，无法继续作答。</div>
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
-  )
-}
-
-function ReadingBlockV2({
-  item,
-  response,
-  submitted,
-  isPaused,
-  mode,
-  revealedMap,
-  focusSubQuestionId,
-  onFocusSubQuestion,
-  onSelectReadingOption,
-}) {
-  const [immersiveReading, setImmersiveReading] = useState(false)
-  const readingResponse = response || {}
-  const readingQuestions = Array.isArray(item.questions) ? item.questions : []
-  const questionRefs = useRef({})
-  const passageTitle = item.passage?.title || item.title || '阅读材料'
-  const passageContent = item.passage?.content || item.passage?.body || item.passage?.text || ''
-
-  useEffect(() => {
-    if (!focusSubQuestionId) return
-    const target = questionRefs.current[focusSubQuestionId]
-    if (target && typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [focusSubQuestionId])
-
-  return (
-    <div className={`reading-layout ${immersiveReading ? 'immersive' : ''}`}>
-      <section className={`reading-passage-card ${immersiveReading ? 'immersive' : ''}`}>
-        <div className="reading-passage-head">
-          <div className="reading-passage-title">
-            <FileText size={16} />
-            <span>{passageTitle}</span>
-          </div>
-          <button
-            type="button"
-            className="reading-mode-btn"
-            onClick={() => setImmersiveReading((value) => !value)}
-            disabled={isPaused}
-          >
-            {immersiveReading ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </button>
-        </div>
-        <div className={`reading-passage-body ${immersiveReading ? 'immersive' : ''}`}>
-          {passageContent || '当前阅读题缺少材料正文。'}
-        </div>
-      </section>
-
-      <section className={`reading-questions-card ${immersiveReading ? 'immersive' : ''}`}>
-        <div className="reading-question-list">
-          {readingQuestions.map((subQuestion, subIndex) => {
-            const userAnswer = readingResponse[subQuestion.id]
-            const revealKey = `${item.id}:${subQuestion.id}`
-            const showFeedback = submitted || (mode === 'practice' && revealedMap[revealKey])
-            const isFocused = focusSubQuestionId === subQuestion.id
-            const subOptions = Array.isArray(subQuestion.options) ? subQuestion.options : []
-            const isGradable = isObjectiveGradable(subQuestion)
-
-            return (
-              <div
-                key={subQuestion.id}
-                ref={(node) => {
-                  questionRefs.current[subQuestion.id] = node
-                }}
-                className={`reading-question-item ${isFocused ? 'focused' : ''}`}
-              >
-                <div className="reading-question-title">
-                  <div className="reading-question-meta">
-                    <span className="tag">{getReadingQuestionDisplayLabel(item, subIndex)}</span>
-                    <span className="tag score">{formatDisplayScore(subQuestion?.score)} 分</span>
-                  </div>
-                  <span>{subQuestion.prompt}</span>
-                </div>
-
-                <div className="options compact-options">
-                  {subOptions.map((option, optionIndex) => {
-                    const selected = userAnswer === option.key
-                    let className = 'option compact-option'
-                    let icon = null
-
-                    if (!showFeedback || !isGradable) {
-                      if (selected) className += ' selected'
-                    } else if (option.key === subQuestion.answer?.correct) {
-                      className += ' correct'
-                      icon = <CheckCircle2 size={18} />
-                    } else if (selected) {
-                      className += ' wrong'
-                      icon = <XCircle size={18} />
-                    } else {
-                      className += ' muted'
-                    }
-
-                    return (
-                      <button
-                        key={optionIndex}
-                        type="button"
-                        className={className}
-                        disabled={submitted || isPaused || (mode === 'practice' && showFeedback)}
-                        onClick={() => {
-                          onFocusSubQuestion(subQuestion.id)
-                          onSelectReadingOption(item.id, subQuestion.id, option.key)
-                        }}
-                      >
-                        <span>{renderOptionLabel(option)}</span>
-                        {icon}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {!subOptions.length && (
-                  <div className="analysis-box compact-analysis-box">
-                    <div>当前小题缺少可作答的选项，无法继续作答。</div>
-                  </div>
-                )}
-
-                {showFeedback && (
-                  <div className="analysis-box compact-analysis-box">
-                    {isGradable ? (
-                      <>
-                        <div>
-                          正确答案：<strong>{subQuestion.answer?.correct}</strong>
-                        </div>
-                        <div>解析：{subQuestion.answer?.rationale || '暂无解析'}</div>
-                      </>
-                    ) : (
-                      <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
-                    )}
-                  </div>
-                )}
+                ) : null}
               </div>
             )
           })}
 
-          {!readingQuestions.length && (
+          {!readingQuestions.length ? (
             <div className="analysis-box compact-analysis-box">
               <div>当前阅读题缺少可作答的小题，无法继续作答。</div>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
     </div>
@@ -479,12 +318,11 @@ function CompositeFillBlankBlock({
           const blankResult = evaluation.blankResults[blankIndex]
           const acceptedAnswers = blankResult?.matchedAcceptedAnswers || blankResult?.acceptedAnswers || []
           const isCorrect = Boolean(blankResult?.isCorrect)
-          const showFeedback = objectiveReveal
 
           return (
             <article
               key={blank.blank_id}
-              className={`fill-blank-card ${showFeedback ? (isCorrect ? 'correct' : 'wrong') : ''}`}
+              className={`fill-blank-card ${objectiveReveal ? (isCorrect ? 'correct' : 'wrong') : ''}`}
             >
               <div className="fill-blank-card-head">
                 <div className="fill-blank-card-label">第 {blankIndex + 1} 空</div>
@@ -499,14 +337,14 @@ function CompositeFillBlankBlock({
                 spellCheck={false}
                 placeholder="请输入本空答案"
               />
-              {showFeedback && (
+              {objectiveReveal ? (
                 <div className="fill-blank-feedback">
-                  {!orderSensitive && (
+                  {!orderSensitive ? (
                     <div className="answer-review-line">
                       <strong>判定规则</strong>
                       本题答案不区分填写顺序，命中任一有效答案即可。
                     </div>
-                  )}
+                  ) : null}
                   <div className="answer-review-line">
                     <strong>参考答案</strong>
                     {acceptedAnswers.join(' / ') || '暂无'}
@@ -516,7 +354,7 @@ function CompositeFillBlankBlock({
                     {blank.rationale || '暂无解析'}
                   </div>
                 </div>
-              )}
+              ) : null}
             </article>
           )
         })}
@@ -551,13 +389,13 @@ function CompositeObjectiveBlock({
           mode={mode}
           onFillBlankChange={onFillBlankChange}
         />
-        {(canRevealMultiChoice || canRevealFillBlank) && (
+        {canRevealMultiChoice || canRevealFillBlank ? (
           <div className="question-inline-actions">
             <button type="button" className="secondary-btn small-btn" onClick={() => onRevealQuestion(question.id)}>
               检查答案
             </button>
           </div>
-        )}
+        ) : null}
       </>
     )
   }
@@ -605,14 +443,14 @@ function CompositeObjectiveBlock({
           )
         })}
       </div>
-      {(canRevealMultiChoice || canRevealFillBlank) && (
+      {canRevealMultiChoice || canRevealFillBlank ? (
         <div className="question-inline-actions">
           <button type="button" className="secondary-btn small-btn" onClick={() => onRevealQuestion(question.id)}>
             检查答案
           </button>
         </div>
-      )}
-      {objectiveReveal && (
+      ) : null}
+      {objectiveReveal ? (
         <div className="analysis-box">
           {isGradable ? (
             <>
@@ -625,7 +463,7 @@ function CompositeObjectiveBlock({
             <div>当前小题缺少标准答案，已保留题目内容，但暂时无法自动判分。</div>
           )}
         </div>
-      )}
+      ) : null}
     </>
   )
 }
@@ -649,9 +487,9 @@ function CompositeBlock({
   return (
     <div className="subjective-block">
       <div className="analysis-box">
-        {(item.material_title || item.prompt) && (
+        {item.material_title || item.prompt ? (
           <div className="question-context-title">{item.material_title || item.prompt}</div>
-        )}
+        ) : null}
         {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
       </div>
 
@@ -661,17 +499,6 @@ function CompositeBlock({
           const revealKey = `${item.id}:${question.id}`
           const objectiveReveal = submitted || (mode === 'practice' && revealedMap[revealKey])
           const isSubjective = question.answer?.type === 'subjective'
-          const isTranslation = question.type === 'translation'
-          const isEssay = question.type === 'essay'
-          const isGenericSubjective = [
-            'short_answer',
-            'case_analysis',
-            'calculation',
-            'operation',
-            'programming',
-            'sql',
-            'er_diagram',
-          ].includes(question.type)
           const canRevealMultiChoice =
             mode === 'practice' &&
             question.type === 'multiple_choice' &&
@@ -685,24 +512,26 @@ function CompositeBlock({
             !objectiveReveal &&
             isObjectiveAnswered(question, questionResponse)
           const isGradable = isObjectiveGradable(question)
+          const isFocused = String(focusSubQuestionId || '') === String(question.id)
+          const questionMeta = getNavGroupMeta(question)
 
           return (
             <article
               key={question.id}
-              className={`answer-review-card ${String(focusSubQuestionId || '') === String(question.id) ? 'focused' : ''}`}
+              className={`answer-review-card ${isFocused ? 'focused' : ''}`}
             >
               <div className="answer-review-prompt">
                 第 {index + 1} 小题
                 <span className="tag purple" style={{ marginLeft: 8 }}>
-                  {getNavGroupMeta(question).label}
+                  {questionMeta.label}
                 </span>
                 <span className="tag score" style={{ marginLeft: 8 }}>
                   {formatDisplayScore(question?.score)} 分
                 </span>
               </div>
               <div className="wrongbook-card-title">{question.prompt}</div>
-              {question.context_title && <div className="question-context-title">{question.context_title}</div>}
-              {renderFormattedMaterial(question.context, question.context_format)}
+              {question.context_title ? <div className="question-context-title">{question.context_title}</div> : null}
+              {question.context ? renderFormattedMaterial(question.context, question.context_format) : null}
 
               {!isSubjective ? (
                 <CompositeObjectiveBlock
@@ -725,7 +554,7 @@ function CompositeBlock({
                     onFillBlankChange(targetId, blankId, text)
                   }}
                 />
-              ) : isTranslation ? (
+              ) : question.type === 'translation' ? (
                 <TranslationBlock
                   item={question}
                   userResponse={questionResponse}
@@ -736,8 +565,8 @@ function CompositeBlock({
                     onTextChange(targetId, text)
                   }}
                 />
-              ) : isGenericSubjective ? (
-                <GenericSubjectiveBlock
+              ) : question.type === 'essay' ? (
+                <EssayBlock
                   item={question}
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
@@ -747,8 +576,8 @@ function CompositeBlock({
                     onTextChange(targetId, text)
                   }}
                 />
-              ) : isEssay ? (
-                <EssayBlock
+              ) : question.type === 'sql' ? (
+                <SqlQuestionBlock
                   item={question}
                   userResponse={questionResponse}
                   disabled={disabled || submitted}
@@ -778,6 +607,184 @@ function CompositeBlock({
   )
 }
 
+function DatabaseCompositeBlock({
+  item,
+  userResponse,
+  submitted,
+  disabled,
+  mode,
+  revealedMap,
+  focusSubQuestionId,
+  onFocusSubQuestion,
+  onSelectOption,
+  onFillBlankChange,
+  onTextChange,
+  onRevealQuestion,
+}) {
+  const responseMap = userResponse || {}
+  const questions = Array.isArray(item.questions) ? item.questions : []
+  const totalScore = questions.reduce((sum, question) => sum + (Number(question?.score) || 0), 0)
+
+  return (
+    <div className="subjective-block composite-workbench">
+      <section className="analysis-box composite-material-panel">
+        <div className="composite-panel-head">
+          <div>
+            <div className="analysis-section-title">材料区</div>
+            {item.material_title || item.prompt ? (
+              <div className="question-context-title">{item.material_title || item.prompt}</div>
+            ) : null}
+          </div>
+          <div className="composite-summary-pills">
+            <span className="tag purple">综合题</span>
+            <span className="tag score">{questions.length} 小题</span>
+            <span className="tag score">{formatDisplayScore(totalScore)} 分</span>
+          </div>
+        </div>
+        {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
+      </section>
+
+      <section className="composite-question-panel">
+        <div className="composite-panel-head">
+          <div>
+            <div className="analysis-section-title">子题区</div>
+            <div className="composite-panel-caption">按子题类型切换成对应的作答工作台。</div>
+          </div>
+        </div>
+
+        <div className="composite-subquestion-chips">
+          {questions.map((question, index) => {
+            const questionMeta = getQuestionDisplayMeta(question)
+            const isFocused = String(focusSubQuestionId || '') === String(question.id)
+            return (
+              <button
+                key={`chip-${question.id}`}
+                type="button"
+                className={`composite-subquestion-chip ${isFocused ? 'focused' : ''}`}
+                onClick={() => onFocusSubQuestion?.(question.id)}
+              >
+                <span className="composite-subquestion-chip-index">#{index + 1}</span>
+                <span>{questionMeta.shortLabel}</span>
+                <span>{formatDisplayScore(question?.score)} 分</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="answer-review-grid composite-question-grid">
+          {questions.map((question, index) => {
+            const questionResponse = responseMap[question.id]
+            const revealKey = `${item.id}:${question.id}`
+            const objectiveReveal = submitted || (mode === 'practice' && revealedMap[revealKey])
+            const isSubjective = question.answer?.type === 'subjective'
+            const canRevealMultiChoice =
+              mode === 'practice' &&
+              question.type === 'multiple_choice' &&
+              !submitted &&
+              !objectiveReveal &&
+              normalizeChoiceArray(questionResponse).length > 0
+            const canRevealFillBlank =
+              mode === 'practice' &&
+              question.type === 'fill_blank' &&
+              !submitted &&
+              !objectiveReveal &&
+              isObjectiveAnswered(question, questionResponse)
+            const isGradable = isObjectiveGradable(question)
+            const isFocused = String(focusSubQuestionId || '') === String(question.id)
+            const questionMeta = getQuestionDisplayMeta(question)
+
+            return (
+              <article
+                key={question.id}
+                className={`answer-review-card composite-question-card ${isFocused ? 'focused' : ''}`}
+              >
+                <div className="answer-review-prompt composite-question-head">
+                  <div className="composite-question-meta">
+                    <span className="composite-question-index">第 {index + 1} 小题</span>
+                    <span className="tag purple">{questionMeta.label}</span>
+                    <span className="tag score">{formatDisplayScore(question?.score)} 分</span>
+                    <span className="tag">{questionMeta.gradingLabel}</span>
+                  </div>
+                </div>
+                <div className="wrongbook-card-title">{question.prompt}</div>
+                {question.context_title ? <div className="question-context-title">{question.context_title}</div> : null}
+                {question.context ? renderFormattedMaterial(question.context, question.context_format) : null}
+
+                {!isSubjective ? (
+                  <CompositeObjectiveBlock
+                    question={question}
+                    questionResponse={questionResponse}
+                    objectiveReveal={objectiveReveal}
+                    submitted={submitted}
+                    disabled={disabled}
+                    mode={mode}
+                    canRevealMultiChoice={canRevealMultiChoice}
+                    canRevealFillBlank={canRevealFillBlank}
+                    isGradable={isGradable}
+                    onSelectOption={(targetId, optionKey) => {
+                      onFocusSubQuestion?.(targetId)
+                      onSelectOption(targetId, optionKey)
+                    }}
+                    onRevealQuestion={onRevealQuestion}
+                    onFillBlankChange={(targetId, blankId, text) => {
+                      onFocusSubQuestion?.(targetId)
+                      onFillBlankChange(targetId, blankId, text)
+                    }}
+                  />
+                ) : question.type === 'translation' ? (
+                  <TranslationBlock
+                    item={question}
+                    userResponse={questionResponse}
+                    disabled={disabled || submitted}
+                    submitted={submitted}
+                    onTextChange={(targetId, text) => {
+                      onFocusSubQuestion?.(targetId)
+                      onTextChange(targetId, text)
+                    }}
+                  />
+                ) : question.type === 'essay' ? (
+                  <EssayBlock
+                    item={question}
+                    userResponse={questionResponse}
+                    disabled={disabled || submitted}
+                    submitted={submitted}
+                    onTextChange={(targetId, text) => {
+                      onFocusSubQuestion?.(targetId)
+                      onTextChange(targetId, text)
+                    }}
+                  />
+                ) : question.type === 'sql' ? (
+                  <SqlQuestionBlock
+                    item={question}
+                    userResponse={questionResponse}
+                    disabled={disabled || submitted}
+                    submitted={submitted}
+                    onTextChange={(targetId, text) => {
+                      onFocusSubQuestion?.(targetId)
+                      onTextChange(targetId, text)
+                    }}
+                  />
+                ) : (
+                  <GenericSubjectiveBlock
+                    item={question}
+                    userResponse={questionResponse}
+                    disabled={disabled || submitted}
+                    submitted={submitted}
+                    onTextChange={(targetId, text) => {
+                      onFocusSubQuestion?.(targetId)
+                      onTextChange(targetId, text)
+                    }}
+                  />
+                )}
+              </article>
+            )
+          })}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export default function QuizSubjectiveBlock({
   item,
   response,
@@ -792,10 +799,6 @@ export default function QuizSubjectiveBlock({
   onSelectReadingOption,
   onSelectClozeOption,
   onRevealCurrentObjective,
-  aiExplainMap,
-  aiAuditMap,
-  onExplainQuestion,
-  onAuditQuestion,
   onSelectCompositeOption,
   onCompositeFillBlankChange,
   onCompositeTextChange,
@@ -825,7 +828,7 @@ export default function QuizSubjectiveBlock({
 
   if (item.type === 'reading') {
     return (
-      <ReadingBlockV2
+      <ReadingBlock
         item={item}
         response={response}
         submitted={submitted}
@@ -841,7 +844,7 @@ export default function QuizSubjectiveBlock({
 
   if (item.type === 'composite') {
     return (
-      <CompositeBlock
+      <DatabaseCompositeBlock
         item={item}
         userResponse={response}
         submitted={submitted}
@@ -902,10 +905,20 @@ export default function QuizSubjectiveBlock({
     )
   }
 
-  if (
-    ['short_answer', 'case_analysis', 'calculation', 'operation', 'programming', 'sql', 'er_diagram'].includes(
-      item.type
+  if (item.type === 'sql') {
+    return (
+      <SqlQuestionBlock
+        item={item}
+        userResponse={response}
+        disabled={isPaused || submitted}
+        submitted={submitted}
+        onTextChange={onTextChange}
+      />
     )
+  }
+
+  if (
+    ['short_answer', 'case_analysis', 'calculation', 'operation', 'programming', 'er_diagram'].includes(item.type)
   ) {
     return (
       <GenericSubjectiveBlock

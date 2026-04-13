@@ -1,4 +1,5 @@
 import { requestAiJson } from '../../shared/api/aiGateway.js'
+
 export {
   gradeRelationalAlgebraAttempt,
   gradeRelationalAlgebraSubquestionAttempt,
@@ -37,7 +38,6 @@ function buildQuestionReviewMap(questionReviews = []) {
   }, {})
 }
 
-
 function buildQuestionTarget(item, response, subQuestion = null) {
   if (subQuestion) {
     return {
@@ -45,12 +45,23 @@ function buildQuestionTarget(item, response, subQuestion = null) {
       type: subQuestion.type || 'single_choice',
       prompt: subQuestion.prompt,
       options: subQuestion.options || [],
-      correct_answer: subQuestion.answer?.correct || subQuestion.answer?.reference_answer || subQuestion.reference_answer || '',
-      rationale: subQuestion.answer?.rationale || subQuestion.answer?.reference_answer || subQuestion.reference_answer || '',
+      blanks: subQuestion.blanks || [],
+      correct_answer:
+        subQuestion.answer?.correct ||
+        subQuestion.answer?.reference_answer ||
+        subQuestion.reference_answer ||
+        '',
+      rationale:
+        subQuestion.answer?.rationale ||
+        subQuestion.answer?.reference_answer ||
+        subQuestion.reference_answer ||
+        '',
       user_answer: typeof response === 'object' ? response?.[subQuestion.id] || '' : '',
       score: Number(subQuestion.score) || 0,
-      passage_title: item?.passage?.title || item?.title || '',
-      passage_content: item?.passage?.content || '',
+      context_title: subQuestion.context_title || '',
+      context: subQuestion.context || '',
+      requirements: subQuestion.requirements || {},
+      scoring_points: subQuestion.answer?.scoring_points || [],
       parent_question: {
         id: item?.id || '',
         type: item?.type || '',
@@ -59,6 +70,7 @@ function buildQuestionTarget(item, response, subQuestion = null) {
         material_title: item?.material_title || item?.context_title || item?.passage?.title || '',
         material: item?.material || item?.context || item?.passage?.content || '',
       },
+      schemas: Array.isArray(item?.schemas) ? item.schemas : [],
     }
   }
 
@@ -82,6 +94,93 @@ function buildQuestionTarget(item, response, subQuestion = null) {
     source_text: item.source_text || '',
     context_title: item.context_title || '',
     context: item.context || '',
+    material_title: item.material_title || '',
+    material: item.material || '',
+    schemas: Array.isArray(item?.schemas) ? item.schemas : [],
+    subquestions: Array.isArray(item?.subquestions)
+      ? item.subquestions.map((question) => ({
+          id: question?.id || '',
+          type: question?.type || '',
+          prompt: question?.prompt || '',
+          score: Number(question?.score) || 0,
+          reference_answer:
+            question?.reference_answer || question?.answer?.reference_answer || question?.answer?.correct || '',
+        }))
+      : [],
+    requirements: item.requirements || {},
+    scoring_points: item.answer?.scoring_points || [],
+  }
+}
+
+function resolveQuestionAuditStrategy(item, subQuestion = null) {
+  const targetType = String(subQuestion?.type || item?.type || 'generic').trim()
+
+  if (targetType === 'sql') {
+    return {
+      strategy: 'database_sql',
+      title: 'SQL 题规范性审核',
+      focus: '从 SQL 语义、表字段引用、连接条件、筛选条件、聚合分组和答案一致性角度审核题目是否规范。',
+      checks: [
+        '题干、参考答案、解析、评分点是否指向同一个查询目标',
+        '表名、字段名、别名、连接条件是否自洽',
+        'SELECT、WHERE、GROUP BY、HAVING、ORDER BY 的使用是否合理',
+        '参考答案是否存在明显语法错误或遗漏关键条件',
+      ],
+    }
+  }
+
+  if (targetType === 'er_diagram') {
+    return {
+      strategy: 'database_er_diagram',
+      title: 'E-R 图题规范性审核',
+      focus: '从实体、属性、联系、主键和基数约束角度审核题目和参考答案是否规范一致。',
+      checks: [
+        '实体与属性划分是否清晰',
+        '联系、联系名、基数和约束是否一致',
+        '主键、外键或唯一标识是否缺失',
+        '题干、答案、解析是否在同一建模语境下',
+      ],
+    }
+  }
+
+  if (targetType === 'relational_algebra') {
+    return {
+      strategy: 'database_relational_algebra',
+      title: '关系代数题规范性审核',
+      focus: '从关系模式、运算符使用、表达式合法性以及答案解析一致性角度审核题目。',
+      checks: [
+        '关系模式与表达式中引用的关系、属性是否一致',
+        '投影、选择、连接、差集、除法等运算是否符合题意',
+        '参考表达式与解析、评分点是否指向同一语义',
+        '题目是否存在歧义、漏条件或不完整描述',
+      ],
+    }
+  }
+
+  if (targetType === 'short_answer') {
+    return {
+      strategy: 'database_short_answer',
+      title: '数据库简答题规范性审核',
+      focus: '从题干表述、参考答案覆盖面、评分点清晰度和解析一致性角度审核题目。',
+      checks: [
+        '题干是否明确，不存在歧义',
+        '参考答案是否覆盖题干要求的核心点',
+        '评分点是否可执行、可判分',
+        '解析是否与参考答案一致，未偏离题意',
+      ],
+    }
+  }
+
+  return {
+    strategy: 'generic_question',
+    title: '题目规范性审核',
+    focus: '从题干、答案、解析、评分点和作答一致性角度审核题目是否规范合理。',
+    checks: [
+      '题干是否清晰完整',
+      '答案与解析是否一致',
+      '评分点是否明确',
+      '用户作答是否暴露出题目本身的歧义或错误',
+    ],
   }
 }
 
@@ -114,7 +213,8 @@ export async function gradeSubjectiveAttempt({
     feature: 'subjective_grading',
     title: quiz?.title || 'Untitled paper',
     subject: quiz?.subject || '',
-    systemPrompt: '你是一名严格但专业的考试阅卷老师。只返回 JSON。分数必须在 0 到 max_score 之间，反馈必须具体、可执行，并且使用中文。',
+    systemPrompt:
+      '你是一名严格但专业的考试阅卷老师。只返回 JSON。分数必须在 0 到 max_score 之间，反馈必须具体、可执行，并且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'grade_subjective_questions',
@@ -246,19 +346,30 @@ export async function explainQuizQuestionWithMode({
 
 export async function auditQuizQuestionCompliance({ paperTitle, item, response, subQuestion = null }) {
   const target = buildQuestionTarget(item, response, subQuestion)
+  const auditStrategy = resolveQuestionAuditStrategy(item, subQuestion)
 
   const { content, model } = await requestAiJson({
     feature: 'question_audit',
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
     systemPrompt:
-      '你是一名考试质量审核员。只返回 JSON。请站在出卷质量角度，检查题目、答案、解析、选项与学生作答是否彼此一致、表述是否规范清楚。只给出规范性结论、问题点和修改建议，不要重复答案内容，不要展开教学式解析。',
+      '你是一名考试质量审核员。只返回 JSON。请站在出卷质量角度，检查题目、答案、解析、评分点与学生作答之间是否一致、表述是否规范清楚。只给出规范性结论、问题点和修改建议，不要直接重复正确答案，也不要展开成教学式解析。',
     userPrompt: JSON.stringify(
       {
         task: 'audit_quiz_question_compliance',
+        audit_strategy: auditStrategy.strategy,
+        audit_title: auditStrategy.title,
+        audit_focus: auditStrategy.focus,
+        audit_checks: auditStrategy.checks,
         paper_title: paperTitle || 'Untitled paper',
         question: target,
         allowed_verdicts: ['规范合理', '基本合理', '存在问题', '明显错误'],
+        response_rules: [
+          '不要直接重复正确答案内容',
+          '不要输出教学式完整解析',
+          '重点判断题干、答案、解析、评分点与用户作答之间是否一致',
+          '建议必须面向命题质量修正，而不是面向学生做题技巧',
+        ],
         output_schema: {
           verdict: '规范合理 | 基本合理 | 存在问题 | 明显错误',
           summary: 'string',
@@ -294,7 +405,7 @@ export async function generateSimilarQuestions({ paperTitle, item, response, cou
     feature: 'similar_question_generation',
     title: paperTitle || 'Untitled paper',
     subject: item?.subject || '',
-    systemPrompt: '你是一名考试命题助手。只返回 JSON。请基于原题生成同类题，并按难度递进组织，且使用中文。',
+    systemPrompt: '你是一名考试命题助手。只返回 JSON。请基于原题生成同类题，并按难度递进组织，而且使用中文。',
     userPrompt: JSON.stringify(
       {
         task: 'generate_similar_questions',

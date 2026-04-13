@@ -1,0 +1,532 @@
+{
+  "schema_version": "2026-04",
+  "paper_id": "db_import_test_001",
+  "title": "数据库原理八题型导入测试题单",
+  "subject": "database_principles",
+  "description": "用于验证数据库原理题型导入、渲染、AI 核题和历史回显链路。每种数据库正式题型各 3 题。",
+  "duration_minutes": 120,
+  "questions": [
+    {
+      "id": "db_sc_001",
+      "type": "single_choice",
+      "prompt": "数据库系统中负责数据定义、数据操纵和数据控制的软件是（ ）。",
+      "score": 2,
+      "difficulty": "easy",
+      "options": [
+        { "key": "A", "text": "数据库管理员" },
+        { "key": "B", "text": "数据库管理系统" },
+        { "key": "C", "text": "数据库应用系统" },
+        { "key": "D", "text": "操作系统" }
+      ],
+      "answer": {
+        "type": "objective",
+        "correct": "B",
+        "rationale": "数据库管理系统 DBMS 是位于用户与数据库之间的软件层，提供数据定义、操纵、控制与维护能力。"
+      }
+    },
+    {
+      "id": "db_sc_002",
+      "type": "single_choice",
+      "prompt": "在关系模型中，候选码是指（ ）。",
+      "score": 2,
+      "difficulty": "medium",
+      "options": [
+        { "key": "A", "text": "能唯一标识元组的最小属性组" },
+        { "key": "B", "text": "所有非主属性的集合" },
+        { "key": "C", "text": "表中任意一个索引字段" },
+        { "key": "D", "text": "允许出现空值的属性" }
+      ],
+      "answer": {
+        "type": "objective",
+        "correct": "A",
+        "rationale": "候选码要求既能唯一标识元组，又是最小的，任何真子集都不能唯一标识元组。"
+      }
+    },
+    {
+      "id": "db_sc_003",
+      "type": "single_choice",
+      "prompt": "若事务 T1 对数据项 A 加了排它锁，则其他事务对 A（ ）。",
+      "score": 2,
+      "difficulty": "medium",
+      "options": [
+        { "key": "A", "text": "只能读不能写" },
+        { "key": "B", "text": "只能写不能读" },
+        { "key": "C", "text": "既不能读也不能写" },
+        { "key": "D", "text": "可以读也可以写" }
+      ],
+      "answer": {
+        "type": "objective",
+        "correct": "C",
+        "rationale": "排它锁会阻止其他事务对同一数据项进行任何读写操作，以保证隔离性。"
+      }
+    },
+    {
+      "id": "db_tf_001",
+      "type": "true_false",
+      "prompt": "在关系数据库中，一个关系模式只能有一个候选码。",
+      "score": 2,
+      "difficulty": "easy",
+      "answer": {
+        "type": "objective",
+        "correct": "F",
+        "rationale": "一个关系模式可以有多个候选码，其中只选定一个作为主码。"
+      }
+    },
+    {
+      "id": "db_tf_002",
+      "type": "true_false",
+      "prompt": "视图本身通常不存放数据，而是由基本表上的查询定义得到。",
+      "score": 2,
+      "difficulty": "easy",
+      "answer": {
+        "type": "objective",
+        "correct": "T",
+        "rationale": "视图是虚表，通常只保存定义，不独立保存实际数据。"
+      }
+    },
+    {
+      "id": "db_tf_003",
+      "type": "true_false",
+      "prompt": "第三范式要求消除传递函数依赖。",
+      "score": 2,
+      "difficulty": "medium",
+      "answer": {
+        "type": "objective",
+        "correct": "T",
+        "rationale": "第三范式在满足第二范式基础上，进一步要求非主属性不传递依赖于码。"
+      }
+    },
+    {
+      "id": "db_fb_001",
+      "type": "fill_blank",
+      "prompt": "数据库系统常用三级模式结构分别是 ____、____ 和 ____。",
+      "score": 6,
+      "difficulty": "easy",
+      "blanks": [
+        {
+          "blank_id": 1,
+          "accepted_answers": ["外模式", "用户模式"],
+          "score": 2,
+          "rationale": "三级模式结构从用户视图到底层存储，第一层是外模式。"
+        },
+        {
+          "blank_id": 2,
+          "accepted_answers": ["模式", "概念模式"],
+          "score": 2,
+          "rationale": "中间层是全局逻辑结构，对应模式或概念模式。"
+        },
+        {
+          "blank_id": 3,
+          "accepted_answers": ["内模式", "存储模式"],
+          "score": 2,
+          "rationale": "最底层是内模式，描述数据的物理存储结构。"
+        }
+      ]
+    },
+    {
+      "id": "db_fb_002",
+      "type": "fill_blank",
+      "prompt": "在 SQL 中，创建表使用 ____ 语句，删除表使用 ____ 语句。",
+      "score": 4,
+      "difficulty": "easy",
+      "blanks": [
+        {
+          "blank_id": 1,
+          "accepted_answers": ["CREATE TABLE", "CREATE"],
+          "score": 2,
+          "rationale": "创建表的标准 SQL 语句以 CREATE TABLE 开头。"
+        },
+        {
+          "blank_id": 2,
+          "accepted_answers": ["DROP TABLE", "DROP"],
+          "score": 2,
+          "rationale": "删除表的标准 SQL 语句以 DROP TABLE 开头。"
+        }
+      ]
+    },
+    {
+      "id": "db_fb_003",
+      "type": "fill_blank",
+      "prompt": "事务的四个基本特性通常简称为 ____。",
+      "score": 2,
+      "difficulty": "medium",
+      "blanks": [
+        {
+          "blank_id": 1,
+          "accepted_answers": ["ACID", "acid"],
+          "score": 2,
+          "rationale": "事务的四个基本特性是原子性、一致性、隔离性和持久性，简称 ACID。"
+        }
+      ]
+    },
+    {
+      "id": "db_sa_001",
+      "type": "short_answer",
+      "prompt": "简述数据库系统中“数据独立性”的含义，并区分逻辑独立性和物理独立性。",
+      "score": 8,
+      "difficulty": "medium",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "数据独立性是指应用程序与数据库中数据的逻辑结构和物理存储结构相互独立。逻辑独立性指概念模式改变时尽量不影响外模式和应用程序；物理独立性指内模式改变时尽量不影响概念模式和应用程序。",
+        "scoring_points": [
+          "说明数据独立性的总体含义",
+          "正确区分逻辑独立性",
+          "正确区分物理独立性"
+        ]
+      }
+    },
+    {
+      "id": "db_sa_002",
+      "type": "short_answer",
+      "prompt": "什么是事务？为什么数据库系统需要并发控制？",
+      "score": 8,
+      "difficulty": "medium",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "事务是数据库中作为一个逻辑工作单位执行的一组操作，要么全做，要么全不做。数据库需要并发控制，是因为多个事务并发执行时可能产生丢失修改、不可重复读、脏读等一致性问题，需要通过锁、时间戳等机制保证隔离性和正确性。",
+        "scoring_points": [
+          "说明事务是逻辑工作单位",
+          "说明事务具有原子提交特性",
+          "说明并发带来的一致性问题",
+          "指出并发控制的目的"
+        ]
+      }
+    },
+    {
+      "id": "db_sa_003",
+      "type": "short_answer",
+      "prompt": "简述函数依赖、部分函数依赖和传递函数依赖的区别。",
+      "score": 8,
+      "difficulty": "hard",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "函数依赖指一个属性集的值唯一确定另一个属性集的值。部分函数依赖是非主属性依赖于候选码的真子集。传递函数依赖是非主属性依赖于码，但不是直接依赖，而是通过另一个非主属性间接依赖于码。",
+        "scoring_points": [
+          "说明函数依赖的定义",
+          "说明部分函数依赖的判定条件",
+          "说明传递函数依赖的判定条件"
+        ]
+      }
+    },
+    {
+      "id": "db_ra_001",
+      "type": "relational_algebra",
+      "prompt": "已知关系模式：学生(学号, 姓名, 专业)、课程(课程号, 课程名, 学分)、选课(学号, 课程号, 成绩)。请写出下列查询的关系代数表达式。",
+      "score": 10,
+      "schemas": [
+        { "name": "学生", "attributes": ["学号", "姓名", "专业"] },
+        { "name": "课程", "attributes": ["课程号", "课程名", "学分"] },
+        { "name": "选课", "attributes": ["学号", "课程号", "成绩"] }
+      ],
+      "subquestions": [
+        {
+          "id": "1",
+          "label": "（1）",
+          "prompt": "检索专业为“软件工程”的学生姓名。",
+          "score": 5,
+          "reference_answer": "π[姓名](σ[专业='软件工程'](学生))"
+        },
+        {
+          "id": "2",
+          "label": "（2）",
+          "prompt": "检索课程名为“数据库原理”的选课学生学号和成绩。",
+          "score": 5,
+          "reference_answer": "π[学号,成绩](σ[课程名='数据库原理'](选课 ⋈ 课程))"
+        }
+      ]
+    },
+    {
+      "id": "db_ra_002",
+      "type": "relational_algebra",
+      "prompt": "已知关系模式：教师(工号, 姓名, 学院)、授课(工号, 课程号)、课程(课程号, 名称, 学分)。请写出下列查询的关系代数表达式。",
+      "score": 10,
+      "schemas": [
+        { "name": "教师", "attributes": ["工号", "姓名", "学院"] },
+        { "name": "授课", "attributes": ["工号", "课程号"] },
+        { "name": "课程", "attributes": ["课程号", "名称", "学分"] }
+      ],
+      "subquestions": [
+        {
+          "id": "1",
+          "label": "（1）",
+          "prompt": "检索“计算机学院”教师所授课程名称。",
+          "score": 5,
+          "reference_answer": "π[名称](σ[学院='计算机学院'](教师 ⋈ 授课 ⋈ 课程))"
+        },
+        {
+          "id": "2",
+          "label": "（2）",
+          "prompt": "检索没有授课记录的教师姓名。",
+          "score": 5,
+          "reference_answer": "π[姓名](教师) - π[姓名](教师 ⋈ 授课)"
+        }
+      ]
+    },
+    {
+      "id": "db_ra_003",
+      "type": "relational_algebra",
+      "prompt": "已知关系模式：仓库(仓库号, 城市)、零件(零件号, 名称)、供应(仓库号, 零件号, 数量)。请写出下列查询的关系代数表达式。",
+      "score": 10,
+      "schemas": [
+        { "name": "仓库", "attributes": ["仓库号", "城市"] },
+        { "name": "零件", "attributes": ["零件号", "名称"] },
+        { "name": "供应", "attributes": ["仓库号", "零件号", "数量"] }
+      ],
+      "subquestions": [
+        {
+          "id": "1",
+          "label": "（1）",
+          "prompt": "检索位于“长沙”的仓库所供应的零件名称。",
+          "score": 5,
+          "reference_answer": "π[名称](σ[城市='长沙'](仓库 ⋈ 供应 ⋈ 零件))"
+        },
+        {
+          "id": "2",
+          "label": "（2）",
+          "prompt": "检索没有供应任何零件的仓库号。",
+          "score": 5,
+          "reference_answer": "π[仓库号](仓库) - π[仓库号](仓库 ⋈ 供应)"
+        }
+      ]
+    },
+    {
+      "id": "db_comp_001",
+      "type": "composite",
+      "prompt": "某学校数据库包含 Student(id, name, dept_id, age) 与 Dept(id, dept_name)。请根据材料回答问题。",
+      "material_title": "学生院系案例",
+      "material_format": "plain",
+      "material": "Student(id, name, dept_id, age)\nDept(id, dept_name)\n其中 Student.dept_id 关联 Dept.id。",
+      "score": 8,
+      "questions": [
+        {
+          "id": "db_comp_001_q1",
+          "type": "single_choice",
+          "prompt": "如果要查询学生及其所属院系名称，应优先使用（ ）。",
+          "score": 2,
+          "options": [
+            { "key": "A", "text": "投影" },
+            { "key": "B", "text": "选择" },
+            { "key": "C", "text": "连接" },
+            { "key": "D", "text": "除法" }
+          ],
+          "answer": {
+            "type": "objective",
+            "correct": "C",
+            "rationale": "学生和院系信息分布在两张表中，需要通过外键关联执行连接操作。"
+          }
+        },
+        {
+          "id": "db_comp_001_q2",
+          "type": "short_answer",
+          "prompt": "说明 Student.dept_id 与 Dept.id 之间通常建立什么约束，以及它的作用。",
+          "score": 6,
+          "answer": {
+            "type": "subjective",
+            "reference_answer": "通常建立外键约束。它保证 Student.dept_id 的取值必须来源于 Dept.id 中已存在的主键值，从而维护参照完整性。",
+            "scoring_points": [
+              "指出是外键约束",
+              "说明约束目标字段",
+              "说明参照完整性的作用"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "db_comp_002",
+      "type": "composite",
+      "prompt": "某电商数据库包含 Orders(order_id, customer_id, total_amount) 与 Customers(customer_id, customer_name, city)。请根据材料回答问题。",
+      "material_title": "订单客户案例",
+      "material_format": "plain",
+      "material": "Orders(order_id, customer_id, total_amount)\nCustomers(customer_id, customer_name, city)\nOrders.customer_id 对应 Customers.customer_id。",
+      "score": 10,
+      "questions": [
+        {
+          "id": "db_comp_002_q1",
+          "type": "sql",
+          "prompt": "编写 SQL 查询广州客户的姓名及其订单总金额。",
+          "score": 6,
+          "context": "Orders(order_id, customer_id, total_amount)\nCustomers(customer_id, customer_name, city)",
+          "response_format": "sql",
+          "answer": {
+            "type": "subjective",
+            "reference_answer": "SELECT c.customer_name, o.total_amount FROM Customers c JOIN Orders o ON c.customer_id = o.customer_id WHERE c.city = '广州';",
+            "scoring_points": [
+              "正确连接 Customers 与 Orders",
+              "正确筛选 city = '广州'",
+              "正确投影姓名和订单金额"
+            ]
+          }
+        },
+        {
+          "id": "db_comp_002_q2",
+          "type": "true_false",
+          "prompt": "如果不写连接条件，也可以准确得到客户与订单的一一对应结果。",
+          "score": 4,
+          "answer": {
+            "type": "objective",
+            "correct": "F",
+            "rationale": "缺少连接条件会形成笛卡尔积，结果不再是一一对应。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "db_comp_003",
+      "type": "composite",
+      "prompt": "某图书馆数据库包含 Book(book_id, title, author_id) 与 Author(author_id, author_name)。请根据材料回答问题。",
+      "material_title": "图书作者案例",
+      "material_format": "plain",
+      "material": "Book(book_id, title, author_id)\nAuthor(author_id, author_name)\n一本书对应一个作者，一个作者可以出版多本书。",
+      "score": 8,
+      "questions": [
+        {
+          "id": "db_comp_003_q1",
+          "type": "fill_blank",
+          "prompt": "Book 与 Author 之间的联系通常属于 ____ 对 ____。",
+          "score": 4,
+          "blanks": [
+            {
+              "blank_id": 1,
+              "accepted_answers": ["多", "N"],
+              "score": 2,
+              "rationale": "从 Author 到 Book 是一对多，从 Book 角度看是多对一。"
+            },
+            {
+              "blank_id": 2,
+              "accepted_answers": ["一", "1"],
+              "score": 2,
+              "rationale": "一本书通常只对应一个作者，因此是多对一中的“一”。"
+            }
+          ]
+        },
+        {
+          "id": "db_comp_003_q2",
+          "type": "er_diagram",
+          "prompt": "用结构化语言描述该业务的 E-R 图核心要素。",
+          "score": 4,
+          "context": "请至少写出实体、关键属性、联系名称以及联系基数。",
+          "answer": {
+            "type": "subjective",
+            "reference_answer": "实体包括 Book 和 Author。Book 的关键属性是 book_id，Author 的关键属性是 author_id。联系可命名为“编写”或“著作”，基数为 Author 1 : N Book。",
+            "scoring_points": [
+              "写出两个实体",
+              "写出关键属性",
+              "写出联系名称",
+              "写出正确基数"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "db_sql_001",
+      "type": "sql",
+      "prompt": "已知 Student(id, name, score)，编写 SQL 查询分数高于 90 分的学生姓名和分数。",
+      "score": 8,
+      "difficulty": "easy",
+      "context": "Student(id, name, score)",
+      "response_format": "sql",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "SELECT name, score FROM Student WHERE score > 90;",
+        "scoring_points": [
+          "正确使用 SELECT 投影 name 和 score",
+          "正确指定 FROM Student",
+          "正确使用 WHERE score > 90"
+        ]
+      }
+    },
+    {
+      "id": "db_sql_002",
+      "type": "sql",
+      "prompt": "已知 Course(course_id, course_name, credit) 与 Enroll(student_id, course_id, score)，编写 SQL 查询每门课程的平均成绩。",
+      "score": 8,
+      "difficulty": "medium",
+      "context": "Course(course_id, course_name, credit)\nEnroll(student_id, course_id, score)",
+      "response_format": "sql",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "SELECT course_id, AVG(score) AS avg_score FROM Enroll GROUP BY course_id;",
+        "scoring_points": [
+          "正确使用 AVG(score)",
+          "正确按 course_id 分组",
+          "结果中保留课程标识"
+        ]
+      }
+    },
+    {
+      "id": "db_sql_003",
+      "type": "sql",
+      "prompt": "已知 Student(id, name, dept_id) 与 Dept(id, dept_name)，编写 SQL 查询所有学生姓名及其院系名称。",
+      "score": 8,
+      "difficulty": "medium",
+      "context": "Student(id, name, dept_id)\nDept(id, dept_name)",
+      "response_format": "sql",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "SELECT s.name, d.dept_name FROM Student s JOIN Dept d ON s.dept_id = d.id;",
+        "scoring_points": [
+          "正确使用表别名",
+          "正确连接 Student 与 Dept",
+          "正确投影学生姓名和院系名称"
+        ]
+      }
+    },
+    {
+      "id": "db_er_001",
+      "type": "er_diagram",
+      "prompt": "某教务系统中，一个学生可以选修多门课程，一门课程也可以被多个学生选修。请描述该业务的 E-R 图核心结构。",
+      "score": 8,
+      "difficulty": "easy",
+      "context": "请至少写出实体、关键属性、联系以及联系基数。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "实体包括学生和课程。学生主键可为学号，课程主键可为课程号。两者之间存在“选修”联系，联系基数为 M:N。如果需要记录成绩，可将成绩作为联系属性。",
+        "scoring_points": [
+          "写出学生实体和课程实体",
+          "写出关键属性",
+          "写出选修联系",
+          "写出 M:N 基数",
+          "指出成绩可作为联系属性"
+        ]
+      }
+    },
+    {
+      "id": "db_er_002",
+      "type": "er_diagram",
+      "prompt": "某图书管理系统中，一本图书由一个出版社出版，一个出版社可以出版多本图书。请描述该业务的 E-R 图核心结构。",
+      "score": 8,
+      "difficulty": "medium",
+      "context": "请写出实体、关键属性、联系及联系基数。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "实体包括图书和出版社。图书主键可为图书编号，出版社主键可为出版社编号。两者之间的联系可称为“出版”，联系基数为 出版社 1 : N 图书。",
+        "scoring_points": [
+          "写出图书和出版社两个实体",
+          "写出关键属性",
+          "写出出版联系",
+          "写出 1:N 基数"
+        ]
+      }
+    },
+    {
+      "id": "db_er_003",
+      "type": "er_diagram",
+      "prompt": "某医院系统中，一个科室有多名医生，一名医生只属于一个科室。请描述该业务的 E-R 图核心结构。",
+      "score": 8,
+      "difficulty": "medium",
+      "context": "请用结构化文字描述实体、主键、联系和联系基数。",
+      "answer": {
+        "type": "subjective",
+        "reference_answer": "实体包括科室和医生。科室主键可为科室编号，医生主键可为医生工号。两者之间可以建立“隶属”联系，联系基数为 科室 1 : N 医生。",
+        "scoring_points": [
+          "写出科室和医生两个实体",
+          "写出各自主键",
+          "写出隶属联系",
+          "写出 1:N 基数"
+        ]
+      }
+    }
+  ]
+}

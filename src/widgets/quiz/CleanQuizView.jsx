@@ -8,7 +8,13 @@ import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
 import QuizAiToolbar from './QuizAiToolbar.jsx'
 import { AiExplainPanel, AiQuestionReviewPanel } from './QuizAiPanels.jsx'
 import QuizAiPracticeModal from './QuizAiPracticeModal.jsx'
-import { buildFillBlankSlotHints, difficultyClass, formatDisplayScore, getItemDisplayScore } from './quizViewUtils.jsx'
+import {
+  buildFillBlankSlotHints,
+  difficultyClass,
+  formatDisplayScore,
+  getItemDisplayScore,
+  getQuestionDisplayMeta,
+} from './quizViewUtils.jsx'
 
 function getCurrentItem(quiz, currentIndex) {
   if (!quiz?.items?.length) return null
@@ -193,6 +199,8 @@ export default function CleanQuizView({
         })
       : null
   const currentItemScore = getItemDisplayScore(currentItem)
+  const currentQuestionTypeMeta =
+    currentItem.type !== 'generation_placeholder' ? getQuestionDisplayMeta(currentItem) : null
   const fillBlankSlotHints = buildFillBlankSlotHints(currentItem)
   const hasPendingGeneration = quiz.items.some((item) => item.type === 'generation_placeholder')
   const prompt =
@@ -262,6 +270,16 @@ export default function CleanQuizView({
               <div className="question-meta">
                 <span className="tag blue">第 {currentIndex + 1} 题</span>
                 <span className="tag score">{formatDisplayScore(currentItemScore)} 分</span>
+                {currentQuestionTypeMeta ? (
+                  <span className="tag purple" title={currentQuestionTypeMeta.label}>
+                    {currentQuestionTypeMeta.shortLabel}
+                  </span>
+                ) : null}
+                {currentQuestionTypeMeta?.gradingLabel ? (
+                  <span className="tag" title={currentQuestionTypeMeta.gradingLabel}>
+                    {currentQuestionTypeMeta.gradingLabel}
+                  </span>
+                ) : null}
                 {currentItem.difficulty ? (
                   <span className={difficultyClass(currentItem.difficulty)}>{currentItem.difficulty}</span>
                 ) : null}

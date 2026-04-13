@@ -34,7 +34,7 @@ export default function RelationalAlgebraSchemaPanel({
       <div className="rel-algebra-panel-header">
         <div>
           <div className="rel-algebra-panel-title">关系模式</div>
-          <div className="rel-algebra-panel-caption">每行一个关系，点击关系名或属性即可插入当前表达式。</div>
+          <div className="rel-algebra-panel-caption">每行一个关系，点击关系名或属性即可插入到当前表达式。</div>
         </div>
       </div>
 
@@ -61,7 +61,7 @@ export default function RelationalAlgebraSchemaPanel({
                   if (!attr) return null
                   return (
                     <React.Fragment key={`${relationName}-${attr}-${attrIndex}`}>
-                      {attrIndex > 0 && <span className="rel-algebra-schema-comma">、</span>}
+                      {attrIndex > 0 ? <span className="rel-algebra-schema-comma">、</span> : null}
                       <SchemaToken
                         token={{ kind: 'attribute', value: attr, label: attr, relation: relationName }}
                         activeToken={activeToken}

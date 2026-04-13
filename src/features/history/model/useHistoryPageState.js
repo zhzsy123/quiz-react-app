@@ -7,23 +7,66 @@ import {
   formatObjectiveCorrectAnswerLabel,
   isObjectiveResponseCorrect,
 } from '../../../entities/quiz/lib/objectiveAnswers'
+import { buildQuestionDisplayModel, formatSchemaSummary } from '../../../entities/quiz/lib/display/questionDisplayModel'
 import { requestConfirmDialog, requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
 
 export function attemptDisplayTitle(attempt) {
   return attempt.customTitle?.trim() || attempt.title || '未命名试卷'
 }
 
-function formatSubjectiveUserText(item, response) {
-  if (item?.type === 'relational_algebra') {
-    const responses = response?.responses && typeof response.responses === 'object' ? response.responses : {}
-    return Object.entries(responses)
-      .sort(([left], [right]) => String(left).localeCompare(String(right), 'zh-Hans-CN'))
-      .map(([subquestionId, value]) => `(${subquestionId}) ${value || '未作答'}`)
-      .join('\n')
-  }
+function isObjectiveLikeQuestion(item = {}) {
+  return (
+    item?.answer?.type === 'objective' ||
+    ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'function_fill_blank', 'cloze'].includes(item?.type)
+  )
+}
 
-  if (typeof response?.text === 'string') return response.text
-  return ''
+function buildObjectiveHistoryRow(item, response, { key = '', parentTitle = '', prompt = '' } = {}) {
+  return {
+    key: key || item.id,
+    parentTitle,
+    prompt: prompt || item.prompt,
+    type: 'objective',
+    userLabel: getObjectiveAnswerLabel(item, response, '未作答'),
+    correctLabel: formatObjectiveCorrectAnswerLabel(item, '未作答'),
+    rationale:
+      item.type === 'fill_blank'
+        ? item.blanks.map((blank, index) => `空${index + 1}：${blank.rationale || '暂无解析'}`).join('；')
+        : item.answer?.rationale || '暂无解析',
+    isCorrect: isObjectiveResponseCorrect(item, response),
+  }
+}
+
+function buildSubjectiveHistoryRow(
+  item,
+  response,
+  review,
+  { key = '', parentTitle = '', prompt = '', contextTitle, contextText, reviewStatus = '' } = {}
+) {
+  const display = buildQuestionDisplayModel(item, response, { contextTitle, contextText })
+
+  return {
+    key: key || item.id,
+    parentTitle,
+    prompt: prompt || item.prompt,
+    type: 'subjective',
+    displayType: display.displayType,
+    codeLike: display.codeLike,
+    contextCodeLike: display.contextCodeLike,
+    contextTitle: display.contextTitle,
+    contextText: display.contextText,
+    userText: display.userText,
+    referenceText: display.referenceText,
+    requirements: display.requirements,
+    scoringPoints: display.scoringPoints,
+    reviewScore: Number(review?.score || 0),
+    reviewMaxScore: Number(review?.maxScore || item.score || 0),
+    reviewFeedback: review?.feedback || '',
+    reviewStrengths: Array.isArray(review?.strengths) ? review.strengths : [],
+    reviewWeaknesses: Array.isArray(review?.weaknesses) ? review.weaknesses : [],
+    reviewSuggestions: Array.isArray(review?.suggestions) ? review.suggestions : [],
+    reviewStatus: review?.status || reviewStatus || '',
+  }
 }
 
 export function buildAnswerRows(attempt) {
@@ -50,39 +93,85 @@ export function buildAnswerRows(attempt) {
       return
     }
 
-    if (item.answer?.type === 'objective') {
-      const userValue = answers[item.id]
-      rows.push({
-        key: item.id,
-        prompt: item.prompt,
-        type: 'objective',
-        userLabel: getObjectiveAnswerLabel(item, userValue, '未作答'),
-        correctLabel: formatObjectiveCorrectAnswerLabel(item, '未作答'),
-        rationale:
-          item.type === 'fill_blank'
-            ? item.blanks.map((blank, index) => `空${index + 1}：${blank.rationale || '暂无解析'}`).join('；')
-            : item.answer?.rationale || '暂无解析',
-        isCorrect: isObjectiveResponseCorrect(item, userValue),
+    if (item.type === 'composite') {
+      const compositeAnswers = answers[item.id] && typeof answers[item.id] === 'object' ? answers[item.id] : {}
+      const parentTitle = item.material_title || item.title || item.prompt || '综合题'
+      const baseContextTitle = item.material_title || item.context_title || ''
+      const baseContextText = item.material || item.context || ''
+
+      ;(item.questions || []).forEach((question) => {
+        const response = compositeAnswers[question.id]
+        const review = aiReviewMap[`${item.id}:${question.id}`] || aiReviewMap[question.id] || null
+        const contextTitle = question.context_title || baseContextTitle
+        const contextText = question.context || baseContextText
+
+        if (isObjectiveLikeQuestion(question)) {
+          rows.push(
+            buildObjectiveHistoryRow(question, response, {
+              key: `${item.id}:${question.id}`,
+              parentTitle,
+            })
+          )
+          return
+        }
+
+        rows.push(
+          buildSubjectiveHistoryRow(question, response, review, {
+            key: `${item.id}:${question.id}`,
+            parentTitle,
+            contextTitle,
+            contextText,
+            reviewStatus: attempt.aiReview?.status || '',
+          })
+        )
       })
       return
     }
 
-    const userText = formatSubjectiveUserText(item, answers[item.id])
+    if (item.type === 'relational_algebra') {
+      const responseMap =
+        answers[item.id] && typeof answers[item.id] === 'object' && typeof answers[item.id].responses === 'object'
+          ? answers[item.id].responses
+          : {}
+      const parentTitle = item.title || item.prompt || '关系代数题'
+      const relationSchemas = formatSchemaSummary(item.schemas)
+
+      ;(item.subquestions || item.questions || []).forEach((subquestion) => {
+        const review = aiReviewMap[`${item.id}:${subquestion.id}`] || aiReviewMap[subquestion.id] || null
+        rows.push(
+          buildSubjectiveHistoryRow(
+            {
+              ...subquestion,
+              type: 'relational_algebra',
+              schemas: item.schemas,
+              answer: {
+                reference_answer: subquestion.reference_answer || subquestion.answer?.reference_answer || '',
+                scoring_points: item.answer?.scoring_points || [],
+              },
+            },
+            responseMap[subquestion.id] || '',
+            review,
+            {
+              key: `${item.id}:${subquestion.id}`,
+              parentTitle,
+              prompt: subquestion.label ? `${subquestion.label} ${subquestion.prompt}` : subquestion.prompt,
+              contextTitle: '关系模式',
+              contextText: relationSchemas,
+              reviewStatus: attempt.aiReview?.status || '',
+            }
+          )
+        )
+      })
+      return
+    }
+
+    if (item.answer?.type === 'objective') {
+      rows.push(buildObjectiveHistoryRow(item, answers[item.id]))
+      return
+    }
+
     const review = aiReviewMap[item.id] || null
-    rows.push({
-      key: item.id,
-      prompt: item.prompt,
-      type: 'subjective',
-      userText,
-      referenceText: item.answer?.reference_answer || '',
-      reviewStatus: attempt.aiReview?.status || '',
-      reviewScore: Number(review?.score || 0),
-      reviewMaxScore: Number(review?.maxScore || item.score || 0),
-      reviewFeedback: review?.feedback || '',
-      reviewStrengths: Array.isArray(review?.strengths) ? review.strengths : [],
-      reviewWeaknesses: Array.isArray(review?.weaknesses) ? review.weaknesses : [],
-      reviewSuggestions: Array.isArray(review?.suggestions) ? review.suggestions : [],
-    })
+    rows.push(buildSubjectiveHistoryRow(item, answers[item.id], review, { reviewStatus: attempt.aiReview?.status || '' }))
   })
 
   return rows

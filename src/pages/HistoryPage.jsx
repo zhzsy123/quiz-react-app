@@ -39,6 +39,112 @@ function Sparkline({ values }) {
   )
 }
 
+function AnswerValueBlock({ value = '', codeLike = false, emptyLabel = '暂无内容' }) {
+  if (!value) {
+    return <span>{emptyLabel}</span>
+  }
+
+  if (codeLike || value.includes('\n')) {
+    return <pre className="answer-review-code">{value}</pre>
+  }
+
+  return <span>{value}</span>
+}
+
+function SubjectiveAnswerCard({ row }) {
+  return (
+    <>
+      {row.contextText && (
+        <div className="answer-review-line stacked">
+          <strong>{row.contextTitle || '作答背景'}</strong>
+          <AnswerValueBlock value={row.contextText} codeLike={row.contextCodeLike} emptyLabel="暂无背景" />
+        </div>
+      )}
+
+      <div className="answer-review-line stacked">
+        <strong>你的作答</strong>
+        <AnswerValueBlock value={row.userText} codeLike={row.codeLike} emptyLabel="未作答" />
+      </div>
+
+      <div className="answer-review-line stacked">
+        <strong>参考答案</strong>
+        <AnswerValueBlock value={row.referenceText} codeLike={row.codeLike} emptyLabel="暂无参考答案" />
+      </div>
+
+      {row.requirements?.length > 0 && (
+        <div className="answer-review-line stacked">
+          <strong>作答要求</strong>
+          <ul className="answer-review-list">
+            {row.requirements.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {row.scoringPoints?.length > 0 && (
+        <div className="answer-review-line stacked">
+          <strong>评分点</strong>
+          <ul className="answer-review-list">
+            {row.scoringPoints.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="answer-review-line">
+        <strong>AI 判分：</strong>
+        {row.reviewStatus === 'completed'
+          ? `${row.reviewScore}/${row.reviewMaxScore}`
+          : row.reviewStatus === 'pending'
+            ? '批改中'
+            : '暂无'}
+      </div>
+
+      {row.reviewFeedback && (
+        <div className="answer-review-line stacked">
+          <strong>AI 反馈</strong>
+          <AnswerValueBlock value={row.reviewFeedback} emptyLabel="暂无反馈" />
+        </div>
+      )}
+
+      {row.reviewStrengths?.length > 0 && (
+        <div className="answer-review-line stacked">
+          <strong>优点</strong>
+          <ul className="answer-review-list">
+            {row.reviewStrengths.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {row.reviewWeaknesses?.length > 0 && (
+        <div className="answer-review-line stacked">
+          <strong>不足</strong>
+          <ul className="answer-review-list">
+            {row.reviewWeaknesses.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {row.reviewSuggestions?.length > 0 && (
+        <div className="answer-review-line stacked">
+          <strong>建议</strong>
+          <ul className="answer-review-list">
+            {row.reviewSuggestions.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function HistoryPage() {
   const {
     filteredAttempts,
@@ -153,7 +259,7 @@ export default function HistoryPage() {
               <ListChecks size={18} />
               明细记录
             </h2>
-            <span className="section-header-tip">按时间倒序排列</span>
+            <span className="section-header-tip">按提交时间倒序排列</span>
           </div>
 
           {filteredAttempts.length === 0 ? (
@@ -215,48 +321,7 @@ export default function HistoryPage() {
                                 {row.parentTitle && <div className="answer-review-parent">{row.parentTitle}</div>}
                                 <div className="answer-review-prompt">{row.prompt}</div>
                                 {row.type === 'subjective' ? (
-                                  <>
-                                    <div className="answer-review-line">
-                                      <strong>你的作答：</strong>
-                                      {row.userText || '未作答'}
-                                    </div>
-                                    <div className="answer-review-line">
-                                      <strong>参考答案：</strong>
-                                      {row.referenceText || '暂无参考答案'}
-                                    </div>
-                                    <div className="answer-review-line">
-                                      <strong>AI 判分：</strong>
-                                      {row.reviewStatus === 'completed'
-                                        ? `${row.reviewScore}/${row.reviewMaxScore}`
-                                        : row.reviewStatus === 'pending'
-                                          ? '批改中'
-                                          : '暂无'}
-                                    </div>
-                                    {row.reviewFeedback && (
-                                      <div className="answer-review-line">
-                                        <strong>AI 反馈：</strong>
-                                        {row.reviewFeedback}
-                                      </div>
-                                    )}
-                                    {row.reviewStrengths?.length > 0 && (
-                                      <div className="answer-review-line">
-                                        <strong>优点：</strong>
-                                        {row.reviewStrengths.join('；')}
-                                      </div>
-                                    )}
-                                    {row.reviewWeaknesses?.length > 0 && (
-                                      <div className="answer-review-line">
-                                        <strong>不足：</strong>
-                                        {row.reviewWeaknesses.join('；')}
-                                      </div>
-                                    )}
-                                    {row.reviewSuggestions?.length > 0 && (
-                                      <div className="answer-review-line">
-                                        <strong>建议：</strong>
-                                        {row.reviewSuggestions.join('；')}
-                                      </div>
-                                    )}
-                                  </>
+                                  <SubjectiveAnswerCard row={row} />
                                 ) : (
                                   <>
                                     <div className="answer-review-line">
@@ -267,9 +332,9 @@ export default function HistoryPage() {
                                       <strong>正确答案：</strong>
                                       {row.correctLabel}
                                     </div>
-                                    <div className="answer-review-line">
-                                      <strong>解析：</strong>
-                                      {row.rationale}
+                                    <div className="answer-review-line stacked">
+                                      <strong>解析</strong>
+                                      <AnswerValueBlock value={row.rationale} emptyLabel="暂无解析" />
                                     </div>
                                   </>
                                 )}

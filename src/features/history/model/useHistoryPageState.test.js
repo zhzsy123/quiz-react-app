@@ -110,4 +110,116 @@ describe('useHistoryPageState helpers', () => {
       })
     )
   })
+
+  it('flattens database composite and relational algebra items into structured answer rows', () => {
+    const attempt = {
+      answersSnapshot: {
+        composite_1: {
+          sql_1: {
+            text: 'SELECT name FROM Student WHERE score > 80',
+          },
+        },
+        ra_1: {
+          responses: {
+            '1': "Π[学号](σ[分数>80](成绩))",
+          },
+        },
+      },
+      itemsSnapshot: [
+        {
+          id: 'composite_1',
+          type: 'composite',
+          prompt: '阅读表结构并回答问题。',
+          material_title: '学生选课表',
+          material: 'Student(id, name, score)',
+          material_format: 'sql',
+          questions: [
+            {
+              id: 'sql_1',
+              type: 'sql',
+              prompt: '查询成绩大于 80 分的学生姓名。',
+              score: 8,
+              answer: {
+                type: 'subjective',
+                reference_answer: 'SELECT name FROM Student WHERE score > 80',
+                scoring_points: ['字段选择正确', '过滤条件正确'],
+              },
+            },
+          ],
+        },
+        {
+          id: 'ra_1',
+          type: 'relational_algebra',
+          prompt: '请完成关系代数表达式。',
+          schemas: [
+            {
+              name: '成绩',
+              attributes: ['学号', '分数'],
+            },
+          ],
+          subquestions: [
+            {
+              id: '1',
+              label: '（1）',
+              prompt: '查询分数大于 80 的学号。',
+              score: 5,
+              reference_answer: "Π[学号](σ[分数>80](成绩))",
+            },
+          ],
+          answer: {
+            type: 'subjective',
+            scoring_points: ['表达式语义正确'],
+          },
+        },
+      ],
+      aiReview: {
+        status: 'completed',
+        questionReviews: {
+          'composite_1:sql_1': {
+            score: 8,
+            maxScore: 8,
+            feedback: 'SQL 语义正确。',
+          },
+          'ra_1:1': {
+            score: 5,
+            maxScore: 5,
+            feedback: '关系代数表达式正确。',
+          },
+        },
+      },
+    }
+
+    const rows = buildAnswerRows(attempt)
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        key: 'composite_1:sql_1',
+        parentTitle: '学生选课表',
+        prompt: '查询成绩大于 80 分的学生姓名。',
+        type: 'subjective',
+        displayType: 'sql',
+        codeLike: true,
+        contextTitle: '学生选课表',
+        contextText: 'Student(id, name, score)',
+        userText: 'SELECT name FROM Student WHERE score > 80',
+        referenceText: 'SELECT name FROM Student WHERE score > 80',
+        scoringPoints: ['字段选择正确', '过滤条件正确'],
+      })
+    )
+    expect(rows[1]).toEqual(
+      expect.objectContaining({
+        key: 'ra_1:1',
+        parentTitle: '请完成关系代数表达式。',
+        prompt: '（1） 查询分数大于 80 的学号。',
+        type: 'subjective',
+        displayType: 'relational_algebra',
+        codeLike: true,
+        contextTitle: '关系模式',
+        contextText: '成绩（学号、分数）',
+        userText: "Π[学号](σ[分数>80](成绩))",
+        referenceText: "Π[学号](σ[分数>80](成绩))",
+      })
+    )
+  })
 })

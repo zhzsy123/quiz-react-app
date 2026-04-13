@@ -4,6 +4,7 @@ import React from 'react'
 import { act } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createRoot } from 'react-dom/client'
+
 import QuizSubjectiveBlock from './QuizSubjectiveBlock.jsx'
 
 async function renderComponent(element) {
@@ -26,17 +27,20 @@ function createBaseProps(item, extraProps = {}) {
     isPaused: false,
     mode: 'practice',
     revealedMap: {},
+    relationalAlgebraExpandedMap: {},
+    aiQuestionReviewMap: {},
     focusSubQuestionId: '',
     onFocusSubQuestion: () => {},
     onSelectReadingOption: () => {},
     onSelectClozeOption: () => {},
     onRevealCurrentObjective: () => {},
-    aiExplainMap: {},
-    onExplainQuestion: () => {},
     onSelectCompositeOption: () => {},
     onCompositeFillBlankChange: () => {},
     onCompositeTextChange: () => {},
     onRevealCompositeQuestion: () => {},
+    onRelationalAlgebraTextChange: () => {},
+    onToggleRelationalAlgebraSubQuestion: () => {},
+    onRevealRelationalAlgebraQuestion: () => {},
     onFillBlankChange: () => {},
     onTextChange: () => {},
     ...extraProps,
@@ -111,6 +115,84 @@ describe('QuizSubjectiveBlock', () => {
     expect(container.textContent).toContain('切题')
     expect(container.textContent).toContain('结构完整')
     expect(container.textContent).toContain('表达连贯')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('renders sql workspace with schema panel and quick insert buttons', async () => {
+    const sqlQuestion = {
+      id: 'sql_1',
+      type: 'sql',
+      prompt: '查询平均分大于 80 分的学生姓名。',
+      score: 8,
+      context_title: '表结构',
+      context: 'Student(id, name, score)',
+      context_format: 'sql',
+      answer: {
+        type: 'subjective',
+        reference_answer: 'SELECT name FROM Student WHERE score > 80',
+        scoring_points: ['字段选择正确', '过滤条件正确'],
+      },
+    }
+
+    const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(sqlQuestion)} />)
+
+    expect(container.textContent).toContain('SQL 题工作台')
+    expect(container.textContent).toContain('表结构')
+    expect(container.textContent).toContain('真实 SQL 编辑器已启用')
+    expect(container.textContent).toContain('SELECT')
+    expect(container.textContent).toContain('GROUP BY')
+    expect(container.textContent).toContain('Student')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('renders composite questions with dedicated material and subquestion workspace', async () => {
+    const composite = {
+      id: 'composite_1',
+      type: 'composite',
+      prompt: '根据学生选课场景回答问题。',
+      material_title: '学生选课案例',
+      material: 'Student(id, name, score)\nCourse(id, title)\nEnrollment(student_id, course_id)',
+      material_format: 'sql',
+      questions: [
+        {
+          id: 'sub_sql_1',
+          type: 'sql',
+          prompt: '查询平均分大于 80 的学生姓名。',
+          score: 6,
+          context_title: '题内表结构',
+          context: 'Student(id, name, score)',
+          context_format: 'sql',
+          answer: {
+            type: 'subjective',
+            reference_answer: 'SELECT name FROM Student WHERE score > 80',
+          },
+        },
+        {
+          id: 'sub_short_1',
+          type: 'short_answer',
+          prompt: '说明主键的作用。',
+          score: 4,
+          answer: {
+            type: 'subjective',
+            scoring_points: ['唯一标识一行记录'],
+          },
+        },
+      ],
+    }
+
+    const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(composite)} />)
+
+    expect(container.textContent).toContain('材料区')
+    expect(container.textContent).toContain('子题区')
+    expect(container.textContent).toContain('学生选课案例')
+    expect(container.textContent).toContain('SQL 题工作台')
+    expect(container.textContent).toContain('主键的作用')
 
     await act(async () => {
       root.unmount()

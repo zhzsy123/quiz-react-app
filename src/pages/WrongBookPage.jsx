@@ -19,6 +19,7 @@ import { SUBJECT_REGISTRY, getSubjectMeta } from '../entities/subject/model/subj
 import { exportWrongbookDiagnostics } from '../entities/wrongbook/api/wrongbookDiagnostics'
 import { listAllWrongbookEntries } from '../entities/wrongbook/api/wrongbookRepository'
 import {
+  buildWrongBookEntryDisplayModel,
   formatWrongBookDisplayValue,
   getWrongItemCategoryLabel,
   renderWrongBookOptionLabel,
@@ -33,6 +34,68 @@ function downloadJsonFile(filename, payload) {
   anchor.download = filename
   anchor.click()
   URL.revokeObjectURL(url)
+}
+
+function WrongBookValueBlock({ value = '', codeLike = false, emptyLabel = '暂无内容' }) {
+  if (!value) {
+    return <span>{emptyLabel}</span>
+  }
+
+  if (codeLike || value.includes('\n')) {
+    return <pre className="answer-review-code">{value}</pre>
+  }
+
+  return <span>{value}</span>
+}
+
+function WrongBookStructuredAnswer({ item }) {
+  const display = buildWrongBookEntryDisplayModel(item)
+
+  return (
+    <>
+      {display.compositePrompt && (
+        <div className="wrongbook-context">
+          <strong>母题题干</strong>
+          {`：${display.compositePrompt}`}
+        </div>
+      )}
+
+      {display.compositeMaterialText && (
+        <div className="analysis-box compact-analysis-box">
+          <div className="answer-review-line stacked">
+            <strong>{display.compositeMaterialTitle || '题目材料'}</strong>
+            <WrongBookValueBlock
+              value={display.compositeMaterialText}
+              codeLike={display.compositeMaterialCodeLike}
+              emptyLabel="暂无材料"
+            />
+          </div>
+        </div>
+      )}
+
+      {display.contextText && (
+        <div className="wrongbook-context">
+          <strong>{display.contextTitle || '作答背景'}</strong>
+          <WrongBookValueBlock value={display.contextText} codeLike={display.contextCodeLike} emptyLabel="暂无背景" />
+        </div>
+      )}
+
+      <div className="analysis-box compact-analysis-box">
+        <div className="answer-review-line stacked">
+          <strong>你的答案</strong>
+          <WrongBookValueBlock value={display.userAnswerText} codeLike={display.codeLike} emptyLabel="未记录" />
+        </div>
+        <div className="answer-review-line stacked">
+          <strong>参考答案</strong>
+          <WrongBookValueBlock value={display.correctText} codeLike={display.codeLike} emptyLabel="见题目配置" />
+        </div>
+        <div className="answer-review-line stacked">
+          <strong>解析</strong>
+          <WrongBookValueBlock value={display.rationaleText} emptyLabel="暂无解析" />
+        </div>
+      </div>
+    </>
+  )
 }
 
 function WrongBookRecoveryPanel({ errorMessage = '', componentStack = '' }) {
@@ -59,10 +122,9 @@ function WrongBookRecoveryPanel({ errorMessage = '', componentStack = '' }) {
           listAllWrongbookEntries(activeProfileId),
           exportWrongbookDiagnostics(activeProfileId),
         ])
-        const nextEntries = Array.isArray(rows) ? rows : []
 
         if (!disposed) {
-          setEntries(nextEntries)
+          setEntries(Array.isArray(rows) ? rows : [])
           setDiagnostics(nextDiagnostics)
           setDiagnosticError('')
           setLoading(false)
@@ -113,25 +175,30 @@ function WrongBookRecoveryPanel({ errorMessage = '', componentStack = '' }) {
             导出异常错题数据
           </button>
         </div>
+
         {errorMessage ? (
           <div className="wrongbook-context" style={{ marginBottom: 10 }}>
             <strong>主渲染错误</strong>：{errorMessage}
           </div>
         ) : null}
+
         {componentStack ? (
           <div className="analysis-box compact-analysis-box" style={{ whiteSpace: 'pre-wrap', marginBottom: 10 }}>
             {componentStack.trim()}
           </div>
         ) : null}
+
         {diagnosticError ? <div className="local-library-empty">{diagnosticError}</div> : null}
+
         {diagnostics ? (
           <div className="wrongbook-meta">
             <span>错题分组：{diagnostics.summary.entryRecordCount}</span>
             <span>错题总条数：{diagnostics.summary.entryCount}</span>
             <span>可疑记录：{diagnostics.summary.suspectCount}</span>
-            <span>掌握标记分组：{diagnostics.summary.masteredRecordCount}</span>
+            <span>掌握记录分组：{diagnostics.summary.masteredRecordCount}</span>
           </div>
         ) : null}
+
         {topSuspects.length > 0 ? (
           <div className="wrongbook-list" style={{ marginTop: 16 }}>
             {topSuspects.map((item) => (
@@ -170,29 +237,17 @@ function WrongBookRecoveryPanel({ errorMessage = '', componentStack = '' }) {
           </div>
           <div className="wrongbook-list">
             {entries.map((item) => (
-            <article key={item.questionKey} className="wrongbook-item-card">
-              <div className="wrongbook-card-head">
-                <span className="wrongbook-card-title">{item.prompt}</span>
-              </div>
-              <div className="wrongbook-meta">
-                <span>{getSubjectMeta(item.subject).shortLabel}</span>
-                <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
-                {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}
-              </div>
-              {item.contextTitle && (
-                <div className="wrongbook-context">
-                  <strong>{item.contextTitle}</strong>
-                  {item.contextSnippet ? `：${item.contextSnippet}` : ''}
+              <article key={item.questionKey} className="wrongbook-item-card">
+                <div className="wrongbook-card-head">
+                  <span className="wrongbook-card-title">{item.prompt}</span>
                 </div>
-              )}
-              <div className="analysis-box compact-analysis-box">
-                <div>
-                  正确答案：
-                  <strong>{formatWrongBookDisplayValue(item.correctAnswerLabel || item.correctAnswer, '见题目配置')}</strong>
+                <div className="wrongbook-meta">
+                  <span>{getSubjectMeta(item.subject).shortLabel}</span>
+                  <span>题型：{getWrongItemCategoryLabel(item.category)}</span>
+                  {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}
                 </div>
-                <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
-              </div>
-            </article>
+                <WrongBookStructuredAnswer item={item} />
+              </article>
             ))}
           </div>
         </>
@@ -409,10 +464,11 @@ function MultipleChoicePracticePanel({
       </div>
 
       {feedback && <div className="practice-feedback">{feedback}</div>}
+
       {feedback && (
         <div className="analysis-box">
           <div>
-            正确答案：
+            正确答案：{' '}
             <strong>
               {Array.isArray(item.correctAnswer)
                 ? formatWrongBookDisplayValue(item.correctAnswer, '见题目配置')
@@ -470,7 +526,8 @@ function WrongBookPageContent() {
 
   const activeSubjectKey =
     subjectFilter !== 'all' ? subjectFilter : filteredWrongItems[0]?.subject || SUBJECT_REGISTRY[0]?.key
-  const activeSubjectMeta = getSubjectMeta(activeSubjectKey) || getSubjectMeta('english') || { route: '/', shortLabel: '英语' }
+  const activeSubjectMeta =
+    getSubjectMeta(activeSubjectKey) || getSubjectMeta('english') || { route: '/', shortLabel: '英语' }
   const libraryRoute = activeSubjectMeta.route || '/'
 
   return (
@@ -574,7 +631,7 @@ function WrongBookPageContent() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索题干、阅读标题、标签或上下文"
+                placeholder="搜索题干、材料标题、标签或上下文"
               />
             </label>
           </div>
@@ -713,8 +770,7 @@ function WrongBookPageContent() {
                     {selectedAnswer && (
                       <div className="analysis-box">
                         <div>
-                          正确答案：
-                          <strong>{formatWrongBookDisplayValue(displayPracticeItem.correctAnswer, '见题目配置')}</strong>
+                          正确答案： <strong>{formatWrongBookDisplayValue(displayPracticeItem.correctAnswer, '见题目配置')}</strong>
                         </div>
                         <div>解析：{formatWrongBookDisplayValue(displayPracticeItem.rationale, '暂无解析')}</div>
                       </div>
@@ -796,25 +852,7 @@ function WrongBookPageContent() {
                         {item.paperTitle ? <span>来源：{item.paperTitle}</span> : null}
                       </div>
 
-                      {item.contextTitle && (
-                        <div className="wrongbook-context">
-                          <strong>{item.contextTitle}</strong>
-                          {item.contextSnippet ? `：${item.contextSnippet}` : ''}
-                        </div>
-                      )}
-
-                      <div className="analysis-box compact-analysis-box">
-                        <div>
-                          正确答案：
-                          <strong>
-                            {formatWrongBookDisplayValue(
-                              item.correctAnswerLabel || item.correctAnswer,
-                              '见题目配置'
-                            )}
-                          </strong>
-                        </div>
-                        <div>解析：{formatWrongBookDisplayValue(item.rationale, '暂无解析')}</div>
-                      </div>
+                      <WrongBookStructuredAnswer item={item} />
                     </article>
                   )
                 })}

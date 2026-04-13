@@ -20,14 +20,14 @@ const TOOLBAR_ITEMS = [
 export default function RelationalAlgebraToolbar({ disabled = false, onInsert, compact = false }) {
   return (
     <section className={`rel-algebra-toolbar ${compact ? 'compact' : ''}`}>
-      {!compact && (
+      {!compact ? (
         <div className="rel-algebra-panel-header">
           <div>
             <div className="rel-algebra-panel-title">关系代数符号</div>
             <div className="rel-algebra-panel-caption">点击即可插入，括号类符号会自动补全。</div>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="rel-algebra-toolbar-row" role="toolbar" aria-label="关系代数符号工具栏">
         {TOOLBAR_ITEMS.map((symbol) => (
