@@ -31,7 +31,11 @@ const COMPOSITE_CHILD_NORMALIZERS = {
   calculation: (question) => normalizeGenericSubjectiveQuestion(question, 'calculation'),
   operation: (question) => normalizeGenericSubjectiveQuestion(question, 'operation'),
   programming: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),
-  sql: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),
+  sql: (question) =>
+    normalizeGenericSubjectiveQuestion(
+      { ...question, response_format: question.response_format || 'sql' },
+      'sql'
+    ),
   er_diagram: (question) => normalizeGenericSubjectiveQuestion(question, 'short_answer'),
 }
 
