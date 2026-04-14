@@ -743,6 +743,12 @@ describe('workspace rich smoke flow', () => {
     })
     await waitFor(() => container.textContent?.includes('composite-multi-rationale'))
 
+    await act(async () => {
+      const chips = container.querySelectorAll('.composite-subquestion-chip')
+      chips[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    await waitFor(() => container.textContent?.includes('Composite fill blank'))
+
     const compositeInput = container.querySelector('.fill-blank-input')
     expect(compositeInput).not.toBeNull()
     await act(async () => {

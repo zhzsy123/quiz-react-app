@@ -38,6 +38,6 @@ describe('quizViewUtils', () => {
 
     expect(meta.label).toBe('SQL 题')
     expect(meta.shortLabel).toBe('SQL')
-    expect(meta.gradingLabel).toBe('AI核题')
+    expect(meta.gradingLabel).toBe('AI评分')
   })
 })

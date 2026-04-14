@@ -554,7 +554,7 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     container.remove()
   })
 
-  it('does not auto-advance across different top-level question types', async () => {
+  it('auto-advances to the next top-level question after the current question is completed', async () => {
     setQuizFixture(createMixedTypeAutoAdvanceFixture())
     const { root, container, stateRef } = await mountWorkspace()
 
@@ -568,8 +568,8 @@ describe('useSubjectWorkspaceState practice persistence', () => {
       await flushAsyncWork()
     })
 
-    expect(stateRef.current.currentIndex).toBe(0)
-    expect(stateRef.current.quiz.items[stateRef.current.currentIndex].id).toBe('single_1')
+    expect(stateRef.current.currentIndex).toBe(1)
+    expect(stateRef.current.quiz.items[stateRef.current.currentIndex].id).toBe('blank_2')
 
     await act(async () => {
       root.unmount()

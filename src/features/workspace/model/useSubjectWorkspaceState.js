@@ -435,20 +435,8 @@ export function useSubjectWorkspaceState() {
   })
 
   const findNextAutoAdvanceIndex = (items = [], fromIndex = currentIndex) => {
-    const currentItem = items[fromIndex]
-    if (!currentItem || fromIndex >= items.length - 1) return fromIndex
-    const nextIndex = Math.min(fromIndex + 1, items.length - 1)
-    const nextItem = items[nextIndex]
-    if (!nextItem) return fromIndex
-
-    const currentType = String(currentItem.type || '')
-    const nextType = String(nextItem.type || '')
-
-    if (currentType && nextType && currentType !== nextType) {
-      return fromIndex
-    }
-
-    return nextIndex
+    if (fromIndex >= items.length - 1) return fromIndex
+    return Math.min(fromIndex + 1, items.length - 1)
   }
 
   const getItemIndexById = (itemId) => {
