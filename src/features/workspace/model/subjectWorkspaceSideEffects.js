@@ -37,6 +37,148 @@ export function buildFavoriteEntryFromItem(item, meta) {
   }
 }
 
+export function buildWrongQuestionKey(item, meta, subQuestionId = '') {
+  if (!item?.id || !meta?.subject || !meta?.paperId) return ''
+  return subQuestionId
+    ? `${meta.subject}:${meta.paperId}:${item.id}:${subQuestionId}`
+    : `${meta.subject}:${meta.paperId}:${item.id}`
+}
+
+function extractSubjectiveAnswerText(response) {
+  if (typeof response === 'string') return response.trim()
+  if (response && typeof response.text === 'string') return response.text.trim()
+  try {
+    return JSON.stringify(response || '')
+  } catch {
+    return ''
+  }
+}
+
+function buildSubjectiveWrongEntry({
+  item,
+  question,
+  response,
+  meta,
+  parentType = '',
+  subQuestionId = '',
+  questionReview = null,
+  compositeContext = null,
+}) {
+  const answerText = extractSubjectiveAnswerText(response)
+  if (!answerText) return null
+
+  const referenceAnswer = String(question?.answer?.reference_answer || '').trim()
+  const feedback = String(questionReview?.feedback || question?.answer?.rationale || 'No rationale provided').trim()
+
+  return {
+    questionKey: subQuestionId
+      ? `${meta.subject}:${meta.paperId}:${item.id}:${subQuestionId}`
+      : `${meta.subject}:${meta.paperId}:${item.id}`,
+    subject: meta.subject,
+    paperId: meta.paperId,
+    paperTitle: meta.paperTitle,
+    parentType,
+    sourceType: question?.source_type || question?.type || item?.type,
+    type: question?.type || item?.type,
+    questionId: item.id,
+    subQuestionId,
+    prompt: question?.prompt || item?.prompt || '',
+    contextTitle:
+      parentType === 'composite'
+        ? item.material_title || item.context_title || item.prompt || ''
+        : question?.context_title || item?.context_title || '',
+    contextSnippet: clipText(
+      parentType === 'composite'
+        ? item.material || item.context || ''
+        : question?.context || item?.context || ''
+    ),
+    contextFormat:
+      parentType === 'composite'
+        ? item.material_format || item.context_format || ''
+        : question?.context_format || item?.context_format || '',
+    composite_context: compositeContext,
+    compositeContext,
+    options: [],
+    blanks: [],
+    userAnswer: response,
+    userAnswerLabel: answerText,
+    correctAnswer: referenceAnswer,
+    correctAnswerLabel: referenceAnswer,
+    rationale: feedback,
+    tags: [...(item?.tags || []), ...(question?.tags || [])],
+    difficulty: question?.difficulty || item?.difficulty,
+    lastWrongAt: Date.now(),
+    wrongTimes: 1,
+  }
+}
+
+export function buildWrongEntryForTarget(
+  item,
+  response,
+  meta,
+  manualJudgeMap = {},
+  subQuestionId = '',
+  questionReview = null
+) {
+  if (!item || !meta?.subject || !meta?.paperId) return null
+
+  if (subQuestionId && item.type === 'reading') {
+    const targetQuestion = (Array.isArray(item.questions) ? item.questions : []).find(
+      (question) => String(question?.id) === String(subQuestionId)
+    )
+    if (!targetQuestion) return null
+
+    const entries = buildWrongItems(
+      [{ ...item, questions: [targetQuestion] }],
+      { [item.id]: { [targetQuestion.id]: response } },
+      meta,
+      manualJudgeMap
+    )
+    return entries[0] || null
+  }
+
+  if (subQuestionId && item.type === 'composite') {
+    const targetQuestion = (Array.isArray(item.questions) ? item.questions : []).find(
+      (question) => String(question?.id) === String(subQuestionId)
+    )
+    if (!targetQuestion) return null
+
+    if (targetQuestion.answer?.type === 'subjective') {
+      return buildSubjectiveWrongEntry({
+        item,
+        question: targetQuestion,
+        response,
+        meta,
+        parentType: 'composite',
+        subQuestionId: targetQuestion.id,
+        questionReview,
+        compositeContext: buildCompositeContext(item),
+      })
+    }
+
+    const entries = buildWrongItems(
+      [{ ...item, questions: [targetQuestion] }],
+      { [item.id]: { [targetQuestion.id]: response } },
+      meta,
+      manualJudgeMap
+    )
+    return entries[0] || null
+  }
+
+  if (item.answer?.type === 'subjective') {
+    return buildSubjectiveWrongEntry({
+      item,
+      question: item,
+      response,
+      meta,
+      questionReview,
+    })
+  }
+
+  const entries = buildWrongItems([item], { [item.id]: response }, meta, manualJudgeMap)
+  return entries[0] || null
+}
+
 export function buildWrongItems(items, answers, meta, manualJudgeMap = {}) {
   const wrongItems = []
   const lastWrongAt = Date.now()

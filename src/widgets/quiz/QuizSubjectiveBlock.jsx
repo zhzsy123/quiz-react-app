@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+﻿import React, { useEffect, useRef, useState } from 'react'
 import {
   CheckCircle2,
   FileText,
@@ -29,6 +29,7 @@ import QuizClozeBlock from './QuizClozeBlock.jsx'
 import ErDiagramBlock from './ErDiagramBlock.jsx'
 import RelationalAlgebraBlock from './RelationalAlgebraBlock.jsx'
 import SqlQuestionBlock from './SqlQuestionBlock.jsx'
+import SqlSchemaPanel from './SqlSchemaPanel.jsx'
 
 function normalizeVisibleText(value) {
   return String(value || '')
@@ -500,115 +501,100 @@ function DatabaseCompositeBlock({
 }) {
   const responseMap = userResponse || {}
   const questions = Array.isArray(item.questions) ? item.questions : []
-  const containsSqlQuestion = questions.some((question) => question.type === 'sql')
   const activeQuestion =
     questions.find((question) => String(question.id) === String(focusSubQuestionId || '')) || questions[0] || null
-  const visibleQuestions = containsSqlQuestion && activeQuestion ? [activeQuestion] : questions
+  const sqlInsertTokenRef = useRef(null)
+  const questionIndex = questions.findIndex((entry) => String(entry.id) === String(activeQuestion?.id || ''))
+  const questionMeta = activeQuestion ? getQuestionDisplayMeta(activeQuestion) : null
+  const questionResponse = activeQuestion ? responseMap[activeQuestion.id] : null
+  const revealKey = activeQuestion ? `${item.id}:${activeQuestion.id}` : ''
+  const objectiveReveal = activeQuestion ? submitted || (mode === 'practice' && revealedMap[revealKey]) : false
+  const canRevealMultiChoice =
+    mode === 'practice' &&
+    activeQuestion?.type === 'multiple_choice' &&
+    !submitted &&
+    !objectiveReveal &&
+    normalizeChoiceArray(questionResponse).length > 0
+  const canRevealFillBlank =
+    mode === 'practice' &&
+    activeQuestion?.type === 'fill_blank' &&
+    !submitted &&
+    !objectiveReveal &&
+    isObjectiveAnswered(activeQuestion, questionResponse)
+  const isGradable = activeQuestion ? isObjectiveGradable(activeQuestion) : false
+  const materialTitle =
+    item.material_title ||
+    item.context_title ||
+    (activeQuestion?.type === 'sql' ? '表结构与题目背景' : '材料区')
+  const mergedQuestionContext = questions
+    .map((question) =>
+      [question.context, question.schema_context, question.schemaContext]
+        .map((value) => String(value || '').trim())
+        .find(Boolean) || ''
+    )
+    .filter(Boolean)
+    .filter((value, index, list) => list.indexOf(value) === index)
+    .join('\n')
+  const sharedMaterial =
+    String(item.material || item.context || item.schema_context || item.schemaContext || '').trim() ||
+    mergedQuestionContext
+  const sharedMaterialFormat =
+    item.material_format || item.context_format || activeQuestion?.context_format || 'text'
+  const sqlQuestionItem =
+    activeQuestion?.type === 'sql'
+      ? {
+          ...activeQuestion,
+          context_title: activeQuestion.context_title || materialTitle,
+          context:
+            activeQuestion.context ||
+            activeQuestion.schema_context ||
+            activeQuestion.schemaContext ||
+            sharedMaterial,
+          context_format: activeQuestion.context_format || sharedMaterialFormat,
+        }
+      : null
 
-  if (containsSqlQuestion && activeQuestion) {
-    const questionResponse = responseMap[activeQuestion.id]
-    const questionMeta = getQuestionDisplayMeta(activeQuestion)
-    const questionIndex = questions.findIndex((entry) => String(entry.id) === String(activeQuestion.id))
-    const sqlQuestionItem = {
-      ...activeQuestion,
-      context_title: activeQuestion.context_title || item.material_title || '表结构与题目背景',
-      context: activeQuestion.context || item.material || '',
-      context_format: activeQuestion.context_format || item.material_format || 'sql',
-    }
-
+  if (!activeQuestion) {
     return (
-      <div className="subjective-block composite-workbench composite-workbench-sql">
-        <section className="analysis-box composite-material-panel composite-material-panel-sql">
-          <div className="composite-panel-head compact">
-            <div>
-              <div className="analysis-section-title">材料区</div>
-              {item.material_title ? <div className="question-context-title">{item.material_title}</div> : null}
-            </div>
-          </div>
-          {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
-        </section>
-
-        <section className="composite-question-panel composite-question-panel-sql">
-          <div className="composite-panel-head compact">
-            <div>
-              <div className="analysis-section-title">SQL 子题</div>
-              <div className="composite-panel-caption">切换子题后在右侧工作区直接作答并进行 AI评分。</div>
-            </div>
-          </div>
-
-          <div className="composite-subquestion-chips">
-            {questions.map((question, index) => {
-              const chipMeta = getQuestionDisplayMeta(question)
-              const isFocused = String(focusSubQuestionId || '') === String(question.id)
-
-              return (
-                <button
-                  key={`chip-${question.id}`}
-                  type="button"
-                  className={`composite-subquestion-chip ${isFocused ? 'focused' : ''}`}
-                  onClick={() => onFocusSubQuestion?.(question.id)}
-                >
-                  <span className="composite-subquestion-chip-index">#{index + 1}</span>
-                  <span>{chipMeta.shortLabel}</span>
-                  <span>{formatDisplayScore(question?.score)} 分</span>
-                </button>
-              )
-            })}
-          </div>
-
-          <article className="composite-sql-focus">
-            <div className="answer-review-prompt composite-question-head">
-              <div className="composite-question-meta">
-                <span className="composite-question-index">第 {questionIndex + 1} 小题</span>
-                <span className="tag purple">{questionMeta.label}</span>
-                <span className="tag score">{formatDisplayScore(activeQuestion?.score)} 分</span>
-                <span className="tag">{questionMeta.gradingLabel}</span>
-              </div>
-            </div>
-            <div className="wrongbook-card-title composite-sql-title">{activeQuestion.prompt}</div>
-
-            <SqlQuestionBlock
-              item={sqlQuestionItem}
-              userResponse={questionResponse}
-              disabled={disabled || submitted}
-              submitted={submitted}
-              hideSchemaPanel
-              embedded
-              showWorkbenchTitle={false}
-              onTextChange={(targetId, text) => {
-                onFocusSubQuestion?.(targetId)
-                onTextChange(targetId, text)
-              }}
-            />
-          </article>
-        </section>
+      <div className="analysis-box">
+        <div>当前综合题缺少可作答的子题。</div>
       </div>
     )
   }
 
   return (
-    <div className={`subjective-block composite-workbench ${containsSqlQuestion ? 'composite-workbench-sql' : ''}`}>
-      <section className="analysis-box composite-material-panel">
-        <div className="composite-panel-head">
-          <div>
-            <div className="analysis-section-title">材料区</div>
-            {item.material_title ? <div className="question-context-title">{item.material_title}</div> : null}
-          </div>
-        </div>
-        {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
-      </section>
+    <div
+      className={`subjective-block composite-workbench ${activeQuestion.type === 'sql' ? 'composite-workbench-sql refined' : 'database-composite-focus'}`}
+    >
+      <aside className={`composite-material-panel ${activeQuestion.type === 'sql' ? 'composite-material-panel-sql' : ''}`}>
+        {activeQuestion.type === 'sql' ? (
+          <SqlSchemaPanel
+            title={materialTitle}
+            context={sharedMaterial}
+            format={sharedMaterialFormat}
+            disabled={disabled || submitted}
+            onInsertToken={(token) => sqlInsertTokenRef.current?.(token)}
+            compact
+          />
+        ) : (
+          <section className="analysis-box composite-material-panel-inner">
+            <div className="composite-panel-head">
+              <div>
+                <div className="analysis-section-title">材料区</div>
+                {item.material_title ? <div className="question-context-title">{item.material_title}</div> : null}
+              </div>
+            </div>
+            {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
+          </section>
+        )}
+      </aside>
 
-      <section className={`composite-question-panel ${containsSqlQuestion ? 'composite-question-panel-sql' : ''}`}>
-        <div className="composite-panel-head">
-          <div>
-            <div className="analysis-section-title">子题区</div>
-            <div className="composite-panel-caption">按子题类型切换到对应的作答工作区。</div>
-          </div>
-        </div>
-
-        <div className="composite-subquestion-chips">
+      <section
+        className={`composite-question-panel ${activeQuestion.type === 'sql' ? 'composite-question-panel-sql refined' : ''}`}
+      >
+        <div className={`composite-subquestion-chips ${activeQuestion.type === 'sql' ? 'compact' : ''}`}>
           {questions.map((question, index) => {
-            const questionMeta = getQuestionDisplayMeta(question)
+            const currentQuestionMeta = getQuestionDisplayMeta(question)
             const isFocused = String(focusSubQuestionId || '') === String(question.id)
             return (
               <button
@@ -618,134 +604,125 @@ function DatabaseCompositeBlock({
                 onClick={() => onFocusSubQuestion?.(question.id)}
               >
                 <span className="composite-subquestion-chip-index">#{index + 1}</span>
-                <span>{questionMeta.shortLabel}</span>
+                {question.type === 'sql' ? null : <span>{currentQuestionMeta.shortLabel}</span>}
                 <span>{formatDisplayScore(question?.score)} 分</span>
               </button>
             )
           })}
         </div>
 
-        <div className={`answer-review-grid composite-question-grid ${containsSqlQuestion ? 'composite-question-grid-single' : ''}`}>
-          {visibleQuestions.map((question, index) => {
-            const questionResponse = responseMap[question.id]
-            const revealKey = `${item.id}:${question.id}`
-            const objectiveReveal = submitted || (mode === 'practice' && revealedMap[revealKey])
-            const isSubjective = question.answer?.type === 'subjective'
-            const canRevealMultiChoice =
-              mode === 'practice' &&
-              question.type === 'multiple_choice' &&
-              !submitted &&
-              !objectiveReveal &&
-              normalizeChoiceArray(questionResponse).length > 0
-            const canRevealFillBlank =
-              mode === 'practice' &&
-              question.type === 'fill_blank' &&
-              !submitted &&
-              !objectiveReveal &&
-              isObjectiveAnswered(question, questionResponse)
-            const isGradable = isObjectiveGradable(question)
-            const isFocused = String(focusSubQuestionId || '') === String(question.id)
-            const questionMeta = getQuestionDisplayMeta(question)
-            const showContextTitle =
-              question.type !== 'sql' && isDistinctDisplayText(question.context_title, question.prompt)
-            const showContext =
-              question.type !== 'sql' && isDistinctDisplayText(question.context, question.prompt, question.context_title)
-            const questionIndex = questions.findIndex((entry) => String(entry.id) === String(question.id))
+        <article
+          className={
+            activeQuestion.type === 'sql'
+              ? 'composite-sql-stage refined'
+              : 'answer-review-card composite-question-card focused'
+          }
+        >
+          <div
+            className={
+              activeQuestion.type === 'sql'
+                ? 'composite-sql-focus-meta refined'
+                : 'answer-review-prompt composite-question-head'
+            }
+          >
+            <div className="composite-question-meta compact">
+              <span className="composite-question-index">第 {questionIndex + 1} 小题</span>
+              {activeQuestion.type === 'sql' ? null : <span className="tag purple">{questionMeta.label}</span>}
+              <span className="tag score">{formatDisplayScore(activeQuestion?.score)} 分</span>
+            </div>
+            <div className={`wrongbook-card-title ${activeQuestion.type === 'sql' ? 'composite-sql-title' : ''}`}>
+              {activeQuestion.prompt}
+            </div>
+          </div>
 
-            return (
-              <article
-                key={question.id}
-                className={`answer-review-card composite-question-card ${question.type === 'sql' && containsSqlQuestion ? 'composite-question-card-sql' : ''} ${isFocused ? 'focused' : ''}`}
-              >
-                <div className="answer-review-prompt composite-question-head">
-                  <div className="composite-question-meta">
-                    <span className="composite-question-index">第 {questionIndex + 1} 小题</span>
-                    <span className="tag purple">{questionMeta.label}</span>
-                    <span className="tag score">{formatDisplayScore(question?.score)} 分</span>
-                    <span className="tag">{questionMeta.gradingLabel}</span>
-                  </div>
-                </div>
-                <div className="wrongbook-card-title">{question.prompt}</div>
-                {showContextTitle ? <div className="question-context-title">{question.context_title}</div> : null}
-                {showContext ? renderFormattedMaterial(question.context, question.context_format) : null}
-
-                {!isSubjective ? (
-                  <CompositeObjectiveBlock
-                    question={question}
-                    questionResponse={questionResponse}
-                    objectiveReveal={objectiveReveal}
-                    submitted={submitted}
-                    disabled={disabled}
-                    mode={mode}
-                    canRevealMultiChoice={canRevealMultiChoice}
-                    canRevealFillBlank={canRevealFillBlank}
-                    isGradable={isGradable}
-                    onSelectOption={(targetId, optionKey) => {
-                      onFocusSubQuestion?.(targetId)
-                      onSelectOption(targetId, optionKey)
-                    }}
-                    onRevealQuestion={onRevealQuestion}
-                    onFillBlankChange={(targetId, blankId, text) => {
-                      onFocusSubQuestion?.(targetId)
-                      onFillBlankChange(targetId, blankId, text)
-                    }}
-                  />
-                ) : question.type === 'translation' ? (
-                  <TranslationBlock
-                    item={question}
-                    userResponse={questionResponse}
-                    disabled={disabled || submitted}
-                    submitted={submitted}
-                    onTextChange={(targetId, text) => {
-                      onFocusSubQuestion?.(targetId)
-                      onTextChange(targetId, text)
-                    }}
-                  />
-                ) : question.type === 'essay' ? (
-                  <EssayBlock
-                    item={question}
-                    userResponse={questionResponse}
-                    disabled={disabled || submitted}
-                    submitted={submitted}
-                    onTextChange={(targetId, text) => {
-                      onFocusSubQuestion?.(targetId)
-                      onTextChange(targetId, text)
-                    }}
-                  />
-                ) : question.type === 'sql' ? (
-                  <SqlQuestionBlock
-                    item={question}
-                    userResponse={questionResponse}
-                    disabled={disabled || submitted}
-                    submitted={submitted}
-                    hideSchemaPanel={containsSqlQuestion}
-                    embedded={containsSqlQuestion}
-                    onTextChange={(targetId, text) => {
-                      onFocusSubQuestion?.(targetId)
-                      onTextChange(targetId, text)
-                      }}
-                    />
-                ) : (
-                  <GenericSubjectiveBlock
-                    item={question}
-                    userResponse={questionResponse}
-                    disabled={disabled || submitted}
-                    submitted={submitted}
-                    onTextChange={(targetId, text) => {
-                      onFocusSubQuestion?.(targetId)
-                      onTextChange(targetId, text)
-                    }}
-                  />
-                )}
-              </article>
-            )
-          })}
-        </div>
+          {activeQuestion.answer?.type !== 'subjective' ? (
+            <CompositeObjectiveBlock
+              question={activeQuestion}
+              questionResponse={questionResponse}
+              objectiveReveal={objectiveReveal}
+              submitted={submitted}
+              disabled={disabled}
+              mode={mode}
+              canRevealMultiChoice={canRevealMultiChoice}
+              canRevealFillBlank={canRevealFillBlank}
+              isGradable={isGradable}
+              onSelectOption={(targetId, optionKey) => {
+                onFocusSubQuestion?.(targetId)
+                onSelectOption(targetId, optionKey)
+              }}
+              onRevealQuestion={onRevealQuestion}
+              onFillBlankChange={(targetId, blankId, text) => {
+                onFocusSubQuestion?.(targetId)
+                onFillBlankChange(targetId, blankId, text)
+              }}
+            />
+          ) : activeQuestion.type === 'translation' ? (
+            <TranslationBlock
+              item={activeQuestion}
+              userResponse={questionResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onTextChange={(targetId, text) => {
+                onFocusSubQuestion?.(targetId)
+                onTextChange(targetId, text)
+              }}
+            />
+          ) : activeQuestion.type === 'essay' ? (
+            <EssayBlock
+              item={activeQuestion}
+              userResponse={questionResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onTextChange={(targetId, text) => {
+                onFocusSubQuestion?.(targetId)
+                onTextChange(targetId, text)
+              }}
+            />
+          ) : activeQuestion.type === 'sql' ? (
+            <SqlQuestionBlock
+              item={sqlQuestionItem}
+              userResponse={questionResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              hideSchemaPanel
+              embedded
+              showWorkbenchTitle={false}
+              onEditorInsertReady={(handler) => {
+                sqlInsertTokenRef.current = handler
+              }}
+              onTextChange={(targetId, text) => {
+                onFocusSubQuestion?.(targetId)
+                onTextChange(targetId, text)
+              }}
+            />
+          ) : activeQuestion.type === 'er_diagram' ? (
+            <ErDiagramBlock
+              item={activeQuestion}
+              userResponse={questionResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onChange={(targetId, nextValue) => {
+                onFocusSubQuestion?.(targetId)
+                onTextChange(targetId, nextValue)
+              }}
+            />
+          ) : (
+            <GenericSubjectiveBlock
+              item={activeQuestion}
+              userResponse={questionResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              onTextChange={(targetId, text) => {
+                onFocusSubQuestion?.(targetId)
+                onTextChange(targetId, text)
+              }}
+            />
+          )}
+        </article>
       </section>
     </div>
   )
 }
-
 export default function QuizSubjectiveBlock({
   item,
   response,
@@ -911,3 +888,4 @@ export default function QuizSubjectiveBlock({
     </div>
   )
 }
+

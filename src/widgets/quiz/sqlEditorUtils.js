@@ -45,6 +45,15 @@ export function insertTextIntoEditor(view, snippet = '', cursorOffset = snippet.
   view.focus()
 }
 
+function normalizeSchemaLine(line = '') {
+  return String(line || '')
+    .replace(/[（﹙]/g, '(')
+    .replace(/[）﹚]/g, ')')
+    .replace(/[，、]/g, ',')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function parseSqlSchemaContext(context = '') {
   const lines = String(context || '')
     .split(/\r?\n/)
@@ -55,7 +64,9 @@ export function parseSqlSchemaContext(context = '') {
   const notes = []
 
   lines.forEach((line) => {
-    const match = line.match(/^([\p{L}_][\p{L}\p{N}_]*)\s*\((.+)\)$/u)
+    const normalizedLine = normalizeSchemaLine(line)
+    const match = normalizedLine.match(/^([\p{L}_][\p{L}\p{N}_]*)\s*\((.+)\)$/u)
+
     if (!match) {
       notes.push(line)
       return
@@ -76,6 +87,12 @@ export function parseSqlSchemaContext(context = '') {
   })
 
   return { tables, notes }
+}
+
+export function formatSqlSchemaLine(table) {
+  if (!table?.name) return ''
+  const columns = Array.isArray(table.columns) ? table.columns.filter(Boolean) : []
+  return `${table.name}（${columns.join('、')}）`
 }
 
 export function buildSqlAutocompleteSchema(context = '') {

@@ -262,11 +262,11 @@ describe('QuizSubjectiveBlock', () => {
 
     const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(composite)} />)
 
-    expect(container.textContent).toContain('SQL')
+    expect(container.textContent).toContain('6.0 分')
     expect(container.textContent).toContain('Query students with score > 80.')
     expect(container.textContent).not.toContain('Explain the role of a primary key.')
     expect(container.querySelector('.composite-workbench-sql')).not.toBeNull()
-    expect(container.querySelectorAll('.sql-schema-panel').length).toBe(0)
+    expect(container.querySelectorAll('.sql-schema-panel').length).toBe(1)
     expect(container.querySelectorAll('.sql-editor-card').length).toBe(1)
 
     await act(async () => {

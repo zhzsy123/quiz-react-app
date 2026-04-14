@@ -1,71 +1,109 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { Braces } from 'lucide-react'
 import { sql, StandardSQL } from '@codemirror/lang-sql'
 import { indentWithTab } from '@codemirror/commands'
+import { acceptCompletion, autocompletion, completionStatus } from '@codemirror/autocomplete'
+import { Prec } from '@codemirror/state'
 import { keymap, EditorView } from '@codemirror/view'
-import { oneDark } from '@codemirror/theme-one-dark'
+import { syntaxHighlighting, HighlightStyle } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 
 import SqlSchemaPanel from './SqlSchemaPanel.jsx'
 import { getSubjectiveText } from './quizViewUtils.jsx'
-import {
-  buildSqlAutocompleteSchema,
-  insertTextIntoEditor,
-  SQL_QUICK_INSERTS,
-} from './sqlEditorUtils.js'
+import { buildSqlAutocompleteSchema, insertTextIntoEditor, SQL_QUICK_INSERTS } from './sqlEditorUtils.js'
+
+const SQL_HIGHLIGHT_STYLE = HighlightStyle.define([
+  { tag: [t.keyword, t.modifier, t.operatorKeyword], color: '#00e5ff', fontWeight: '900' },
+  { tag: [t.controlKeyword, t.definitionKeyword], color: '#38bdf8', fontWeight: '900' },
+  { tag: [t.operator, t.punctuation, t.separator], color: '#ff7ab6', fontWeight: '800' },
+  { tag: [t.string, t.special(t.string)], color: '#fde047', fontWeight: '800' },
+  { tag: [t.number, t.bool, t.atom], color: '#fb923c', fontWeight: '800' },
+  { tag: [t.typeName, t.className], color: '#c084fc', fontWeight: '800' },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#67e8f9', fontWeight: '800' },
+  { tag: [t.variableName, t.propertyName, t.name], color: '#e5eefc', fontWeight: '600' },
+  { tag: [t.comment, t.lineComment, t.blockComment], color: '#94a3b8', fontStyle: 'italic' },
+])
 
 const SQL_EDITOR_THEME = EditorView.theme(
   {
     '&': {
-      minHeight: '320px',
-      backgroundColor: 'rgba(2, 6, 23, 0.92)',
-      borderRadius: '16px',
-      border: '1px solid rgba(96, 165, 250, 0.16)',
+      minHeight: '380px',
+      backgroundColor: '#020817',
+      borderRadius: '18px',
+      border: '1px solid rgba(34, 211, 238, 0.22)',
       overflow: 'hidden',
     },
     '&.cm-focused': {
       outline: 'none',
-      borderColor: '#60a5fa',
-      boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.16)',
+      borderColor: '#22d3ee',
+      boxShadow: '0 0 0 3px rgba(34, 211, 238, 0.2)',
     },
     '.cm-content': {
       padding: '18px',
       fontFamily: '"JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, monospace',
-      fontSize: '0.95rem',
-      lineHeight: '1.85',
+      fontSize: '0.98rem',
+      lineHeight: '1.9',
       caretColor: '#f8fafc',
+      color: '#e5eefc',
     },
     '.cm-scroller': {
       fontFamily: '"JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, monospace',
     },
     '.cm-gutters': {
-      backgroundColor: 'rgba(15, 23, 42, 0.9)',
-      borderRight: '1px solid rgba(96, 165, 250, 0.12)',
+      backgroundColor: '#081220',
+      borderRight: '1px solid rgba(34, 211, 238, 0.16)',
       color: '#64748b',
     },
     '.cm-activeLineGutter': {
-      backgroundColor: 'rgba(59, 130, 246, 0.08)',
+      backgroundColor: 'rgba(34, 211, 238, 0.1)',
     },
     '.cm-activeLine': {
-      backgroundColor: 'rgba(30, 41, 59, 0.38)',
+      backgroundColor: 'rgba(15, 23, 42, 0.56)',
     },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
-      backgroundColor: 'rgba(96, 165, 250, 0.25) !important',
+      backgroundColor: 'rgba(34, 211, 238, 0.24) !important',
     },
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: '#f8fafc',
     },
     '.cm-tooltip': {
-      border: '1px solid rgba(96, 165, 250, 0.2)',
+      border: '1px solid rgba(56, 189, 248, 0.24)',
       backgroundColor: '#0f172a',
       color: '#e2e8f0',
     },
     '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: 'rgba(59, 130, 246, 0.22)',
-      color: '#eff6ff',
+      backgroundColor: 'rgba(34, 211, 238, 0.22)',
+      color: '#f8fafc',
     },
   },
   { dark: true }
+)
+
+const SQL_EDITOR_KEYMAP = Prec.highest(
+  keymap.of([
+    {
+      key: 'Tab',
+      preventDefault: true,
+      run(view) {
+        if (completionStatus(view.state) === 'active') {
+          return acceptCompletion(view)
+        }
+        return indentWithTab(view)
+      },
+    },
+    {
+      key: 'Space',
+      run(view) {
+        const selection = view.state.selection.main
+        view.dispatch({
+          changes: { from: selection.from, to: selection.to, insert: ' ' },
+          selection: { anchor: selection.from + 1 },
+        })
+        return true
+      },
+    },
+  ])
 )
 
 function SqlToolbar({ onInsertSnippet, disabled }) {
@@ -95,54 +133,75 @@ export default function SqlQuestionBlock({
   hideSchemaPanel = false,
   embedded = false,
   showWorkbenchTitle = true,
+  onEditorInsertReady = null,
 }) {
   const [editorView, setEditorView] = useState(null)
   const text = getSubjectiveText(userResponse)
   const readOnly = disabled || submitted
   const schema = buildSqlAutocompleteSchema(item.context)
-  const extensions = useMemo(
-    () => [sql({ dialect: StandardSQL, upperCaseKeywords: true, schema }), keymap.of([indentWithTab]), SQL_EDITOR_THEME],
-    [schema]
+
+  const handleInsertSnippet = useCallback(
+    (action) => {
+      if (readOnly) return
+      insertTextIntoEditor(editorView, action.snippet, action.cursorOffset)
+    },
+    [editorView, readOnly]
   )
 
-  const handleInsertSnippet = (action) => {
-    if (readOnly) return
-    insertTextIntoEditor(editorView, action.snippet, action.cursorOffset)
-  }
+  const handleInsertToken = useCallback(
+    (token) => {
+      if (readOnly || !token) return
+      insertTextIntoEditor(editorView, token, token.length)
+    },
+    [editorView, readOnly]
+  )
 
-  const handleInsertToken = (token) => {
-    if (readOnly) return
-    insertTextIntoEditor(editorView, token, token.length)
-  }
+  useEffect(() => {
+    if (typeof onEditorInsertReady !== 'function') return undefined
+    onEditorInsertReady(handleInsertToken)
+    return () => onEditorInsertReady(null)
+  }, [handleInsertToken, onEditorInsertReady])
+
+  const extensions = useMemo(
+    () => [
+      sql({ dialect: StandardSQL, upperCaseKeywords: true, schema }),
+      autocompletion({ activateOnTyping: true, defaultKeymap: false }),
+      SQL_EDITOR_KEYMAP,
+      syntaxHighlighting(SQL_HIGHLIGHT_STYLE, { fallback: true }),
+      SQL_EDITOR_THEME,
+    ],
+    [schema]
+  )
 
   return (
     <div className="sql-question-block">
       <div className={`sql-workbench sql-workbench-editor refined ${hideSchemaPanel ? 'sql-workbench-embedded' : ''}`}>
         {!hideSchemaPanel ? (
-        <SqlSchemaPanel
-          title={item.context_title || '表结构与题目背景'}
-          context={item.context}
-          format={item.context_format || 'sql'}
-          onInsertToken={handleInsertToken}
-          disabled={readOnly}
-        />
+          <SqlSchemaPanel
+            title={item.context_title || '表结构与题目背景'}
+            context={item.context}
+            format={item.context_format || 'sql'}
+            disabled={readOnly}
+            onInsertToken={handleInsertToken}
+          />
         ) : null}
 
         <section className={`sql-editor-card refined ${embedded ? 'embedded' : ''}`}>
-          {showWorkbenchTitle ? <div className="sql-panel-head refined">
-            <div className="sql-panel-title">
-              <Braces size={16} />
-              <span>SQL 工作区</span>
+          {showWorkbenchTitle ? (
+            <div className="sql-panel-head refined">
+              <div className="sql-panel-title">
+                <Braces size={16} />
+                <span>SQL 工作区</span>
+              </div>
             </div>
-          </div> : null}
+          ) : null}
 
           <SqlToolbar onInsertSnippet={handleInsertSnippet} disabled={readOnly} />
 
           <div className="sql-editor-shell">
             <CodeMirror
               value={text}
-              height="320px"
-              theme={oneDark}
+              height="380px"
               extensions={extensions}
               editable={!readOnly}
               readOnly={readOnly}
@@ -152,7 +211,7 @@ export default function SqlQuestionBlock({
                 allowMultipleSelections: false,
                 indentOnInput: true,
                 closeBrackets: true,
-                autocompletion: true,
+                autocompletion: false,
                 syntaxHighlighting: true,
                 lineNumbers: true,
                 highlightActiveLine: true,

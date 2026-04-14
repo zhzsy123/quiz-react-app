@@ -15,6 +15,7 @@ const {
   loadSessionProgressMock,
   saveSessionProgressMock,
   clearSessionProgressMock,
+  removeWrongbookEntryMock,
   upsertWrongbookEntriesMock,
   loadPreferenceMock,
   savePreferenceMock,
@@ -32,6 +33,7 @@ const {
   loadSessionProgressMock: vi.fn(),
   saveSessionProgressMock: vi.fn(),
   clearSessionProgressMock: vi.fn(),
+  removeWrongbookEntryMock: vi.fn(),
   upsertWrongbookEntriesMock: vi.fn(),
   loadPreferenceMock: vi.fn(),
   savePreferenceMock: vi.fn(),
@@ -202,6 +204,49 @@ function createFillBlankQuizFixture() {
   }
 }
 
+function createMixedTypeAutoAdvanceFixture() {
+  return {
+    title: '混合题型自动切题测试卷',
+    subject: 'english',
+    duration_minutes: 90,
+    items: [
+      {
+        id: 'single_1',
+        type: 'single_choice',
+        prompt: '第一题单选',
+        options: [
+          { key: 'A', text: '正确' },
+          { key: 'B', text: '错误' },
+        ],
+        answer: {
+          type: 'objective',
+          correct: 'A',
+          rationale: 'A 正确',
+        },
+        score: 2,
+      },
+      {
+        id: 'blank_2',
+        type: 'fill_blank',
+        prompt: '第二题填空',
+        blanks: [
+          {
+            blank_id: 'blank_2_1',
+            accepted_answers: ['algorithm'],
+            score: 2,
+            rationale: 'algorithm',
+          },
+        ],
+        answer: {
+          type: 'objective',
+          rationale: 'algorithm',
+        },
+        score: 2,
+      },
+    ],
+  }
+}
+
 function createRelationalAlgebraQuizFixture() {
   return {
     title: '数据库关系代数练习卷',
@@ -316,6 +361,7 @@ vi.mock('../../../entities/session/api/sessionRepository', () => ({
 }))
 
 vi.mock('../../../entities/wrongbook/api/wrongbookRepository', () => ({
+  removeWrongbookEntry: removeWrongbookEntryMock,
   upsertWrongbookEntries: upsertWrongbookEntriesMock,
 }))
 
@@ -397,6 +443,7 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     loadSessionProgressMock.mockResolvedValue({})
     saveSessionProgressMock.mockResolvedValue(undefined)
     clearSessionProgressMock.mockResolvedValue(undefined)
+    removeWrongbookEntryMock.mockResolvedValue(undefined)
     upsertWrongbookEntriesMock.mockResolvedValue([])
     loadPreferenceMock.mockReturnValue(null)
     savePreferenceMock.mockReturnValue(true)
@@ -474,6 +521,8 @@ describe('useSubjectWorkspaceState practice persistence', () => {
       await flushAsyncWork()
     })
 
+    expect(upsertWrongbookEntriesMock).toHaveBeenCalledTimes(1)
+
     await act(async () => {
       await stateRef.current.handleFinish()
     })
@@ -498,6 +547,29 @@ describe('useSubjectWorkspaceState practice persistence', () => {
         }),
       ])
     )
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('does not auto-advance across different top-level question types', async () => {
+    setQuizFixture(createMixedTypeAutoAdvanceFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleToggleAutoAdvance()
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleSelectOption('single_1', 'A')
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.currentIndex).toBe(0)
+    expect(stateRef.current.quiz.items[stateRef.current.currentIndex].id).toBe('single_1')
 
     await act(async () => {
       root.unmount()
@@ -530,6 +602,7 @@ describe('useSubjectWorkspaceState practice persistence', () => {
       answered: 1,
       rate: 100,
     })
+    expect(removeWrongbookEntryMock).toHaveBeenCalledWith('profile-1', 'english', 'english:paper-1:q1')
 
     await act(async () => {
       await stateRef.current.handleFinish()
@@ -543,7 +616,7 @@ describe('useSubjectWorkspaceState practice persistence', () => {
         manualJudgeMap: { q1: 'correct' },
       })
     )
-    expect(upsertWrongbookEntriesMock).not.toHaveBeenCalled()
+    expect(upsertWrongbookEntriesMock).toHaveBeenCalledTimes(1)
 
     await act(async () => {
       root.unmount()
@@ -690,6 +763,8 @@ describe('useSubjectWorkspaceState practice persistence', () => {
       stateRef.current.handleSelectCompositeOption('composite_1', 'sub_single', 'A')
       await flushAsyncWork()
     })
+
+    expect(upsertWrongbookEntriesMock).toHaveBeenCalledTimes(1)
 
     await act(async () => {
       stateRef.current.handleCompositeFillBlankChange('composite_1', 'sub_blank', 'blank_1', 'SELECT')
@@ -863,7 +938,35 @@ describe('useSubjectWorkspaceState practice persistence', () => {
       root.unmount()
     })
     container.remove()
+  })
+
+  it('ignores stale relational algebra reveal events after focus moves to another item', async () => {
+    setQuizFixture(createRelationalAlgebraQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '1', "Π[学号,姓名](σ[专业='英语'](学生))")
+      await flushAsyncWork()
     })
+
+    await act(async () => {
+      stateRef.current.handleJump(1)
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleRevealRelationalAlgebraQuestion('ra_1', '1')
+      await flushAsyncWork()
+    })
+
+    expect(gradeRelationalAlgebraSubquestionAttemptMock).not.toHaveBeenCalled()
+    expect(stateRef.current.currentIndex).toBe(1)
+    expect(stateRef.current.aiQuestionReviewMap['ra_1:1']).toBeUndefined()
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
   })
 
   it('does not reveal top-level fill-blank items until explicit reveal in practice mode', async () => {
@@ -894,3 +997,4 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     })
     container.remove()
   })
+})
