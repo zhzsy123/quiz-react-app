@@ -20,7 +20,7 @@ export default function QuizAiToolbar({
   const auditPending = currentAuditEntry?.status === 'pending'
   const gradePending = currentQuestionReview?.status === 'pending'
   const practiceJudgeOverridden = practiceJudgeState?.manualVerdict === 'correct'
-  const canGradeQuestion = ['short_answer', 'er_diagram'].includes(String(currentReviewTarget?.type || ''))
+  const canGradeQuestion = ['short_answer', 'er_diagram', 'sql'].includes(String(currentReviewTarget?.type || ''))
   const [restoreHover, setRestoreHover] = useState(false)
 
   const practiceJudgeLabel = practiceJudgeOverridden

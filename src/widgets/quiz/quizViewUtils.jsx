@@ -77,7 +77,7 @@ const QUESTION_DISPLAY_META = {
   sql: {
     label: 'SQL 题',
     shortLabel: 'SQL',
-    gradingLabel: 'AI核题',
+    gradingLabel: 'AI评分',
   },
   er_diagram: {
     label: 'E-R 图题',

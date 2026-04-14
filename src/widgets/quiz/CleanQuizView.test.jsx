@@ -306,6 +306,88 @@ describe('CleanQuizView', () => {
       root.unmount()
     })
   })
+
+  it('shows AI评分 for focused SQL subquestions inside composite questions', async () => {
+    const item = {
+      id: 'composite_sql_1',
+      type: 'composite',
+      prompt: '根据给定关系模式完成 SQL 子题。',
+      material_title: '表结构',
+      material: 'Student(Sno, Sname, Grade)',
+      material_format: 'sql',
+      questions: [
+        {
+          id: 'sub_sql_1',
+          type: 'sql',
+          prompt: '查询成绩大于 80 分的学生姓名。',
+          score: 6,
+          context_title: '表结构',
+          context: 'Student(Sno, Sname, Grade)',
+          context_format: 'sql',
+          answer: {
+            type: 'subjective',
+            reference_answer: 'SELECT Sname FROM Student WHERE Grade > 80',
+          },
+        },
+      ],
+    }
+
+    const { container, root } = await renderComponent(
+      <CleanQuizView
+        quiz={{ items: [item] }}
+        answers={{ composite_sql_1: { sub_sql_1: { text: 'SELECT Sname FROM Student' } } }}
+        submitted={false}
+        currentIndex={0}
+        mode="practice"
+        autoAdvance={false}
+        remainingSeconds={0}
+        isPaused={false}
+        revealedMap={{}}
+        subQuestionFocusMap={{ composite_sql_1: 'sub_sql_1' }}
+        isFavorite={false}
+        onToggleFavorite={noop}
+        onToggleAutoAdvance={noop}
+        onTogglePracticeWrongBook={noop}
+        onToggleExamWrongBook={noop}
+        onTogglePause={noop}
+        practiceWritesWrongBook
+        examWritesWrongBook
+        onJump={noop}
+        onPrev={noop}
+        onNext={noop}
+        onSelectOption={noop}
+        onRevealCurrentObjective={noop}
+        onSelectReadingOption={noop}
+        onFillBlankChange={noop}
+        onTextChange={noop}
+        aiReview={null}
+        aiQuestionReviewMap={{}}
+        aiExplainMap={{}}
+        aiAuditMap={{}}
+        aiExplainMode="standard"
+        aiPracticeModal={null}
+        onChangeAiExplainMode={noop}
+        onExplainQuestion={noop}
+        onAuditQuestion={noop}
+        onGradeQuestion={noop}
+        onExplainWhyWrong={noop}
+        onGenerateSimilarQuestions={noop}
+        onCloseAiPracticeModal={noop}
+        onSubmit={noop}
+        onSelectCompositeOption={noop}
+        onCompositeFillBlankChange={noop}
+        onCompositeTextChange={noop}
+        onRevealCompositeQuestion={noop}
+        onFocusSubQuestion={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('AI评分')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
   it('shows fill blank slot hints for top-level fill blank questions', async () => {
     const item = {
       id: 'blank_1',

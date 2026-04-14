@@ -1679,6 +1679,13 @@ button { border: none; }
   gap: 16px;
 }
 
+.composite-workbench-sql {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
 .composite-material-panel,
 .composite-question-panel {
   border-radius: 20px;
@@ -1696,12 +1703,25 @@ button { border: none; }
   padding: 18px;
 }
 
+.composite-question-panel-sql {
+  min-width: 0;
+}
+
+.composite-material-panel-sql {
+  position: sticky;
+  top: 18px;
+}
+
 .composite-panel-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 12px;
+}
+
+.composite-panel-head.compact {
+  margin-bottom: 10px;
 }
 
 .composite-panel-caption {
@@ -1764,11 +1784,57 @@ button { border: none; }
   border-radius: 18px;
 }
 
+.composite-question-card-sql {
+  padding: 18px 18px 12px;
+}
+
+.composite-question-card-sql .wrongbook-card-title {
+  margin-bottom: 14px;
+}
+
+.composite-question-card-sql .sql-question-block {
+  min-width: 0;
+}
+
+.composite-sql-focus {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(2, 6, 23, 0.28);
+  border: 1px solid rgba(96, 165, 250, 0.12);
+}
+
+.composite-sql-title {
+  margin-bottom: 14px;
+}
+
+.composite-question-panel-sql .sql-workbench {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.composite-question-panel-sql .sql-toolbar {
+  margin-bottom: 14px;
+}
+
+.composite-question-panel-sql .sql-editor-card.refined.embedded {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.composite-question-panel-sql .sql-editor-shell {
+  margin-top: 4px;
+}
+
 .composite-question-head {
   margin-bottom: 10px;
 }
 
 @media (max-width: 1100px) {
+  .composite-workbench-sql {
+    grid-template-columns: 1fr;
+  }
+
   .composite-panel-head {
     flex-direction: column;
     align-items: flex-start;
@@ -2596,6 +2662,18 @@ button { border: none; }
 
 .sql-editor-card.refined.embedded {
   min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sql-editor-card.refined.embedded .sql-panel-head.refined {
+  margin-bottom: 10px;
+}
+
+.sql-editor-card.refined.embedded .analysis-box {
+  margin-top: 16px;
 }
 
 .sql-schema-body.refined {

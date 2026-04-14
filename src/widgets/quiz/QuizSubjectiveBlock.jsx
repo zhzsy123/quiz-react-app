@@ -505,8 +505,89 @@ function DatabaseCompositeBlock({
     questions.find((question) => String(question.id) === String(focusSubQuestionId || '')) || questions[0] || null
   const visibleQuestions = containsSqlQuestion && activeQuestion ? [activeQuestion] : questions
 
+  if (containsSqlQuestion && activeQuestion) {
+    const questionResponse = responseMap[activeQuestion.id]
+    const questionMeta = getQuestionDisplayMeta(activeQuestion)
+    const questionIndex = questions.findIndex((entry) => String(entry.id) === String(activeQuestion.id))
+    const sqlQuestionItem = {
+      ...activeQuestion,
+      context_title: activeQuestion.context_title || item.material_title || '表结构与题目背景',
+      context: activeQuestion.context || item.material || '',
+      context_format: activeQuestion.context_format || item.material_format || 'sql',
+    }
+
+    return (
+      <div className="subjective-block composite-workbench composite-workbench-sql">
+        <section className="analysis-box composite-material-panel composite-material-panel-sql">
+          <div className="composite-panel-head compact">
+            <div>
+              <div className="analysis-section-title">材料区</div>
+              {item.material_title ? <div className="question-context-title">{item.material_title}</div> : null}
+            </div>
+          </div>
+          {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
+        </section>
+
+        <section className="composite-question-panel composite-question-panel-sql">
+          <div className="composite-panel-head compact">
+            <div>
+              <div className="analysis-section-title">SQL 子题</div>
+              <div className="composite-panel-caption">切换子题后在右侧工作区直接作答并进行 AI评分。</div>
+            </div>
+          </div>
+
+          <div className="composite-subquestion-chips">
+            {questions.map((question, index) => {
+              const chipMeta = getQuestionDisplayMeta(question)
+              const isFocused = String(focusSubQuestionId || '') === String(question.id)
+
+              return (
+                <button
+                  key={`chip-${question.id}`}
+                  type="button"
+                  className={`composite-subquestion-chip ${isFocused ? 'focused' : ''}`}
+                  onClick={() => onFocusSubQuestion?.(question.id)}
+                >
+                  <span className="composite-subquestion-chip-index">#{index + 1}</span>
+                  <span>{chipMeta.shortLabel}</span>
+                  <span>{formatDisplayScore(question?.score)} 分</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <article className="composite-sql-focus">
+            <div className="answer-review-prompt composite-question-head">
+              <div className="composite-question-meta">
+                <span className="composite-question-index">第 {questionIndex + 1} 小题</span>
+                <span className="tag purple">{questionMeta.label}</span>
+                <span className="tag score">{formatDisplayScore(activeQuestion?.score)} 分</span>
+                <span className="tag">{questionMeta.gradingLabel}</span>
+              </div>
+            </div>
+            <div className="wrongbook-card-title composite-sql-title">{activeQuestion.prompt}</div>
+
+            <SqlQuestionBlock
+              item={sqlQuestionItem}
+              userResponse={questionResponse}
+              disabled={disabled || submitted}
+              submitted={submitted}
+              hideSchemaPanel
+              embedded
+              showWorkbenchTitle={false}
+              onTextChange={(targetId, text) => {
+                onFocusSubQuestion?.(targetId)
+                onTextChange(targetId, text)
+              }}
+            />
+          </article>
+        </section>
+      </div>
+    )
+  }
+
   return (
-    <div className="subjective-block composite-workbench">
+    <div className={`subjective-block composite-workbench ${containsSqlQuestion ? 'composite-workbench-sql' : ''}`}>
       <section className="analysis-box composite-material-panel">
         <div className="composite-panel-head">
           <div>
@@ -517,7 +598,7 @@ function DatabaseCompositeBlock({
         {renderFormattedMaterial(item.material, item.material_format, 'question-context-body')}
       </section>
 
-      <section className="composite-question-panel">
+      <section className={`composite-question-panel ${containsSqlQuestion ? 'composite-question-panel-sql' : ''}`}>
         <div className="composite-panel-head">
           <div>
             <div className="analysis-section-title">子题区</div>
@@ -574,11 +655,11 @@ function DatabaseCompositeBlock({
             return (
               <article
                 key={question.id}
-                className={`answer-review-card composite-question-card ${isFocused ? 'focused' : ''}`}
+                className={`answer-review-card composite-question-card ${question.type === 'sql' && containsSqlQuestion ? 'composite-question-card-sql' : ''} ${isFocused ? 'focused' : ''}`}
               >
                 <div className="answer-review-prompt composite-question-head">
                   <div className="composite-question-meta">
-                    <span className="composite-question-index">第 {index + 1} 小题</span>
+                    <span className="composite-question-index">第 {questionIndex + 1} 小题</span>
                     <span className="tag purple">{questionMeta.label}</span>
                     <span className="tag score">{formatDisplayScore(question?.score)} 分</span>
                     <span className="tag">{questionMeta.gradingLabel}</span>

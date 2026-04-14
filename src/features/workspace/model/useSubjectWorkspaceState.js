@@ -750,7 +750,7 @@ export function useSubjectWorkspaceState() {
     if (!quiz || !item) return
 
     const target = subQuestion || item
-    if (!['short_answer', 'er_diagram'].includes(target?.type || '')) return
+    if (!['short_answer', 'er_diagram', 'sql'].includes(target?.type || '')) return
 
     const reviewKey = subQuestion ? `${item.id}:${subQuestion.id}` : item.id
     const requestId = (singleQuestionReviewRequestRef.current[reviewKey] || 0) + 1

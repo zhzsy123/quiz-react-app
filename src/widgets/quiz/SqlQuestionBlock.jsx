@@ -94,6 +94,7 @@ export default function SqlQuestionBlock({
   onTextChange,
   hideSchemaPanel = false,
   embedded = false,
+  showWorkbenchTitle = true,
 }) {
   const [editorView, setEditorView] = useState(null)
   const text = getSubjectiveText(userResponse)
@@ -128,12 +129,12 @@ export default function SqlQuestionBlock({
         ) : null}
 
         <section className={`sql-editor-card refined ${embedded ? 'embedded' : ''}`}>
-          <div className="sql-panel-head refined">
+          {showWorkbenchTitle ? <div className="sql-panel-head refined">
             <div className="sql-panel-title">
               <Braces size={16} />
               <span>SQL 工作区</span>
             </div>
-          </div>
+          </div> : null}
 
           <SqlToolbar onInsertSnippet={handleInsertSnippet} disabled={readOnly} />
 
