@@ -86,7 +86,15 @@ function SqlToolbar({ onInsertSnippet, disabled }) {
   )
 }
 
-export default function SqlQuestionBlock({ item, userResponse, disabled, submitted, onTextChange }) {
+export default function SqlQuestionBlock({
+  item,
+  userResponse,
+  disabled,
+  submitted,
+  onTextChange,
+  hideSchemaPanel = false,
+  embedded = false,
+}) {
   const [editorView, setEditorView] = useState(null)
   const text = getSubjectiveText(userResponse)
   const readOnly = disabled || submitted
@@ -108,7 +116,8 @@ export default function SqlQuestionBlock({ item, userResponse, disabled, submitt
 
   return (
     <div className="sql-question-block">
-      <div className="sql-workbench sql-workbench-editor refined">
+      <div className={`sql-workbench sql-workbench-editor refined ${hideSchemaPanel ? 'sql-workbench-embedded' : ''}`}>
+        {!hideSchemaPanel ? (
         <SqlSchemaPanel
           title={item.context_title || '表结构与题目背景'}
           context={item.context}
@@ -116,8 +125,9 @@ export default function SqlQuestionBlock({ item, userResponse, disabled, submitt
           onInsertToken={handleInsertToken}
           disabled={readOnly}
         />
+        ) : null}
 
-        <section className="sql-editor-card refined">
+        <section className={`sql-editor-card refined ${embedded ? 'embedded' : ''}`}>
           <div className="sql-panel-head refined">
             <div className="sql-panel-title">
               <Braces size={16} />

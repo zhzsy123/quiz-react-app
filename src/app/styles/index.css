@@ -1756,6 +1756,10 @@ button { border: none; }
   gap: 14px;
 }
 
+.composite-question-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .composite-question-card {
   border-radius: 18px;
 }
@@ -2571,6 +2575,10 @@ button { border: none; }
   gap: 20px;
 }
 
+.sql-workbench-embedded {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .sql-panel-head.refined {
   display: flex;
   align-items: center;
@@ -2584,6 +2592,10 @@ button { border: none; }
   border: 1px solid rgba(96, 165, 250, 0.16);
   border-radius: 22px;
   padding: 22px;
+}
+
+.sql-editor-card.refined.embedded {
+  min-width: 0;
 }
 
 .sql-schema-body.refined {

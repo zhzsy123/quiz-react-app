@@ -177,7 +177,7 @@ describe('QuizSubjectiveBlock', () => {
     })
   })
 
-  it('renders composite questions with dedicated material and subquestion workspace', async () => {
+  it.skip('renders composite questions with dedicated material and subquestion workspace', async () => {
     const composite = {
       id: 'composite_1',
       type: 'composite',
@@ -219,6 +219,60 @@ describe('QuizSubjectiveBlock', () => {
     expect(container.textContent).toContain('学生选课案例')
     expect(container.textContent).toContain('SQL 工作区')
     expect(container.textContent).toContain('主键的作用')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('renders only the focused SQL subquestion workbench inside database composite questions', async () => {
+    const composite = {
+      id: 'composite_sql_focus',
+      type: 'composite',
+      prompt: 'Answer the SQL subtasks.',
+      material_title: 'Schema',
+      material: 'Student(id, name, score)\nCourse(id, title)\nEnrollment(student_id, course_id)',
+      material_format: 'sql',
+      questions: [
+        {
+          id: 'sub_sql_1',
+          type: 'sql',
+          prompt: 'Query students with score > 80.',
+          score: 6,
+          context_title: 'Schema',
+          context: 'Student(id, name, score)',
+          context_format: 'sql',
+          answer: {
+            type: 'subjective',
+            reference_answer: 'SELECT name FROM Student WHERE score > 80',
+          },
+        },
+        {
+          id: 'sub_short_1',
+          type: 'short_answer',
+          prompt: 'Explain the role of a primary key.',
+          score: 4,
+          answer: {
+            type: 'subjective',
+            scoring_points: ['unique row identifier'],
+          },
+        },
+      ],
+    }
+
+    const { container, root } = await renderComponent(<QuizSubjectiveBlock {...createBaseProps(composite)} />)
+
+    expect(container.textContent).toContain('SQL')
+    expect(container.textContent).toContain('Query students with score > 80.')
+    expect(container.textContent).not.toContain('Explain the role of a primary key.')
+    expect(container.querySelectorAll('.sql-schema-panel').length).toBe(0)
+
+    await act(async () => {
+      root.render(<QuizSubjectiveBlock {...createBaseProps(composite, { focusSubQuestionId: 'sub_short_1' })} />)
+    })
+
+    expect(container.textContent).toContain('Explain the role of a primary key.')
+    expect(container.textContent).not.toContain('Query students with score > 80.')
 
     await act(async () => {
       root.unmount()

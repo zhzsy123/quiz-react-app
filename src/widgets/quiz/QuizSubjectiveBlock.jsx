@@ -500,6 +500,10 @@ function DatabaseCompositeBlock({
 }) {
   const responseMap = userResponse || {}
   const questions = Array.isArray(item.questions) ? item.questions : []
+  const containsSqlQuestion = questions.some((question) => question.type === 'sql')
+  const activeQuestion =
+    questions.find((question) => String(question.id) === String(focusSubQuestionId || '')) || questions[0] || null
+  const visibleQuestions = containsSqlQuestion && activeQuestion ? [activeQuestion] : questions
 
   return (
     <div className="subjective-block composite-workbench">
@@ -540,8 +544,8 @@ function DatabaseCompositeBlock({
           })}
         </div>
 
-        <div className="answer-review-grid composite-question-grid">
-          {questions.map((question, index) => {
+        <div className={`answer-review-grid composite-question-grid ${containsSqlQuestion ? 'composite-question-grid-single' : ''}`}>
+          {visibleQuestions.map((question, index) => {
             const questionResponse = responseMap[question.id]
             const revealKey = `${item.id}:${question.id}`
             const objectiveReveal = submitted || (mode === 'practice' && revealedMap[revealKey])
@@ -561,8 +565,11 @@ function DatabaseCompositeBlock({
             const isGradable = isObjectiveGradable(question)
             const isFocused = String(focusSubQuestionId || '') === String(question.id)
             const questionMeta = getQuestionDisplayMeta(question)
-            const showContextTitle = isDistinctDisplayText(question.context_title, question.prompt)
-            const showContext = isDistinctDisplayText(question.context, question.prompt, question.context_title)
+            const showContextTitle =
+              question.type !== 'sql' && isDistinctDisplayText(question.context_title, question.prompt)
+            const showContext =
+              question.type !== 'sql' && isDistinctDisplayText(question.context, question.prompt, question.context_title)
+            const questionIndex = questions.findIndex((entry) => String(entry.id) === String(question.id))
 
             return (
               <article
@@ -630,6 +637,8 @@ function DatabaseCompositeBlock({
                     userResponse={questionResponse}
                     disabled={disabled || submitted}
                     submitted={submitted}
+                    hideSchemaPanel={containsSqlQuestion}
+                    embedded={containsSqlQuestion}
                     onTextChange={(targetId, text) => {
                       onFocusSubQuestion?.(targetId)
                       onTextChange(targetId, text)
