@@ -54,39 +54,84 @@ function normalizeSchemaLine(line = '') {
     .trim()
 }
 
+function dedupePreserveOrder(values = []) {
+  const seen = new Set()
+  return values.filter((value) => {
+    const key = String(value || '').trim()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function extractTablesFromLine(line = '') {
+  const normalized = normalizeSchemaLine(line)
+  if (!normalized) return { tables: [], note: '' }
+
+  const tables = []
+  const tableRegex = /([\p{L}_][\p{L}\p{N}_]*)\s*\(([^()]+)\)/gu
+  let match = tableRegex.exec(normalized)
+
+  while (match) {
+    const [, name, rawColumns] = match
+    const columns = dedupePreserveOrder(
+      rawColumns
+        .split(',')
+        .map((column) => column.trim())
+        .filter(Boolean)
+    )
+
+    if (name && columns.length) {
+      tables.push({ name, columns })
+    }
+
+    match = tableRegex.exec(normalized)
+  }
+
+  const note = normalized
+    .replace(tableRegex, ' ')
+    .replace(/[：:]/g, ' ')
+    .replace(/[。；;]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return { tables, note }
+}
+
 export function parseSqlSchemaContext(context = '') {
   const lines = String(context || '')
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
 
-  const tables = []
+  const tableMap = new Map()
   const notes = []
 
   lines.forEach((line) => {
-    const normalizedLine = normalizeSchemaLine(line)
-    const match = normalizedLine.match(/^([\p{L}_][\p{L}\p{N}_]*)\s*\((.+)\)$/u)
+    const { tables, note } = extractTablesFromLine(line)
 
-    if (!match) {
-      notes.push(line)
-      return
+    tables.forEach((table) => {
+      const existing = tableMap.get(table.name)
+      if (!existing) {
+        tableMap.set(table.name, table)
+        return
+      }
+
+      tableMap.set(table.name, {
+        name: table.name,
+        columns: dedupePreserveOrder([...(existing.columns || []), ...(table.columns || [])]),
+      })
+    })
+
+    if (note) {
+      notes.push(note)
     }
-
-    const [, name, rawColumns] = match
-    const columns = rawColumns
-      .split(',')
-      .map((column) => column.trim())
-      .filter(Boolean)
-
-    if (!columns.length) {
-      notes.push(line)
-      return
-    }
-
-    tables.push({ name, columns })
   })
 
-  return { tables, notes }
+  return {
+    tables: Array.from(tableMap.values()),
+    notes: dedupePreserveOrder(notes),
+  }
 }
 
 export function formatSqlSchemaLine(table) {

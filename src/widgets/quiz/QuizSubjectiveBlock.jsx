@@ -537,7 +537,8 @@ function DatabaseCompositeBlock({
     .join('\n')
   const sharedMaterial =
     String(item.material || item.context || item.schema_context || item.schemaContext || '').trim() ||
-    mergedQuestionContext
+    mergedQuestionContext ||
+    (activeQuestion?.type === 'sql' ? [item.prompt, activeQuestion.prompt].filter(Boolean).join('\n') : '')
   const sharedMaterialFormat =
     item.material_format || item.context_format || activeQuestion?.context_format || 'text'
   const sqlQuestionItem =
@@ -592,7 +593,13 @@ function DatabaseCompositeBlock({
       <section
         className={`composite-question-panel ${activeQuestion.type === 'sql' ? 'composite-question-panel-sql refined' : ''}`}
       >
-        <div className={`composite-subquestion-chips ${activeQuestion.type === 'sql' ? 'compact' : ''}`}>
+        <div
+          className={
+            activeQuestion.type === 'sql'
+              ? 'composite-sql-subquestion-bar'
+              : 'composite-subquestion-chips'
+          }
+        >
           {questions.map((question, index) => {
             const currentQuestionMeta = getQuestionDisplayMeta(question)
             const isFocused = String(focusSubQuestionId || '') === String(question.id)

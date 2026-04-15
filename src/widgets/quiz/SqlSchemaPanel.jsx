@@ -36,7 +36,7 @@ function SqlSchemaLine({ table, disabled, onInsertToken }) {
       className={`sql-schema-line refined ${disabled ? 'disabled' : ''}`}
       role={disabled ? undefined : 'button'}
       tabIndex={disabled ? -1 : 0}
-      title={disabled ? undefined : '点击整行、表名或字段，可插入到 SQL 编辑器。'}
+      title={disabled ? undefined : '点击整行、表名或字段，可插入到 SQL 编辑器'}
       onClick={() => {
         if (!disabled) onInsertToken?.(insertText)
       }}
@@ -79,7 +79,7 @@ function SqlSchemaNote({ text, disabled, onInsertToken }) {
       className={`sql-schema-note-line refined ${disabled ? 'disabled' : ''}`}
       role={disabled ? undefined : 'button'}
       tabIndex={disabled ? -1 : 0}
-      title={disabled ? undefined : '点击可将这段题目背景插入到 SQL 编辑器。'}
+      title={disabled ? undefined : '点击可将这段题目背景插入到 SQL 编辑器'}
       onClick={() => {
         if (!disabled) onInsertToken?.(text)
       }}

@@ -2,11 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { Braces } from 'lucide-react'
 import { sql, StandardSQL } from '@codemirror/lang-sql'
-import { indentWithTab } from '@codemirror/commands'
+import { indentWithTab, selectAll } from '@codemirror/commands'
 import { acceptCompletion, autocompletion, completionStatus } from '@codemirror/autocomplete'
 import { Prec } from '@codemirror/state'
-import { keymap, EditorView } from '@codemirror/view'
-import { syntaxHighlighting, HighlightStyle } from '@codemirror/language'
+import { EditorView, keymap } from '@codemirror/view'
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 
 import SqlSchemaPanel from './SqlSchemaPanel.jsx'
@@ -14,13 +14,13 @@ import { getSubjectiveText } from './quizViewUtils.jsx'
 import { buildSqlAutocompleteSchema, insertTextIntoEditor, SQL_QUICK_INSERTS } from './sqlEditorUtils.js'
 
 const SQL_HIGHLIGHT_STYLE = HighlightStyle.define([
-  { tag: [t.keyword, t.modifier, t.operatorKeyword], color: '#00e5ff', fontWeight: '900' },
-  { tag: [t.controlKeyword, t.definitionKeyword], color: '#38bdf8', fontWeight: '900' },
-  { tag: [t.operator, t.punctuation, t.separator], color: '#ff7ab6', fontWeight: '800' },
-  { tag: [t.string, t.special(t.string)], color: '#fde047', fontWeight: '800' },
-  { tag: [t.number, t.bool, t.atom], color: '#fb923c', fontWeight: '800' },
-  { tag: [t.typeName, t.className], color: '#c084fc', fontWeight: '800' },
-  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#67e8f9', fontWeight: '800' },
+  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword], color: '#7dd3fc', fontWeight: '900' },
+  { tag: [t.modifier, t.special(t.keyword)], color: '#67e8f9', fontWeight: '900' },
+  { tag: [t.operator, t.punctuation, t.separator], color: '#fda4af', fontWeight: '800' },
+  { tag: [t.string, t.special(t.string)], color: '#fde68a', fontWeight: '700' },
+  { tag: [t.number, t.bool, t.atom], color: '#fdba74', fontWeight: '700' },
+  { tag: [t.typeName, t.className], color: '#c4b5fd', fontWeight: '800' },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#a5f3fc', fontWeight: '800' },
   { tag: [t.variableName, t.propertyName, t.name], color: '#e5eefc', fontWeight: '600' },
   { tag: [t.comment, t.lineComment, t.blockComment], color: '#94a3b8', fontStyle: 'italic' },
 ])
@@ -29,7 +29,7 @@ const SQL_EDITOR_THEME = EditorView.theme(
   {
     '&': {
       minHeight: '380px',
-      backgroundColor: '#020817',
+      backgroundColor: '#2b313c',
       borderRadius: '18px',
       border: '1px solid rgba(34, 211, 238, 0.22)',
       overflow: 'hidden',
@@ -59,15 +59,15 @@ const SQL_EDITOR_THEME = EditorView.theme(
       backgroundColor: '#2b313c',
     },
     '.cm-gutters': {
-      backgroundColor: '#081220',
+      backgroundColor: '#202632',
       borderRight: '1px solid rgba(34, 211, 238, 0.16)',
       color: '#64748b',
     },
     '.cm-activeLineGutter': {
-      backgroundColor: 'rgba(34, 211, 238, 0.1)',
+      backgroundColor: 'rgba(34, 211, 238, 0.08)',
     },
     '.cm-activeLine': {
-      backgroundColor: 'rgba(15, 23, 42, 0.56)',
+      backgroundColor: 'rgba(15, 23, 42, 0.18)',
     },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
       backgroundColor: 'rgba(34, 211, 238, 0.24) !important',
@@ -101,14 +101,10 @@ const SQL_EDITOR_KEYMAP = Prec.highest(
       },
     },
     {
-      key: 'Space',
+      key: 'Mod-a',
+      preventDefault: true,
       run(view) {
-        const selection = view.state.selection.main
-        view.dispatch({
-          changes: { from: selection.from, to: selection.to, insert: ' ' },
-          selection: { anchor: selection.from + 1 },
-        })
-        return true
+        return selectAll(view)
       },
     },
   ])
