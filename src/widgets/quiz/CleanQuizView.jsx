@@ -62,6 +62,15 @@ function getCurrentQuestionReview(currentItem, currentNestedTarget, aiQuestionRe
   return aiQuestionReviewMap?.[currentItem.id] || null
 }
 
+function isEditableKeyboardTarget(target) {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest(
+      'input, textarea, [contenteditable="true"], .cm-editor, .cm-content, .cm-scroller, .cm-line'
+    )
+  )
+}
+
 function getCurrentJudgeResponse(currentItem, currentNestedTarget, answers = {}) {
   if (!currentItem) return undefined
 
@@ -165,6 +174,8 @@ export default function CleanQuizView({
   onJump,
   onPrev,
   onNext,
+  onStepPrev,
+  onStepNext,
   onSelectOption,
   onRevealCurrentObjective,
   onSelectReadingOption,
@@ -183,6 +194,7 @@ export default function CleanQuizView({
   onExplainWhyWrong,
   onGenerateSimilarQuestions,
   onCloseAiPracticeModal,
+  onQuickCheckAndAdvance,
   onSubmit,
   onSelectCompositeOption,
   onCompositeFillBlankChange,
@@ -259,6 +271,36 @@ export default function CleanQuizView({
 
   const toolbarDisabled = isPaused || currentItem.type === 'generation_placeholder'
   const canGradeCurrentQuestion = hasGradableSubjectiveResponse(currentReviewTarget, currentReviewResponse)
+
+  React.useEffect(() => {
+    const handleKeyDown = (event) => {
+      const isQuickAction = (event.ctrlKey || event.metaKey) && event.key === 'Enter'
+      if (isQuickAction) {
+        event.preventDefault()
+        onQuickCheckAndAdvance?.({ item: currentItem, subQuestion: currentNestedTarget })
+        return
+      }
+
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (isEditableKeyboardTarget(event.target)) return
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        onStepPrev?.()
+        return
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        onStepNext?.()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentItem, currentNestedTarget, onQuickCheckAndAdvance, onStepNext, onStepPrev])
 
   return (
     <div className="quiz-layout">

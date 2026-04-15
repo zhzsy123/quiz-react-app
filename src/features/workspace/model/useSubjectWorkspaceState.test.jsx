@@ -20,6 +20,7 @@ const {
   loadPreferenceMock,
   savePreferenceMock,
   gradeSubjectiveAttemptMock,
+  gradeSingleSubjectiveQuestionAttemptMock,
   gradeRelationalAlgebraSubquestionAttemptMock,
   explainQuizQuestionWithModeMock,
   auditQuizQuestionComplianceMock,
@@ -38,6 +39,7 @@ const {
   loadPreferenceMock: vi.fn(),
   savePreferenceMock: vi.fn(),
   gradeSubjectiveAttemptMock: vi.fn(),
+  gradeSingleSubjectiveQuestionAttemptMock: vi.fn(),
   gradeRelationalAlgebraSubquestionAttemptMock: vi.fn(),
   explainQuizQuestionWithModeMock: vi.fn(),
   auditQuizQuestionComplianceMock: vi.fn(),
@@ -305,6 +307,40 @@ function createRelationalAlgebraQuizFixture() {
   }
 }
 
+function createShortAnswerAutoAdvanceFixture() {
+  return {
+    title: '主观题快捷操作测试卷',
+    subject: 'database_principles',
+    duration_minutes: 90,
+    items: [
+      {
+        id: 'short_auto_1',
+        type: 'short_answer',
+        prompt: '简述视图的作用。',
+        score: 8,
+        answer: {
+          type: 'subjective',
+        },
+      },
+      {
+        id: 'single_auto_2',
+        type: 'single_choice',
+        prompt: '第二题单选',
+        options: [
+          { key: 'A', text: 'A' },
+          { key: 'B', text: 'B' },
+        ],
+        answer: {
+          type: 'objective',
+          correct: 'A',
+          rationale: 'A 正确',
+        },
+        score: 2,
+      },
+    ],
+  }
+}
+
 vi.mock('../../../app/providers/AppContext', () => ({
   useAppContext: () => ({
     activeProfile: { id: 'profile-1' },
@@ -328,6 +364,7 @@ vi.mock('../../ai/reviewService', () => ({
   explainQuizQuestionWithMode: explainQuizQuestionWithModeMock,
   generateSimilarQuestions: generateSimilarQuestionsMock,
   gradeSubjectiveAttempt: gradeSubjectiveAttemptMock,
+  gradeSingleSubjectiveQuestionAttempt: gradeSingleSubjectiveQuestionAttemptMock,
   gradeRelationalAlgebraSubquestionAttempt: gradeRelationalAlgebraSubquestionAttemptMock,
 }))
 
@@ -448,6 +485,7 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     loadPreferenceMock.mockReturnValue(null)
     savePreferenceMock.mockReturnValue(true)
     gradeSubjectiveAttemptMock.mockResolvedValue(null)
+    gradeSingleSubjectiveQuestionAttemptMock.mockResolvedValue(null)
     gradeRelationalAlgebraSubquestionAttemptMock.mockResolvedValue({
       status: 'completed',
       questionId: 'ra_1:1',
@@ -991,6 +1029,101 @@ describe('useSubjectWorkspaceState practice persistence', () => {
     })
 
     expect(stateRef.current.revealedMap.blank_1).toBe(true)
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('steps through nested subquestions before moving to the next top-level item', async () => {
+    setQuizFixture(createRelationalAlgebraQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    expect(stateRef.current.currentIndex).toBe(0)
+    expect(stateRef.current.subQuestionFocusMap.ra_1).toBe('1')
+
+    await act(async () => {
+      stateRef.current.handleStepNext()
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.currentIndex).toBe(0)
+    expect(stateRef.current.subQuestionFocusMap.ra_1).toBe('2')
+
+    await act(async () => {
+      stateRef.current.handleStepNext()
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.currentIndex).toBe(1)
+
+    await act(async () => {
+      stateRef.current.handleStepPrev()
+      await flushAsyncWork()
+    })
+
+    expect(stateRef.current.currentIndex).toBe(0)
+    expect(stateRef.current.subQuestionFocusMap.ra_1).toBe('2')
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('quick check on relational algebra advances to the next nested subquestion', async () => {
+    setQuizFixture(createRelationalAlgebraQuizFixture())
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleRelationalAlgebraTextChange('ra_1', '1', "Π[学号,姓名](σ[专业='英语'](学生))")
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleQuickCheckAndAdvance({
+        item: stateRef.current.quiz.items[0],
+        subQuestion: stateRef.current.quiz.items[0].subquestions[0],
+      })
+      await flushAsyncWork()
+    })
+
+    expect(gradeRelationalAlgebraSubquestionAttemptMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => stateRef.current.currentIndex === 0 && stateRef.current.subQuestionFocusMap.ra_1 === '2')
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('quick check on subjective questions grades and advances to the next top-level item', async () => {
+    setQuizFixture(createShortAnswerAutoAdvanceFixture())
+    gradeSingleSubjectiveQuestionAttemptMock.mockResolvedValueOnce({
+      score: 6,
+      maxScore: 8,
+      feedback: '答案抓住了视图隔离复杂查询的核心。',
+      strengths: [],
+      weaknesses: [],
+      suggestions: [],
+    })
+    const { root, container, stateRef } = await mountWorkspace()
+
+    await act(async () => {
+      stateRef.current.handleTextChange('short_auto_1', '视图可以隐藏复杂查询并简化权限控制。')
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      stateRef.current.handleQuickCheckAndAdvance({
+        item: stateRef.current.quiz.items[0],
+      })
+      await flushAsyncWork()
+    })
+
+    expect(gradeSingleSubjectiveQuestionAttemptMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => stateRef.current.currentIndex === 1)
 
     await act(async () => {
       root.unmount()

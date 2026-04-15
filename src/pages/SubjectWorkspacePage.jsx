@@ -52,6 +52,8 @@ export default function SubjectWorkspacePage() {
     handleJump,
     handlePrev,
     handleNext,
+    handleStepPrev,
+    handleStepNext,
     handleSelectOption,
     handleSelectCompositeOption,
     handleRevealCurrentObjective,
@@ -75,6 +77,7 @@ export default function SubjectWorkspacePage() {
     handleExplainWhyWrong,
     handleGenerateSimilarQuestions,
     handleCloseAiPracticeModal,
+    handleQuickCheckAndAdvance,
     handleFinish,
   } = useSubjectWorkspaceState()
 
@@ -303,6 +306,8 @@ export default function SubjectWorkspacePage() {
           onJump={handleJump}
           onPrev={handlePrev}
           onNext={handleNext}
+          onStepPrev={handleStepPrev}
+          onStepNext={handleStepNext}
           onSelectOption={handleSelectOption}
           onSelectCompositeOption={handleSelectCompositeOption}
           onRevealCurrentObjective={handleRevealCurrentObjective}
@@ -332,6 +337,7 @@ export default function SubjectWorkspacePage() {
           onExplainWhyWrong={handleExplainWhyWrong}
           onGenerateSimilarQuestions={handleGenerateSimilarQuestions}
           onCloseAiPracticeModal={handleCloseAiPracticeModal}
+          onQuickCheckAndAdvance={handleQuickCheckAndAdvance}
           onSubmit={handleFinish}
         />
       </div>

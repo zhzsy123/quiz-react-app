@@ -36,6 +36,18 @@ export function getNextNestedStepId(item = {}, currentStepId) {
   return stepIds[currentIndex + 1] || ''
 }
 
+export function getPrevNestedStepId(item = {}, currentStepId) {
+  const stepIds = getNestedStepIds(item)
+  if (!stepIds.length) return ''
+
+  const normalizedCurrent = toId(currentStepId)
+  if (!normalizedCurrent) return stepIds[stepIds.length - 1] || ''
+
+  const currentIndex = stepIds.indexOf(normalizedCurrent)
+  if (currentIndex === -1) return stepIds[stepIds.length - 1] || ''
+  return stepIds[currentIndex - 1] || ''
+}
+
 export function hasNestedSteps(item = {}) {
   return getNestedStepIds(item).length > 0
 }

@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { act } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRoot } from 'react-dom/client'
 import CleanQuizView from './CleanQuizView.jsx'
 
@@ -528,6 +528,163 @@ describe('CleanQuizView', () => {
     expect(container.querySelectorAll('.ai-inline-btn').length).toBe(3)
     expect(container.querySelector('.ai-practice-judge-btn.active')).not.toBeNull()
     expect(container.querySelector('.practice-judge-panel')).toBeNull()
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('triggers quick check on Ctrl+Enter', async () => {
+    const onQuickCheckAndAdvance = vi.fn()
+    const item = {
+      id: 'short_2',
+      type: 'short_answer',
+      prompt: '简述事务的 ACID 特性。',
+      score: 8,
+      answer: {
+        type: 'subjective',
+      },
+    }
+
+    const { root } = await renderComponent(
+      <CleanQuizView
+        quiz={{ items: [item] }}
+        answers={{ short_2: { text: '原子性、一致性、隔离性、持久性。' } }}
+        submitted={false}
+        currentIndex={0}
+        mode="practice"
+        autoAdvance={false}
+        remainingSeconds={0}
+        isPaused={false}
+        revealedMap={{}}
+        isFavorite={false}
+        onToggleFavorite={noop}
+        onToggleAutoAdvance={noop}
+        onTogglePracticeWrongBook={noop}
+        onToggleExamWrongBook={noop}
+        onTogglePause={noop}
+        practiceWritesWrongBook
+        examWritesWrongBook
+        onJump={noop}
+        onPrev={noop}
+        onNext={noop}
+        onStepPrev={noop}
+        onStepNext={noop}
+        onSelectOption={noop}
+        onRevealCurrentObjective={noop}
+        onSelectReadingOption={noop}
+        onFillBlankChange={noop}
+        onTextChange={noop}
+        aiReview={null}
+        aiQuestionReviewMap={{}}
+        aiExplainMap={{}}
+        aiAuditMap={{}}
+        aiExplainMode="standard"
+        aiPracticeModal={null}
+        onChangeAiExplainMode={noop}
+        onExplainQuestion={noop}
+        onAuditQuestion={noop}
+        onGradeQuestion={noop}
+        onExplainWhyWrong={noop}
+        onGenerateSimilarQuestions={noop}
+        onCloseAiPracticeModal={noop}
+        onQuickCheckAndAdvance={onQuickCheckAndAdvance}
+        onSubmit={noop}
+        onSelectCompositeOption={noop}
+        onCompositeFillBlankChange={noop}
+        onCompositeTextChange={noop}
+        onRevealCompositeQuestion={noop}
+      />
+    )
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }))
+    })
+
+    expect(onQuickCheckAndAdvance).toHaveBeenCalledWith({ item, subQuestion: null })
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('uses arrow keys for step navigation but does not hijack focused text input', async () => {
+    const onStepNext = vi.fn()
+    const item = {
+      id: 'short_3',
+      type: 'short_answer',
+      prompt: '简述数据库恢复的作用。',
+      score: 6,
+      answer: {
+        type: 'subjective',
+      },
+    }
+
+    const { container, root } = await renderComponent(
+      <CleanQuizView
+        quiz={{ items: [item] }}
+        answers={{ short_3: { text: '' } }}
+        submitted={false}
+        currentIndex={0}
+        mode="practice"
+        autoAdvance={false}
+        remainingSeconds={0}
+        isPaused={false}
+        revealedMap={{}}
+        isFavorite={false}
+        onToggleFavorite={noop}
+        onToggleAutoAdvance={noop}
+        onTogglePracticeWrongBook={noop}
+        onToggleExamWrongBook={noop}
+        onTogglePause={noop}
+        practiceWritesWrongBook
+        examWritesWrongBook
+        onJump={noop}
+        onPrev={noop}
+        onNext={noop}
+        onStepPrev={noop}
+        onStepNext={onStepNext}
+        onSelectOption={noop}
+        onRevealCurrentObjective={noop}
+        onSelectReadingOption={noop}
+        onFillBlankChange={noop}
+        onTextChange={noop}
+        aiReview={null}
+        aiQuestionReviewMap={{}}
+        aiExplainMap={{}}
+        aiAuditMap={{}}
+        aiExplainMode="standard"
+        aiPracticeModal={null}
+        onChangeAiExplainMode={noop}
+        onExplainQuestion={noop}
+        onAuditQuestion={noop}
+        onGradeQuestion={noop}
+        onExplainWhyWrong={noop}
+        onGenerateSimilarQuestions={noop}
+        onCloseAiPracticeModal={noop}
+        onQuickCheckAndAdvance={noop}
+        onSubmit={noop}
+        onSelectCompositeOption={noop}
+        onCompositeFillBlankChange={noop}
+        onCompositeTextChange={noop}
+        onRevealCompositeQuestion={noop}
+      />
+    )
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    })
+
+    expect(onStepNext).toHaveBeenCalledTimes(1)
+
+    const textarea = container.querySelector('textarea')
+    expect(textarea).not.toBeNull()
+
+    await act(async () => {
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    })
+
+    expect(onStepNext).toHaveBeenCalledTimes(1)
 
     await act(async () => {
       root.unmount()

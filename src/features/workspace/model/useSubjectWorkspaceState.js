@@ -76,6 +76,7 @@ import {
 import {
   getFirstNestedStepId,
   getNextNestedStepId,
+  getPrevNestedStepId,
   normalizeNestedFocusMap,
   setNestedFocusForItem,
 } from './subjectWorkspaceNestedFlow.js'
@@ -495,6 +496,115 @@ export function useSubjectWorkspaceState() {
     return { nextIndex, nextFocusMap }
   }
 
+  const applyStepNavigation = (nextIndex, nextFocusMap = subQuestionFocusMap) => {
+    if (typeof nextIndex === 'number') {
+      currentIndexRef.current = nextIndex
+      setCurrentIndex(nextIndex)
+    }
+
+    if (nextFocusMap !== subQuestionFocusMap) {
+      setSubQuestionFocusMap(nextFocusMap)
+    }
+
+    void persistNow({
+      currentIndex: typeof nextIndex === 'number' ? nextIndex : currentIndexRef.current,
+      subQuestionFocusMap: nextFocusMap,
+    })
+  }
+
+  const moveToSiblingItem = (targetIndex, baseFocusMap = subQuestionFocusMap, options = {}) => {
+    if (!quiz?.items?.length) {
+      return {
+        moved: false,
+        nextIndex: currentIndexRef.current,
+        nextFocusMap: baseFocusMap,
+      }
+    }
+
+    const boundedIndex = Math.max(0, Math.min(targetIndex, quiz.items.length - 1))
+    if (boundedIndex === currentIndexRef.current) {
+      return {
+        moved: false,
+        nextIndex: boundedIndex,
+        nextFocusMap: baseFocusMap,
+      }
+    }
+
+    const targetItem = quiz.items[boundedIndex]
+    let nextFocusMap = baseFocusMap
+    const targetStepIds =
+      targetItem && ['reading', 'cloze', 'composite', 'relational_algebra'].includes(targetItem.type)
+        ? (targetItem.type === 'relational_algebra'
+            ? (Array.isArray(targetItem.subquestions)
+                ? targetItem.subquestions.map((question) => String(question?.id || '')).filter(Boolean)
+                : [])
+            : targetItem.type === 'cloze'
+              ? (Array.isArray(targetItem.blanks)
+                  ? targetItem.blanks.map((blank) => String(blank?.blank_id || '')).filter(Boolean)
+                  : [])
+              : (Array.isArray(targetItem.questions)
+                  ? targetItem.questions.map((question) => String(question?.id || '')).filter(Boolean)
+                  : []))
+        : []
+
+    if (targetStepIds.length) {
+      const desiredStepId = options?.preferLastNested ? targetStepIds[targetStepIds.length - 1] : targetStepIds[0]
+      nextFocusMap = buildNextSubQuestionFocusMap(targetItem, desiredStepId, baseFocusMap)
+    }
+
+    return {
+      moved: true,
+      nextIndex: boundedIndex,
+      nextFocusMap,
+    }
+  }
+
+  const moveToNextStep = (baseFocusMap = subQuestionFocusMap, itemIndex = currentIndexRef.current) => {
+    const currentItem = quiz?.items?.[itemIndex]
+    if (!currentItem) {
+      return {
+        moved: false,
+        nextIndex: itemIndex,
+        nextFocusMap: baseFocusMap,
+      }
+    }
+
+    const currentFocusId = String(baseFocusMap?.[currentItem.id] || '')
+    const nextNestedStepId = getNextNestedStepId(currentItem, currentFocusId)
+    if (nextNestedStepId) {
+      return {
+        moved: true,
+        nextIndex: itemIndex,
+        nextFocusMap: buildNextSubQuestionFocusMap(currentItem, nextNestedStepId, baseFocusMap),
+      }
+    }
+
+    return moveToSiblingItem(itemIndex + 1, baseFocusMap, { preferLastNested: false })
+  }
+
+  const moveToPrevStep = (baseFocusMap = subQuestionFocusMap, itemIndex = currentIndexRef.current) => {
+    const currentItem = quiz?.items?.[itemIndex]
+    if (!currentItem) {
+      return {
+        moved: false,
+        nextIndex: itemIndex,
+        nextFocusMap: baseFocusMap,
+      }
+    }
+
+    const currentFocusId = String(baseFocusMap?.[currentItem.id] || '')
+    const prevNestedStepId = getPrevNestedStepId(currentItem, currentFocusId)
+    if (prevNestedStepId) {
+      return {
+        moved: true,
+        nextIndex: itemIndex,
+        nextFocusMap: buildNextSubQuestionFocusMap(currentItem, prevNestedStepId, baseFocusMap),
+      }
+    }
+
+    return moveToSiblingItem(itemIndex - 1, baseFocusMap, { preferLastNested: true })
+  }
+
   const syncPracticeWrongbookTarget = async ({
     item,
     response,
@@ -906,11 +1016,21 @@ export function useSubjectWorkspaceState() {
     }
   }
 
-  const handleGradeQuestion = async ({ item, subQuestion = null }) => {
+  const handleGradeQuestion = async ({ item, subQuestion = null, advanceAfterAction = false }) => {
     if (!quiz || !item) return
 
     const target = subQuestion || item
     if (!['short_answer', 'er_diagram', 'sql'].includes(target?.type || '')) return
+
+    if (advanceAfterAction) {
+      const nextState = subQuestion
+        ? moveToNextStep(buildNextSubQuestionFocusMap(item, subQuestion.id, subQuestionFocusMap), getItemIndexById(item.id))
+        : moveToNextStep(subQuestionFocusMap, getItemIndexById(item.id))
+
+      if (nextState.moved) {
+        applyStepNavigation(nextState.nextIndex, nextState.nextFocusMap)
+      }
+    }
 
     const reviewKey = subQuestion ? `${item.id}:${subQuestion.id}` : item.id
     const requestId = (singleQuestionReviewRequestRef.current[reviewKey] || 0) + 1
@@ -1130,9 +1250,8 @@ export function useSubjectWorkspaceState() {
   }
 
   const handleJump = (nextIndex) => {
-    currentIndexRef.current = nextIndex
-    setCurrentIndex(nextIndex)
-    void persistNow({ currentIndex: nextIndex })
+    const nextState = moveToSiblingItem(nextIndex, subQuestionFocusMap)
+    applyStepNavigation(nextState.nextIndex, nextState.nextFocusMap)
   }
 
   const handleFocusSubQuestion = (questionId, subQuestionId) => {
@@ -1157,6 +1276,18 @@ export function useSubjectWorkspaceState() {
     currentIndexRef.current = nextIndex
     setCurrentIndex(nextIndex)
     void persistNow({ currentIndex: nextIndex })
+  }
+
+  const handleStepPrev = () => {
+    const nextState = moveToPrevStep(subQuestionFocusMap, currentIndexRef.current)
+    if (!nextState.moved) return
+    applyStepNavigation(nextState.nextIndex, nextState.nextFocusMap)
+  }
+
+  const handleStepNext = () => {
+    const nextState = moveToNextStep(subQuestionFocusMap, currentIndexRef.current)
+    if (!nextState.moved) return
+    applyStepNavigation(nextState.nextIndex, nextState.nextFocusMap)
   }
 
   const handleSelectOption = (questionId, optionLetter) => {
@@ -1540,10 +1671,11 @@ export function useSubjectWorkspaceState() {
     })
   }
 
-  const handleRevealCurrentObjective = () => {
+  const handleRevealCurrentObjective = (options = {}) => {
     if (!quiz || submitted || mode !== 'practice') return
     const currentItem = quiz.items[currentIndex]
     if (!currentItem || currentItem.answer?.type !== 'objective') return
+    const advanceAfterAction = Boolean(options?.advanceAfterAction)
     if (currentItem.type === 'cloze' || currentItem.type === 'fill_blank') {
       const currentResponse = answers[currentItem.id]
       if (!isObjectiveAnswered(currentItem, currentResponse)) return
@@ -1553,7 +1685,15 @@ export function useSubjectWorkspaceState() {
 
       let nextIndex = currentIndex
       let nextFocusMap = subQuestionFocusMap
-      if (autoAdvance && isObjectiveResponseCorrect(currentItem, currentResponse) && currentIndex < quiz.items.length - 1) {
+      if (advanceAfterAction && currentIndex < quiz.items.length - 1) {
+        const nextAdvance = advanceToNextItem(subQuestionFocusMap, currentIndex)
+        nextIndex = nextAdvance.nextIndex
+        nextFocusMap = nextAdvance.nextFocusMap
+      } else if (
+        autoAdvance &&
+        isObjectiveResponseCorrect(currentItem, currentResponse) &&
+        currentIndex < quiz.items.length - 1
+      ) {
         const nextAdvance = advanceToNextItem(subQuestionFocusMap, currentIndex)
         nextIndex = nextAdvance.nextIndex
         nextFocusMap = nextAdvance.nextFocusMap
@@ -1576,7 +1716,15 @@ export function useSubjectWorkspaceState() {
 
     let nextIndex = currentIndex
     let nextFocusMap = subQuestionFocusMap
-    if (autoAdvance && isObjectiveResponseCorrect(currentItem, currentResponse) && currentIndex < quiz.items.length - 1) {
+    if (advanceAfterAction && currentIndex < quiz.items.length - 1) {
+      const nextAdvance = advanceToNextItem(subQuestionFocusMap, currentIndex)
+      nextIndex = nextAdvance.nextIndex
+      nextFocusMap = nextAdvance.nextFocusMap
+    } else if (
+      autoAdvance &&
+      isObjectiveResponseCorrect(currentItem, currentResponse) &&
+      currentIndex < quiz.items.length - 1
+    ) {
       const nextAdvance = advanceToNextItem(subQuestionFocusMap, currentIndex)
       nextIndex = nextAdvance.nextIndex
       nextFocusMap = nextAdvance.nextFocusMap
@@ -1588,7 +1736,7 @@ export function useSubjectWorkspaceState() {
     void persistNow({ revealedMap: nextRevealed, currentIndex: nextIndex, subQuestionFocusMap: nextFocusMap })
   }
 
-  const handleRevealCompositeQuestion = (parentQuestionId, subQuestionId) => {
+  const handleRevealCompositeQuestion = (parentQuestionId, subQuestionId, options = {}) => {
     if (!quiz || submitted || mode !== 'practice') return
 
     const itemIndex = getItemIndexById(parentQuestionId)
@@ -1613,8 +1761,17 @@ export function useSubjectWorkspaceState() {
     setRevealedMap(nextRevealed)
     let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
     let nextIndex = itemIndex
+    const advanceAfterAction = Boolean(options?.advanceAfterAction)
 
-    if (autoAdvance && isObjectiveResponseCorrect(subQuestion, currentResponse)) {
+    if (advanceAfterAction) {
+      const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+      nextFocusMap = nestedAdvance.nextFocusMap
+      if (!nestedAdvance.nextSubQuestionId && itemIndex < quiz.items.length - 1) {
+        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
+        nextIndex = nextAdvance.nextIndex
+        nextFocusMap = nextAdvance.nextFocusMap
+      }
+    } else if (autoAdvance && isObjectiveResponseCorrect(subQuestion, currentResponse)) {
       const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
       nextFocusMap = nestedAdvance.nextFocusMap
       if (!nestedAdvance.nextSubQuestionId && itemIndex < quiz.items.length - 1) {
@@ -1799,7 +1956,7 @@ export function useSubjectWorkspaceState() {
     void persistNow({ relationalAlgebraExpandedMap: nextMap, subQuestionFocusMap: nextFocusMap })
   }
 
-  const handleRevealRelationalAlgebraQuestion = (questionId, subQuestionId) => {
+  const handleRevealRelationalAlgebraQuestion = (questionId, subQuestionId, options = {}) => {
     if (!quiz || submitted || mode !== 'practice') return
 
     const itemIndex = getItemIndexById(questionId)
@@ -1818,6 +1975,20 @@ export function useSubjectWorkspaceState() {
 
     const requestId = (relationalAlgebraReviewRequestRef.current[reviewKey] || 0) + 1
     relationalAlgebraReviewRequestRef.current[reviewKey] = requestId
+    const advanceAfterAction = Boolean(options?.advanceAfterAction)
+
+    if (advanceAfterAction) {
+      let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
+      let nextIndex = itemIndex
+      const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
+      nextFocusMap = nestedAdvance.nextFocusMap
+      if (!nestedAdvance.nextSubQuestionId && itemIndex < quiz.items.length - 1) {
+        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
+        nextIndex = nextAdvance.nextIndex
+        nextFocusMap = nextAdvance.nextFocusMap
+      }
+      applyStepNavigation(nextIndex, nextFocusMap)
+    }
 
     void (async () => {
       await upsertAiQuestionReview(reviewKey, {
@@ -1853,11 +2024,12 @@ export function useSubjectWorkspaceState() {
 
         if (relationalAlgebraReviewRequestRef.current[reviewKey] !== requestId) return
 
-        let nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
+        let nextFocusMap = subQuestionFocusMap
         let nextExpandedMap = relationalAlgebraExpandedMap
         let nextIndex = itemIndex
 
-        if (autoAdvance && completedReview.verdict === 'correct') {
+        if (!advanceAfterAction && autoAdvance && completedReview.verdict === 'correct') {
+          nextFocusMap = applySubQuestionFocus(currentItem, subQuestionId)
           const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
           nextFocusMap = nestedAdvance.nextFocusMap
 
@@ -1880,14 +2052,22 @@ export function useSubjectWorkspaceState() {
           }
         }
 
-        await upsertAiQuestionReview(reviewKey, {
-          ...completedReview,
-          status: 'completed',
-        }, {
-          currentIndex: nextIndex,
-          subQuestionFocusMap: nextFocusMap,
-          relationalAlgebraExpandedMap: nextExpandedMap,
-        })
+        await upsertAiQuestionReview(
+          reviewKey,
+          {
+            ...completedReview,
+            status: 'completed',
+          },
+          advanceAfterAction
+            ? {
+                relationalAlgebraExpandedMap: nextExpandedMap,
+              }
+            : {
+                currentIndex: nextIndex,
+                subQuestionFocusMap: nextFocusMap,
+                relationalAlgebraExpandedMap: nextExpandedMap,
+              }
+        )
       } catch (error) {
         if (relationalAlgebraReviewRequestRef.current[reviewKey] !== requestId) return
 
@@ -1912,6 +2092,59 @@ export function useSubjectWorkspaceState() {
         })
       }
     })()
+  }
+
+  const handleQuickCheckAndAdvance = ({ item, subQuestion = null } = {}) => {
+    if (!quiz || submitted || !item || (mode === 'exam' && isPaused)) return
+
+    const itemIndex = getItemIndexById(item.id)
+    if (isStaleItemEvent(itemIndex, item.id)) return
+    const currentItem = quiz.items[itemIndex]
+    if (!currentItem) return
+
+    const currentSubQuestion = (() => {
+      if (subQuestion?.id && Array.isArray(currentItem.questions)) {
+        return currentItem.questions.find((entry) => String(entry.id) === String(subQuestion.id)) || null
+      }
+      if (subQuestion?.id && Array.isArray(currentItem.subquestions)) {
+        return currentItem.subquestions.find((entry) => String(entry.id) === String(subQuestion.id)) || null
+      }
+      return subQuestion || null
+    })()
+
+    if (currentItem.type === 'relational_algebra' && currentSubQuestion?.id) {
+      handleRevealRelationalAlgebraQuestion(currentItem.id, currentSubQuestion.id, { advanceAfterAction: true })
+      return
+    }
+
+    if (
+      currentItem.type === 'composite' &&
+      currentSubQuestion?.id &&
+      currentSubQuestion.answer?.type === 'objective' &&
+      ['multiple_choice', 'fill_blank'].includes(currentSubQuestion.type)
+    ) {
+      handleRevealCompositeQuestion(currentItem.id, currentSubQuestion.id, { advanceAfterAction: true })
+      return
+    }
+
+    if (
+      ['short_answer', 'er_diagram', 'sql'].includes(currentSubQuestion?.type || '') ||
+      ['short_answer', 'er_diagram', 'sql'].includes(currentItem.type)
+    ) {
+      void handleGradeQuestion({
+        item: currentItem,
+        subQuestion: currentSubQuestion,
+        advanceAfterAction: true,
+      })
+      return
+    }
+
+    if (
+      currentItem.answer?.type === 'objective' &&
+      ['fill_blank', 'cloze', 'multiple_choice'].includes(currentItem.type)
+    ) {
+      handleRevealCurrentObjective({ advanceAfterAction: true })
+    }
   }
 
   const handleReset = async () => {
@@ -2055,6 +2288,8 @@ export function useSubjectWorkspaceState() {
     handleJump,
     handlePrev,
     handleNext,
+    handleStepPrev,
+    handleStepNext,
     handleSelectOption,
     handleSelectCompositeOption,
     handleRevealCurrentObjective,
@@ -2077,6 +2312,7 @@ export function useSubjectWorkspaceState() {
     handleExplainWhyWrong,
     handleGenerateSimilarQuestions,
     handleCloseAiPracticeModal,
+    handleQuickCheckAndAdvance,
     handleFinish,
   }
 }
