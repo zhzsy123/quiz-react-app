@@ -1405,7 +1405,7 @@ export function useSubjectWorkspaceState() {
       if (nextBlankId) {
         nextFocusMap = applySubQuestionFocus(currentItem, nextBlankId, nextFocusMap)
       } else if (allAnswered && itemIndex < quiz.items.length - 1) {
-        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
         nextIndex = nextAdvance.nextIndex
         nextFocusMap = nextAdvance.nextFocusMap
       }
@@ -1467,7 +1467,7 @@ export function useSubjectWorkspaceState() {
         const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
         nextFocusMap = nestedAdvance.nextFocusMap
         if (!nestedAdvance.nextSubQuestionId && itemIndex < quiz.items.length - 1) {
-          const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+          const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
           nextIndex = nextAdvance.nextIndex
           nextFocusMap = nextAdvance.nextFocusMap
         }
@@ -1496,7 +1496,7 @@ export function useSubjectWorkspaceState() {
       const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
       nextFocusMap = nestedAdvance.nextFocusMap
       if (!nestedAdvance.nextSubQuestionId && itemIndex < quiz.items.length - 1) {
-        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
         nextIndex = nextAdvance.nextIndex
         nextFocusMap = nextAdvance.nextFocusMap
       }
@@ -1547,7 +1547,7 @@ export function useSubjectWorkspaceState() {
         const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
         nextFocusMap = nestedAdvance.nextFocusMap
         if (!nestedAdvance.nextSubQuestionId && allCorrect && itemIndex < quiz.items.length - 1) {
-          const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+          const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
           nextIndex = nextAdvance.nextIndex
           nextFocusMap = nextAdvance.nextFocusMap
         }
@@ -1574,7 +1574,7 @@ export function useSubjectWorkspaceState() {
       const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
       nextFocusMap = nestedAdvance.nextFocusMap
       if (!nestedAdvance.nextSubQuestionId && answeredCount === readingQuestions.length && itemIndex < quiz.items.length - 1) {
-          const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+          const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
         nextIndex = nextAdvance.nextIndex
         nextFocusMap = nextAdvance.nextFocusMap
       }
@@ -1657,7 +1657,7 @@ export function useSubjectWorkspaceState() {
       const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
       nextFocusMap = nestedAdvance.nextFocusMap
       if (!nestedAdvance.nextSubQuestionId && itemIndex < quiz.items.length - 1) {
-        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
         nextIndex = nextAdvance.nextIndex
         nextFocusMap = nextAdvance.nextFocusMap
       }
@@ -1775,7 +1775,7 @@ export function useSubjectWorkspaceState() {
       const nestedAdvance = moveToNextNestedTarget(currentItem, subQuestionId, nextFocusMap)
       nextFocusMap = nestedAdvance.nextFocusMap
       if (!nestedAdvance.nextSubQuestionId && itemIndex < quiz.items.length - 1) {
-        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+        const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
         nextIndex = nextAdvance.nextIndex
         nextFocusMap = nextAdvance.nextFocusMap
       }
@@ -2046,7 +2046,7 @@ export function useSubjectWorkspaceState() {
             }
             setRelationalAlgebraExpandedMap(nextExpandedMap)
           } else if (itemIndex < quiz.items.length - 1) {
-            const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex, { sameGroupOnly: true })
+            const nextAdvance = advanceToNextItem(nextFocusMap, itemIndex)
             nextIndex = nextAdvance.nextIndex
             nextFocusMap = nextAdvance.nextFocusMap
           }

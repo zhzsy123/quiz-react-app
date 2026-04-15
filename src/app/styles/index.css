@@ -3103,8 +3103,8 @@ button { border: none; }
 
 .composite-workbench-sql.refined {
   display: grid;
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
@@ -3115,26 +3115,26 @@ button { border: none; }
 
 .composite-question-panel-sql {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .composite-sql-subquestion-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .composite-sql-subquestion-bar .composite-subquestion-chip {
-  min-height: 38px;
-  padding: 0 14px;
-  font-size: 0.92rem;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.9rem;
 }
 
 .composite-sql-stage {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 22px;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
   background: rgba(2, 6, 23, 0.34);
   border: 1px solid rgba(96, 165, 250, 0.14);
 }
@@ -3159,20 +3159,20 @@ button { border: none; }
 }
 
 .composite-question-panel-sql .sql-toolbar {
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .composite-question-panel-sql .sql-toolbar-btn {
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 32px;
+  padding: 0 10px;
   background: rgba(8, 15, 29, 0.92);
   border-color: rgba(34, 211, 238, 0.26);
   color: #ecfeff;
 }
 
 .composite-question-panel-sql .sql-editor-shell .cm-editor {
-  min-height: 480px;
+  min-height: 440px;
 }
 
 .sql-schema-panel.refined .sql-schema-line {

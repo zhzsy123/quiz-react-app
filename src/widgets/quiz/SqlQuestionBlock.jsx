@@ -14,14 +14,14 @@ import { getSubjectiveText } from './quizViewUtils.jsx'
 import { buildSqlAutocompleteSchema, insertTextIntoEditor, SQL_QUICK_INSERTS } from './sqlEditorUtils.js'
 
 const SQL_HIGHLIGHT_STYLE = HighlightStyle.define([
-  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword], color: '#7dd3fc', fontWeight: '900' },
+  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword], color: '#93c5fd', fontWeight: '900' },
   { tag: [t.modifier, t.special(t.keyword)], color: '#67e8f9', fontWeight: '900' },
   { tag: [t.operator, t.punctuation, t.separator], color: '#fda4af', fontWeight: '800' },
   { tag: [t.string, t.special(t.string)], color: '#fde68a', fontWeight: '700' },
   { tag: [t.number, t.bool, t.atom], color: '#fdba74', fontWeight: '700' },
   { tag: [t.typeName, t.className], color: '#c4b5fd', fontWeight: '800' },
   { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#a5f3fc', fontWeight: '800' },
-  { tag: [t.variableName, t.propertyName, t.name], color: '#e5eefc', fontWeight: '600' },
+  { tag: [t.variableName, t.propertyName, t.name], color: '#d8e4f3', fontWeight: '600' },
   { tag: [t.comment, t.lineComment, t.blockComment], color: '#94a3b8', fontStyle: 'italic' },
 ])
 
@@ -45,7 +45,7 @@ const SQL_EDITOR_THEME = EditorView.theme(
       fontSize: '0.98rem',
       lineHeight: '1.9',
       caretColor: '#f8fafc',
-      color: '#e5eefc',
+      color: '#d8e4f3',
       backgroundColor: '#2b313c',
     },
     '.cm-scroller': {
@@ -212,7 +212,7 @@ export default function SqlQuestionBlock({
               basicSetup={{
                 foldGutter: false,
                 dropCursor: true,
-                allowMultipleSelections: false,
+                allowMultipleSelections: true,
                 indentOnInput: true,
                 closeBrackets: true,
                 autocompletion: false,

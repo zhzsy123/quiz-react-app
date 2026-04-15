@@ -10,6 +10,16 @@ export const SQL_QUICK_INSERTS = [
   { key: 'distinct', label: 'DISTINCT', snippet: 'DISTINCT ', cursorOffset: 9 },
 ]
 
+const SQL_CONTEXT_HEADINGS = new Set([
+  '表结构与题目背景',
+  '表结构与背景',
+  '表结构',
+  '题目背景',
+  '关系模式',
+  '已知关系模式',
+  '材料区',
+])
+
 export function insertTextAtSelection({
   value = '',
   selectionStart = value.length,
@@ -64,6 +74,15 @@ function dedupePreserveOrder(values = []) {
   })
 }
 
+function isGenericSqlNote(note = '') {
+  const normalized = String(note || '')
+    .replace(/[，,。；;：:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!normalized) return true
+  return SQL_CONTEXT_HEADINGS.has(normalized)
+}
+
 function extractTablesFromLine(line = '') {
   const normalized = normalizeSchemaLine(line)
   if (!normalized) return { tables: [], note: '' }
@@ -90,6 +109,7 @@ function extractTablesFromLine(line = '') {
 
   const note = normalized
     .replace(tableRegex, ' ')
+    .replace(/,/g, ' ')
     .replace(/[：:]/g, ' ')
     .replace(/[。；;]/g, ' ')
     .replace(/\s+/g, ' ')
@@ -123,7 +143,7 @@ export function parseSqlSchemaContext(context = '') {
       })
     })
 
-    if (note) {
+    if (note && !isGenericSqlNote(note)) {
       notes.push(note)
     }
   })

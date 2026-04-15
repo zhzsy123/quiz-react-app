@@ -522,10 +522,7 @@ function DatabaseCompositeBlock({
     !objectiveReveal &&
     isObjectiveAnswered(activeQuestion, questionResponse)
   const isGradable = activeQuestion ? isObjectiveGradable(activeQuestion) : false
-  const materialTitle =
-    item.material_title ||
-    item.context_title ||
-    (activeQuestion?.type === 'sql' ? '表结构与题目背景' : '材料区')
+  const materialTitle = activeQuestion?.type === 'sql' ? '表结构与题目背景' : item.material_title || item.context_title || '材料区'
   const mergedQuestionContext = questions
     .map((question) =>
       [question.context, question.schema_context, question.schemaContext]
@@ -537,8 +534,7 @@ function DatabaseCompositeBlock({
     .join('\n')
   const sharedMaterial =
     String(item.material || item.context || item.schema_context || item.schemaContext || '').trim() ||
-    mergedQuestionContext ||
-    (activeQuestion?.type === 'sql' ? [item.prompt, activeQuestion.prompt].filter(Boolean).join('\n') : '')
+    mergedQuestionContext
   const sharedMaterialFormat =
     item.material_format || item.context_format || activeQuestion?.context_format || 'text'
   const sqlQuestionItem =
