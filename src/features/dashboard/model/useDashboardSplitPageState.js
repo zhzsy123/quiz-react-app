@@ -4,7 +4,9 @@ import { listAllFavoriteEntries } from '../../../entities/favorite/api/favoriteR
 import { listHistoryEntries } from '../../../entities/history/api/historyRepository'
 import { SUBJECT_REGISTRY, getSubjectDownloadGroups } from '../../../entities/subject/model/subjects'
 import { getDeepSeekConfig, updateDeepSeekConfig } from '../../../shared/api/deepseekClient'
-import { requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
+import { exportLocalBackup, importLocalBackup } from '../../../shared/storage/backup/localBackup'
+import { downloadTextFile } from '../../../shared/lib/export/downloadFile'
+import { requestConfirmDialog, requestPromptDialog } from '../../../shared/ui/dialogs/dialogService'
 
 export const DASHBOARD_DOWNLOAD_GROUPS = getSubjectDownloadGroups()
 
@@ -18,6 +20,13 @@ function getAverageRate(attempts = []) {
   )
 }
 
+function formatBackupFilename() {
+  const now = new Date()
+  const pad = (value) => String(value).padStart(2, '0')
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  return `vorin-local-backup-${stamp}.json`
+}
+
 export function useDashboardSplitPageState() {
   const {
     profiles,
@@ -27,12 +36,15 @@ export function useDashboardSplitPageState() {
     createLocalProfile,
     switchProfile,
     renameLocalProfile,
+    reloadStorageState,
   } = useAppContext()
 
   const [newProfileName, setNewProfileName] = useState('')
   const [showCreateProfile, setShowCreateProfile] = useState(false)
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   const [favoriteCount, setFavoriteCount] = useState(0)
+  const [backupFeedback, setBackupFeedback] = useState('')
+  const [isBackupBusy, setIsBackupBusy] = useState(false)
   const [dashboardState, setDashboardState] = useState({
     attempts: [],
     totalQuestionVolume: 0,
@@ -120,6 +132,51 @@ export function useDashboardSplitPageState() {
     updateDeepSeekConfig({ apiKey: nextKey.trim() })
   }
 
+  const handleExportLocalBackup = async () => {
+    setIsBackupBusy(true)
+    setBackupFeedback('')
+    try {
+      const backup = await exportLocalBackup()
+      downloadTextFile(
+        formatBackupFilename(),
+        JSON.stringify(backup, null, 2),
+        'application/json;charset=utf-8'
+      )
+      setBackupFeedback(`已导出本地记录，共 ${Object.values(backup.stores || {}).reduce((sum, entries) => sum + (entries?.length || 0), 0)} 条记录。`)
+    } catch (error) {
+      setBackupFeedback(`导出失败：${error instanceof Error ? error.message : '未知错误'}`)
+    } finally {
+      setIsBackupBusy(false)
+    }
+  }
+
+  const handleImportBackupFile = async (file) => {
+    if (!file) return
+
+    const confirmed = await requestConfirmDialog({
+      title: '导入本地记录',
+      message: '导入会用备份包覆盖当前浏览器中的同类本地记录。建议先导出当前设备的数据再继续。是否确认导入？',
+      confirmLabel: '继续导入',
+    })
+
+    if (!confirmed) return
+
+    setIsBackupBusy(true)
+    setBackupFeedback('')
+
+    try {
+      const raw = await file.text()
+      const payload = JSON.parse(raw)
+      const summary = await importLocalBackup(payload)
+      await reloadStorageState()
+      setBackupFeedback(`导入完成：${summary.importedStoreCount} 个数据分区，${summary.importedRecordCount} 条记录。`)
+    } catch (error) {
+      setBackupFeedback(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
+    } finally {
+      setIsBackupBusy(false)
+    }
+  }
+
   return {
     profiles,
     activeProfile,
@@ -140,5 +197,9 @@ export function useDashboardSplitPageState() {
     handleCreateProfile,
     handleRenameProfile,
     handleUpdateApiKey,
+    handleExportLocalBackup,
+    handleImportBackupFile,
+    backupFeedback,
+    isBackupBusy,
   }
 }

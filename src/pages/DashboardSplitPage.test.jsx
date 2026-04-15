@@ -36,7 +36,7 @@ describe('DashboardSplitPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renders clean dashboard copy and download groups', async () => {
+  it('renders clean dashboard copy, downloads and backup actions', async () => {
     useDashboardSplitPageStateMock.mockReturnValue({
       profiles: [{ id: 'profile-1', name: 'Vorin' }],
       activeProfile: { id: 'profile-1', name: 'Vorin' },
@@ -67,7 +67,7 @@ describe('DashboardSplitPage', () => {
       downloadGroups: [
         {
           subjectKey: 'english',
-          subjectLabel: '英语模考系统 V2.0',
+          subjectLabel: '英语',
           questionTypeSummary: '单项选择题、完形填空、阅读理解、翻译题、作文题',
           items: [
             {
@@ -84,13 +84,20 @@ describe('DashboardSplitPage', () => {
       handleCreateProfile: vi.fn(),
       handleRenameProfile: vi.fn(),
       handleUpdateApiKey: vi.fn(),
+      handleExportLocalBackup: vi.fn(),
+      handleImportBackupFile: vi.fn(),
+      backupFeedback: '已导出本地记录，共 10 条记录。',
+      isBackupBusy: false,
     })
 
     const { container, root } = await renderComponent()
 
     expect(container.textContent).toContain('智能在线模考系统 V2.0')
-    expect(container.textContent).toContain('按科目下载规范，再交给 AI 清洗成可导入的 JSON')
+    expect(container.textContent).toContain('先下载规范，再让 AI 清洗成可导入 JSON')
     expect(container.textContent).toContain('英语试题 JSON 解析规范文档')
+    expect(container.textContent).toContain('导出本地记录')
+    expect(container.textContent).toContain('导入本地记录')
+    expect(container.textContent).toContain('已导出本地记录，共 10 条记录。')
 
     await act(async () => {
       root.unmount()

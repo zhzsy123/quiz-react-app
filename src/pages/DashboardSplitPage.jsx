@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import {
   ArrowRight,
   Bot,
@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Star,
+  Upload,
   User2,
   X,
 } from 'lucide-react'
@@ -21,10 +22,8 @@ function WorkflowBand({ onOpenDownloads }) {
     <section className="dashboard-band-card">
       <div className="dashboard-band-copy">
         <span className="dashboard-eyebrow">JSON Workflow</span>
-        <h2>按科目下载规范，再交给 AI 清洗成可导入的 JSON</h2>
-        <p>
-          把试卷原文和对应科目的 JSON 解析规范一起交给 AI，再把结果导入本站，可以显著减少手工整理题库的时间成本。
-        </p>
+        <h2>先下载规范，再让 AI 清洗成可导入 JSON</h2>
+        <p>把试卷原文和对应科目的 JSON 解析规范一起交给 AI，再把结果导入本站，可以显著减少手工整理题库的时间成本。</p>
       </div>
 
       <div className="dashboard-band-steps">
@@ -103,6 +102,7 @@ function DownloadDialog({ open, onClose, groups }) {
 }
 
 export default function DashboardSplitPage() {
+  const importInputRef = useRef(null)
   const {
     profiles,
     activeProfile,
@@ -122,6 +122,10 @@ export default function DashboardSplitPage() {
     switchProfile,
     handleCreateProfile,
     handleRenameProfile,
+    handleExportLocalBackup,
+    handleImportBackupFile,
+    backupFeedback,
+    isBackupBusy,
   } = useDashboardSplitPageState()
 
   if (loading) {
@@ -187,7 +191,7 @@ export default function DashboardSplitPage() {
               </div>
 
               <strong>{activeProfile?.name || '未命名档案'}</strong>
-              <p>档案切换按用户角色隔离，当前版本暂不支持跨设备同步。</p>
+              <p>本地记录保存在当前浏览器。导出备份包后，可以在另一台设备上导入恢复。</p>
 
               <label className="form-field">
                 <span>切换档案</span>
@@ -200,9 +204,39 @@ export default function DashboardSplitPage() {
                 </select>
               </label>
 
-              <button className="ghost-btn" onClick={() => setShowCreateProfile((value) => !value)}>
-                {showCreateProfile ? '收起新建档案' : '新建档案'}
-              </button>
+              <div className="profile-create-panel">
+                <button className="ghost-btn" onClick={() => setShowCreateProfile((value) => !value)}>
+                  {showCreateProfile ? '收起新建档案' : '新建档案'}
+                </button>
+
+                <button className="secondary-btn small-btn" onClick={handleExportLocalBackup} disabled={isBackupBusy}>
+                  <Download size={14} />
+                  导出本地记录
+                </button>
+
+                <button
+                  className="secondary-btn small-btn"
+                  onClick={() => importInputRef.current?.click()}
+                  disabled={isBackupBusy}
+                >
+                  <Upload size={14} />
+                  导入本地记录
+                </button>
+
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json"
+                  style={{ display: 'none' }}
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0]
+                    await handleImportBackupFile(file)
+                    event.target.value = ''
+                  }}
+                />
+              </div>
+
+              {backupFeedback ? <p className="profile-backup-feedback">{backupFeedback}</p> : null}
 
               {showCreateProfile && (
                 <div className="profile-create-panel">

@@ -204,6 +204,13 @@
   border: 1px solid rgba(148, 163, 184, 0.12);
 }
 
+.profile-backup-feedback {
+  margin: 0;
+  color: #93c5fd;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
 .dashboard-quick-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

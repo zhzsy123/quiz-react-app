@@ -18,6 +18,25 @@ export function AppProvider({ children }) {
   const [activeProfileId, setCurrentActiveProfileId] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const hydrateFromStorage = async () => {
+    await runStorageMigrations()
+    const fallbackProfile = await ensureDefaultProfile()
+    const allProfiles = await listProfiles()
+    const storedActiveProfileId = (await loadActiveProfileId()) || getActiveProfileId()
+    const activeId = allProfiles.some((profile) => profile.id === storedActiveProfileId)
+      ? storedActiveProfileId
+      : fallbackProfile.id
+
+    setActiveProfileId(activeId)
+    setProfiles(allProfiles)
+    setCurrentActiveProfileId(activeId)
+
+    return {
+      profiles: allProfiles,
+      activeProfileId: activeId,
+    }
+  }
+
   const refreshProfiles = async () => {
     const allProfiles = await listProfiles()
     setProfiles(allProfiles)
@@ -29,19 +48,8 @@ export function AppProvider({ children }) {
 
     async function initialize() {
       try {
-        await runStorageMigrations()
-        const fallbackProfile = await ensureDefaultProfile()
-        const allProfiles = await listProfiles()
-        const storedActiveProfileId = (await loadActiveProfileId()) || getActiveProfileId()
-        const activeId = allProfiles.some((profile) => profile.id === storedActiveProfileId)
-          ? storedActiveProfileId
-          : fallbackProfile.id
-
-        setActiveProfileId(activeId)
-
-        if (isMounted) {
-          setProfiles(allProfiles)
-          setCurrentActiveProfileId(activeId)
+        const result = await hydrateFromStorage()
+        if (isMounted && result) {
           setLoading(false)
         }
       } catch (error) {
@@ -92,6 +100,7 @@ export function AppProvider({ children }) {
       createLocalProfile,
       switchProfile,
       renameLocalProfile,
+      reloadStorageState: hydrateFromStorage,
     }),
     [profiles, activeProfile, activeProfileId, loading]
   )
