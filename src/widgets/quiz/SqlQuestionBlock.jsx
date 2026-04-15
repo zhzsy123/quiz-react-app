@@ -46,9 +46,17 @@ const SQL_EDITOR_THEME = EditorView.theme(
       lineHeight: '1.9',
       caretColor: '#f8fafc',
       color: '#e5eefc',
+      backgroundColor: '#2b313c',
     },
     '.cm-scroller': {
       fontFamily: '"JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, monospace',
+      backgroundColor: '#2b313c',
+    },
+    '.cm-line': {
+      backgroundColor: '#2b313c',
+    },
+    '.cm-lineWrapping': {
+      backgroundColor: '#2b313c',
     },
     '.cm-gutters': {
       backgroundColor: '#081220',

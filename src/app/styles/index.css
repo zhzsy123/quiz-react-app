@@ -3376,6 +3376,14 @@ button { border: none; }
   min-height: 520px;
 }
 
+.sql-editor-shell .cm-editor,
+.sql-editor-shell .cm-scroller,
+.sql-editor-shell .cm-content,
+.sql-editor-shell .cm-line,
+.sql-editor-shell .cm-lineWrapping {
+  background: #2b313c !important;
+}
+
 @media (max-width: 1180px) {
   .composite-workbench-sql.refined {
     grid-template-columns: 1fr;
